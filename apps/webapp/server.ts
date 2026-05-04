@@ -13,7 +13,7 @@ let remixHandler;
 // Helper to get origin from request host or fallback to APP_ORIGIN
 function getOrigin(req: express.Request): string {
   const host = req.hostname;
-  if (host?.includes("getcore.me")) {
+  if (host?.includes("memorynote") || host?.includes("getcore.me")) {
     return `https://${host}`;
   }
   return process.env.APP_ORIGIN!;
@@ -34,6 +34,10 @@ async function init() {
   const module = viteDevServer
     ? (await build()).entry.module
     : build.entry?.module;
+  const hasMcpHandlers =
+    typeof module?.authenticateHybridRequest === "function" &&
+    typeof module?.handleSessionRequest === "function" &&
+    typeof module?.handleMCPRequest === "function";
 
   remixHandler = createRequestHandler({ build });
 
@@ -65,6 +69,14 @@ async function init() {
   app.use(morgan("tiny"));
 
   app.get("/api/v1/mcp", async (req, res) => {
+    if (!hasMcpHandlers) {
+      res.status(501).json({
+        error: "mcp_disabled",
+        error_description: "MCP endpoints are disabled in this personal build.",
+      });
+      return;
+    }
+
     const origin = getOrigin(req);
     // Enable CORS for all domains
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -104,6 +116,14 @@ async function init() {
   });
 
   app.post("/api/v1/mcp", async (req, res) => {
+    if (!hasMcpHandlers) {
+      res.status(501).json({
+        error: "mcp_disabled",
+        error_description: "MCP endpoints are disabled in this personal build.",
+      });
+      return;
+    }
+
     const origin = getOrigin(req);
     // Enable CORS for all domains
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -158,6 +178,14 @@ async function init() {
   });
 
   app.delete("/api/v1/mcp", async (req, res) => {
+    if (!hasMcpHandlers) {
+      res.status(501).json({
+        error: "mcp_disabled",
+        error_description: "MCP endpoints are disabled in this personal build.",
+      });
+      return;
+    }
+
     const origin = getOrigin(req);
     // Enable CORS for all domains
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -257,13 +285,24 @@ async function init() {
   const server = createServer(app);
 
   // Setup WebSocket with gateway module functions
-  module.setupWebSocket(server, {
-    verifyGatewayToken: module.verifyGatewayToken,
-    upsertGateway: module.upsertGateway,
-    updateGatewayTools: module.updateGatewayTools,
-    updateGatewayLastSeen: module.updateGatewayLastSeen,
-    disconnectGateway: module.disconnectGateway,
-  });
+  if (
+    typeof module?.setupWebSocket === "function" &&
+    typeof module?.verifyGatewayToken === "function" &&
+    typeof module?.upsertGateway === "function" &&
+    typeof module?.updateGatewayTools === "function" &&
+    typeof module?.updateGatewayLastSeen === "function" &&
+    typeof module?.disconnectGateway === "function"
+  ) {
+    module.setupWebSocket(server, {
+      verifyGatewayToken: module.verifyGatewayToken,
+      upsertGateway: module.upsertGateway,
+      updateGatewayTools: module.updateGatewayTools,
+      updateGatewayLastSeen: module.updateGatewayLastSeen,
+      disconnectGateway: module.disconnectGateway,
+    });
+  } else {
+    console.warn("Gateway WebSocket disabled: server build does not export gateway handlers.");
+  }
 
   const port = process.env.REMIX_APP_PORT || 3000;
   server.listen(port, () =>

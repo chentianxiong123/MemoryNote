@@ -1,12 +1,11 @@
 import { generateId, createUIMessageStreamResponse } from "ai";
 import { toAISdkStream } from "@redplanethq/ai";
-import { EpisodeType, UserTypeEnum } from "@core/types";
-import { addToQueue } from "~/lib/ingest.server";
+import { UserTypeEnum } from "@core/types";
 import {
   upsertConversationHistory,
   updateConversationStatus,
 } from "~/services/conversation.server";
-import { deductCredits } from "~/trigger/utils/utils";
+import { deductCredits } from "~/jobs/credit_utils";
 import { logger } from "~/services/logger.service";
 import { convertMastraChunkToAISDKv5 } from "@mastra/core/stream";
 
@@ -67,23 +66,8 @@ export async function saveConversationResult({
       UserTypeEnum.Agent,
     );
 
-    const textParts = parts
-      .filter((p: any) => p.type === "text" && p.text)
-      .map((p: any) => p.text);
-
-    if (textParts.length > 0 && !incognito) {
-      await addToQueue(
-        {
-          episodeBody: `<user>${incomingUserText ?? ""}</user><assistant>${textParts.join("\n")}</assistant>`,
-          source: "core",
-          referenceTime: new Date().toISOString(),
-          type: EpisodeType.CONVERSATION,
-          sessionId: conversationId,
-        },
-        userId,
-        workspaceId,
-      );
-    }
+    // In v1 of the knowledge workbench, assistant replies stay in conversation history first.
+    // Durable knowledge is only created after the user confirms capture items in the inbox.
   }
 
   if (!isBYOK) {
@@ -107,7 +91,7 @@ export function createUIStreamWithApprovals(
 
   return mastraStream.pipeThrough(
     new TransformStream({
-      async transform(chunk, controller) {
+      async transform(chunk: any, controller) {
         if (
           chunk?.type === "data-tool-call-approval" &&
           chunk?.data?.toolCallId
@@ -141,19 +125,28 @@ export function streamToUIResponse(
   let stream = createUIStreamWithApprovals(agentResult, onApprovalDetected);
 
   if (onCancel) {
-    // Pipe through a passthrough transform whose cancel() fires when the
-    // client disconnects (readable side cancelled). request.signal does not
-    // reliably fire in Remix streaming, so this is the reliable hook.
-    stream = stream.pipeThrough(
-      new TransformStream({
-        transform(chunk, controller) {
-          controller.enqueue(chunk);
-        },
-        cancel() {
-          onCancel();
-        },
-      }),
-    );
+    const sourceStream = stream;
+    stream = new ReadableStream({
+      async start(controller) {
+        const reader = sourceStream.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        } finally {
+          reader.releaseLock();
+        }
+      },
+      async cancel() {
+        onCancel();
+        await sourceStream.cancel();
+      },
+    });
   }
 
   return createUIMessageStreamResponse({

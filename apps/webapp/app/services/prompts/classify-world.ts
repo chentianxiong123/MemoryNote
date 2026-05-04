@@ -42,9 +42,9 @@ Read the fact. Understand what it means. Pick the aspect that best describes wha
 ## Aspects
 
 **Identity** — Who the user IS. Slow-changing personal facts that define them: role, location, measurements, stats, affiliations, what they work on.
-- "User is CTO at CORE" → Identity
+- "User is maintainer of MemoryNote" → Identity
 - "User weighs 98.8 kg" → Identity
-- "User works on RedPlanetHQ/core" → Identity
+- "User works on chentianxiong123/MemoryNote" → Identity
 NOT: behavioral patterns the user is trying to change → Problem.
 
 **Event** — Something the user personally DID or EXPERIENCED at a specific time. The user must be a direct participant. Must have event_date.
@@ -63,7 +63,7 @@ NOT: what a connected person wants, does, or builds → null.
 NOT: plans or intentions without alternatives considered → Knowledge.
 
 **Knowledge** — Facts about things the user OWNS or BUILDS. Their projects, systems, products, infrastructure — how things work in their world.
-- "CORE uses TypeScript" → Knowledge
+- "MemoryNote uses TypeScript" → Knowledge
 - "Search pipeline has 5 stages" → Knowledge
 NOT: facts about someone else's product/company → null.
 

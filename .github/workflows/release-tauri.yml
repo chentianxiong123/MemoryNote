@@ -38,7 +38,7 @@ jobs:
       - name: Build and release (macOS universal)
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -50,7 +50,7 @@ jobs:
         with:
           projectPath: apps/tauri
           tagName: ${{ github.ref_name }}
-          releaseName: CORE ${{ github.ref_name }}
+          releaseName: MemoryNote ${{ github.ref_name }}
           releaseBody: "See release notes."
           releaseDraft: false
           prerelease: false
@@ -96,13 +96,13 @@ jobs:
       - name: Build and release (Linux AppImage)
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/tauri
           tagName: ${{ github.ref_name }}
-          releaseName: CORE ${{ github.ref_name }}
+          releaseName: MemoryNote ${{ github.ref_name }}
           releaseBody: "See release notes."
           releaseDraft: false
           prerelease: false

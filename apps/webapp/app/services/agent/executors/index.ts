@@ -1,5 +1,6 @@
 export {
   OrchestratorTools,
+  type OrchestratorToolsInterface,
   type ConnectedIntegration,
   type GatewayAgentInfo,
   type SendChannelMessageParams,

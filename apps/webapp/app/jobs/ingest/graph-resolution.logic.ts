@@ -39,7 +39,7 @@ import {
 import { makeModelCall } from "~/lib/model.server";
 import { prisma } from "~/db.server";
 import { IngestionStatus } from "@core/database";
-import { deductCredits } from "~/trigger/utils/utils";
+import { deductCredits } from "~/jobs/credit_utils";
 import { isWorkspaceBYOK } from "~/services/byok.server";
 
 import {

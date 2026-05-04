@@ -204,6 +204,95 @@ export async function applyCohereEpisodeReranking<
 }
 
 /**
+ * Apply OpenAI-compatible reranking API (e.g., qwen3-reranker)
+ * Uses /v1/rerank endpoint with standard request format
+ */
+export async function applyOpenAIReranking<
+  T extends { episode: { originalContent: string; uuid: string; content: string } },
+>(
+  query: string,
+  episodes: T[],
+  options: {
+    limit?: number;
+    apiKey: string;
+    baseUrl: string;
+    model: string;
+  },
+): Promise<(T & { rerankScore: number })[]> {
+  const startTime = Date.now();
+  const limit = options.limit || 20;
+
+  try {
+    if (episodes.length === 0) {
+      logger.info("No episodes to rerank with OpenAI API");
+      return [];
+    }
+
+    if (!options.apiKey) {
+      logger.warn("RERANK_API_KEY not configured, skipping OpenAI reranking");
+      return episodes
+        .slice(0, limit)
+        .map((ep) => ({ ...ep, rerankScore: 0.5 }));
+    }
+
+    logger.info(
+      `OpenAI reranking ${episodes.length} episodes with model ${options.model} at ${options.baseUrl}`,
+    );
+
+    const documents = episodes.map((ep) => ep.episode.content || ep.episode.originalContent);
+
+    const rerankUrl = options.baseUrl.replace(/\/+$/, "") + "/rerank";
+    
+    const response = await fetch(rerankUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${options.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: options.model,
+        query,
+        documents,
+        top_n: Math.min(limit, documents.length),
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error(`OpenAI rerank API failed: ${response.status} ${errorText}`);
+      return episodes.slice(0, limit).map((ep) => ({ ...ep, rerankScore: 0.5 }));
+    }
+
+    const result = await response.json();
+
+    logger.info(
+      `OpenAI rerank top 5 results:\n${result.results
+        ?.slice(0, 5)
+        .map(
+          (r: any, i: number) =>
+            `  ${i + 1}. [${(r.relevance_score ?? r.score ?? 0).toFixed(4)}] Episode ${episodes[r.index]?.episode.uuid.slice(0, 8)}`,
+        )
+        .join("\n")}`,
+    );
+
+    const rerankedEpisodes = result.results.map((r: any) => ({
+      ...episodes[r.index],
+      rerankScore: r.relevance_score ?? r.score ?? 0,
+    }));
+
+    const responseTime = Date.now() - startTime;
+    logger.info(
+      `OpenAI reranking completed: ${rerankedEpisodes.length} episodes in ${responseTime}ms`,
+    );
+
+    return rerankedEpisodes;
+  } catch (error) {
+    logger.error("OpenAI reranking failed:", { error });
+    return episodes.slice(0, limit).map((ep) => ({ ...ep, rerankScore: 0.5 }));
+  }
+}
+
+/**
  * Apply Ollama-based reranking using a local rerank model
  * Uses embeddings endpoint with query+document concatenation
  */
@@ -423,6 +512,24 @@ export async function applyEpisodeReranking(
         { error },
       );
       // Fallback to original multi-stage algorithm
+      return applyMultiFactorReranking(query, episodes, limit, options);
+    }
+  }
+
+  // OpenAI-compatible rerank provider
+  if (config.provider === "openai" && config.openaiApiKey && config.openaiBaseUrl) {
+    try {
+      return await applyOpenAIReranking(query, episodes, {
+        limit,
+        apiKey: config.openaiApiKey,
+        baseUrl: config.openaiBaseUrl,
+        model: config.openaiModel || "qwen3-reranker-8b",
+      });
+    } catch (error) {
+      logger.error(
+        "OpenAI reranking failed, falling back to original algorithm:",
+        { error },
+      );
       return applyMultiFactorReranking(query, episodes, limit, options);
     }
   }

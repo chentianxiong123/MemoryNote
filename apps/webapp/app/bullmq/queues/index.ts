@@ -1,319 +1,57 @@
 /**
- * BullMQ Queues
+ * BullMQ Queues - Simplified
  *
- * All queue definitions for the BullMQ implementation
+ * Core functions: AI conversation, memory storage, vector search, knowledge graph
  */
 
 import { Queue } from "bullmq";
 import { getRedisConnection } from "../connection";
 
-/**
- * Episode preprocessing queue
- * Handles chunking, versioning, and differential analysis before ingestion
- */
-export const preprocessQueue = new Queue("preprocess-queue", {
+export const placeholderQueue = new Queue("placeholder-queue", {
   connection: getRedisConnection(),
   defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: {
-      age: 3600, // Keep completed jobs for 1 hour
-      count: 1000, // Keep last 1000 completed jobs
-    },
-    removeOnFail: {
-      age: 86400, // Keep failed jobs for 24 hours
-    },
+    attempts: 1,
+    removeOnComplete: true,
+    removeOnFail: { age: 86400 },
   },
 });
 
-/**
- * Episode ingestion queue
- * Handles individual episode ingestion (receives pre-chunked episodes from preprocessing)
- */
 export const ingestQueue = new Queue("ingest-queue", {
   connection: getRedisConnection(),
   defaultJobOptions: {
     attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: {
-      age: 3600, // Keep completed jobs for 1 hour
-      count: 1000, // Keep last 1000 completed jobs
-    },
-    removeOnFail: {
-      age: 86400, // Keep failed jobs for 24 hours
-    },
+    backoff: { type: "exponential", delay: 2000 },
+    removeOnComplete: { age: 3600, count: 1000 },
+    removeOnFail: { age: 86400 },
   },
 });
 
-/**
- * Conversation title creation queue
- */
-export const conversationTitleQueue = new Queue("conversation-title-queue", {
+export const preprocessQueue = new Queue("preprocess-queue", {
   connection: getRedisConnection(),
   defaultJobOptions: {
     attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: {
-      age: 3600,
-      count: 1000,
-    },
-    removeOnFail: {
-      age: 86400,
-    },
+    backoff: { type: "exponential", delay: 2000 },
+    removeOnComplete: { age: 3600, count: 1000 },
+    removeOnFail: { age: 86400 },
   },
 });
 
-/**
- * Session compaction queue
- */
-export const sessionCompactionQueue = new Queue("session-compaction-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: {
-      age: 3600,
-      count: 1000,
-    },
-    removeOnFail: {
-      age: 86400,
-    },
-  },
-});
-
-/**
- * Label assignment queue
- * Uses LLM to assign appropriate labels to ingested episodes
- */
-export const labelAssignmentQueue = new Queue("label-assignment-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: {
-      age: 3600,
-      count: 1000,
-    },
-    removeOnFail: {
-      age: 86400,
-    },
-  },
-});
-
-/**
- * Title generation queue
- * Uses LLM to generate titles for ingested episodes
- */
-export const titleGenerationQueue = new Queue("title-generation-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: {
-      age: 3600,
-      count: 1000,
-    },
-    removeOnFail: {
-      age: 86400,
-    },
-  },
-});
-
-/**
- * Persona generation queue
- * Handles CPU-intensive persona generation with HDBSCAN clustering
- */
-export const personaGenerationQueue = new Queue("persona-generation-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 2, // Only 2 attempts for expensive operations
-    backoff: {
-      type: "exponential",
-      delay: 5000,
-    },
-    removeOnComplete: {
-      age: 7200, // Keep completed jobs for 2 hours
-      count: 100,
-    },
-    removeOnFail: {
-      age: 172800, // Keep failed jobs for 48 hours (for debugging)
-    },
-  },
-});
-
-/**
- * Graph resolution queue
- * Handles async entity and statement resolution after episode ingestion
- */
 export const graphResolutionQueue = new Queue("graph-resolution-queue", {
   connection: getRedisConnection(),
   defaultJobOptions: {
     attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: {
-      age: 3600,
-      count: 1000,
-    },
-    removeOnFail: {
-      age: 86400,
-    },
+    backoff: { type: "exponential", delay: 2000 },
+    removeOnComplete: { age: 3600, count: 1000 },
+    removeOnFail: { age: 86400 },
   },
 });
 
-/**
- * Integration run queue
- * Handles integration execution (SETUP, SYNC, PROCESS, IDENTIFY events)
- */
-export const integrationRunQueue = new Queue("integration-run-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 1,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: {
-      age: 3600,
-      count: 1000,
-    },
-    removeOnFail: {
-      age: 86400, // Keep failed jobs for 24 hours for debugging
-    },
-  },
-});
-
-/**
- * Reminder queue
- * Handles scheduled reminder processing
- */
-export const reminderQueue = new Queue("reminder-queue", {
+export const conversationTitleQueue = new Queue("conversation-title-queue", {
   connection: getRedisConnection(),
   defaultJobOptions: {
     attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 5000,
-    },
-    removeOnComplete: {
-      count: 100,
-    },
-    removeOnFail: {
-      count: 500,
-    },
-  },
-});
-
-/**
- * Follow-up queue
- * Handles follow-up reminders
- */
-export const followUpQueue = new Queue("followup-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 5000,
-    },
-    removeOnComplete: {
-      count: 100,
-    },
-    removeOnFail: {
-      count: 500,
-    },
-  },
-});
-
-/**
- * Activity CASE queue
- * Sends new integration activities through the CASE pipeline
- */
-export const activityCaseQueue = new Queue("activity-case-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 1,
-    removeOnComplete: {
-      age: 3600,
-      count: 1000,
-    },
-    removeOnFail: {
-      age: 86400,
-    },
-  },
-});
-
-/**
- * Scheduled task queue
- * Handles scheduled/recurring tasks (unified with reminders)
- */
-export const scheduledTaskQueue = new Queue("scheduled-task-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 5000,
-    },
-    removeOnComplete: {
-      count: 100,
-    },
-    removeOnFail: {
-      count: 500,
-    },
-  },
-});
-
-/**
- * Scratchpad scan queue
- * Handles mention and proactive scratchpad processing (LLM + agent execution)
- */
-export const scratchpadScanQueue = new Queue("scratchpad-scan-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 1,
-    // Remove immediately on complete so the same jobId can be reused for debouncing
-    removeOnComplete: true,
-    removeOnFail: {
-      age: 86400,
-    },
-  },
-});
-
-/**
- * Task queue
- * Handles long-running tasks
- */
-export const taskQueue = new Queue("task-queue", {
-  connection: getRedisConnection(),
-  defaultJobOptions: {
-    attempts: 1,
-    removeOnComplete: {
-      age: 7200,
-      count: 100,
-    },
-    removeOnFail: {
-      age: 86400,
-    },
+    backoff: { type: "exponential", delay: 2000 },
+    removeOnComplete: { age: 3600, count: 1000 },
+    removeOnFail: { age: 86400 },
   },
 });

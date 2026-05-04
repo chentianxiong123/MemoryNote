@@ -6,8 +6,8 @@ import { onboardingPath } from "~/utils/pathBuilder";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "C.O.R.E." },
-    { name: "description", content: "Welcome to C.O.R.E!" },
+    { title: "MemoryNote" },
+    { name: "description", content: "Welcome to MemoryNote" },
   ];
 };
 
@@ -17,7 +17,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!user.onboardingComplete) {
     return redirect(onboardingPath());
   } else {
-    return redirect("/home/daily");
+    return redirect("/home/conversation");
   }
 };
 

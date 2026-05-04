@@ -66,8 +66,8 @@ import { type ModelMessage } from "ai";
 const DEFAULT_EPISODE_WINDOW = 5;
 
 export class KnowledgeGraphService {
-  async getEmbedding(text: string) {
-    return getEmbedding(text);
+  async getEmbedding(text: string, workspaceId?: string) {
+    return getEmbedding(text, workspaceId);
   }
   /**
    * Process an episode and update the knowledge graph.
@@ -167,7 +167,10 @@ export class KnowledgeGraphService {
           const queryText = params.originalEpisodeBody;
 
           // Generate embedding for changes
-          const changesEmbedding = await this.getEmbedding(queryText);
+          const changesEmbedding = await this.getEmbedding(
+            queryText,
+            params.workspaceId,
+          );
 
           // Search previous version episodes by semantic similarity
           const relatedPreviousChunks = await searchEpisodesByEmbedding({
@@ -255,7 +258,10 @@ export class KnowledgeGraphService {
       // Save episode immediately to Neo4j
       await saveEpisode(episode);
 
-      const episodeEmbedding = await this.getEmbedding(normalizedEpisodeBody);
+      const episodeEmbedding = await this.getEmbedding(
+        normalizedEpisodeBody,
+        params.workspaceId,
+      );
 
       // Store episode embedding in vector provider
       await storeEpisodeEmbedding(
@@ -335,8 +341,12 @@ export class KnowledgeGraphService {
         const embeddingTime = Date.now();
         const entities = Array.from(uniqueEntities.values());
         const [factEmbeddings, entityEmbeddings] = await Promise.all([
-          Promise.all(facts.map((f) => this.getEmbedding(f.text))),
-          Promise.all(entities.map((e) => this.getEmbedding(e.name))),
+          Promise.all(
+            facts.map((f) => this.getEmbedding(f.text, params.workspaceId)),
+          ),
+          Promise.all(
+            entities.map((e) => this.getEmbedding(e.name, params.workspaceId)),
+          ),
         ]);
         const embeddingEndTime = Date.now();
         logger.log(
@@ -744,7 +754,7 @@ export class KnowledgeGraphService {
       .join("\n");
 
     // Get related memories
-    const relatedMemories = await this.getRelatedMemories(episodeBody, userId);
+    const relatedMemories = await this.getRelatedMemories(episodeBody, userId, workspaceId);
 
     // Fetch ingestion rules for this source
     const ingestionRules = await this.getIngestionRulesForSource(
@@ -830,6 +840,7 @@ export class KnowledgeGraphService {
    *
    * @param episodeContent The content of the current episode
    * @param userId The user ID
+   * @param workspaceId The workspace ID
    * @param source The source of the episode
    * @param referenceTime The reference time for the episode
    * @returns A string containing formatted related episodes and facts
@@ -837,6 +848,7 @@ export class KnowledgeGraphService {
   private async getRelatedMemories(
     episodeContent: string,
     userId: string,
+    workspaceId: string,
     options: {
       episodeLimit?: number;
       factLimit?: number;
@@ -850,7 +862,10 @@ export class KnowledgeGraphService {
       const minSimilarity = options.minSimilarity ?? 0.75;
 
       // Get embedding for the current episode content
-      const contentEmbedding = await this.getEmbedding(episodeContent);
+      const contentEmbedding = await this.getEmbedding(
+        episodeContent,
+        workspaceId,
+      );
 
       // Retrieve semantically similar episodes (excluding very recent ones that are already in context)
       const relatedEpisodes = await searchEpisodesByEmbedding({

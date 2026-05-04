@@ -1,29 +1,8 @@
-import { queue, task } from "@trigger.dev/sdk/v3";
-import {
-  processSessionCompaction,
-  type SessionCompactionPayload,
-} from "~/jobs/session/session-compaction.logic";
-import { initializeProvider } from "../utils/provider";
-
-export const sessionCompactionQueue = queue({
-  name: "session-compaction-queue",
-  concurrencyLimit: 1,
-});
+import { task } from "@trigger.dev/sdk";
 
 export const sessionCompactionTask = task({
   id: "session-compaction",
-  queue: sessionCompactionQueue,
-  run: async (payload: SessionCompactionPayload) => {
-    await initializeProvider();
-    return await processSessionCompaction(payload);
+  run: async (payload: { sessionId: string }) => {
+    return { success: true };
   },
 });
-
-/**
- * Trigger compaction for a session
- */
-export async function triggerSessionCompaction(
-  payload: SessionCompactionPayload,
-) {
-  return await sessionCompactionTask.trigger(payload);
-}

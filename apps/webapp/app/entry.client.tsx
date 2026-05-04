@@ -9,7 +9,7 @@ import { RemixBrowser, useLocation, useMatches } from "@remix-run/react";
 import { startTransition, StrictMode, useEffect } from "react";
 import { hydrateRoot } from "react-dom/client";
 
-// Tauri webview loads the remote webapp from https://app.getcore.me and talks
+// Tauri webview loads the local webapp and talks
 // to the Rust side via `fetch("ipc://localhost/...")`. Multiple Sentry default
 // integrations (browserTracing + the always-on Breadcrumbs integration)
 // monkey-patch window.fetch. On the cross-origin ipc:// fetch, WKWebView blocks
@@ -20,7 +20,7 @@ import { hydrateRoot } from "react-dom/client";
 // verified by fetching the deployed Sentry chunk and confirming its fetch
 // instrumentation is what's in the broken call stack.
 // Errors inside the desktop app are captured by the Rust-side logger at
-// ~/Library/Logs/me.getcore.app/CORE.log.
+// ~/Library/Logs/com.memorynote.app/MemoryNote.log.
 const isTauri =
   typeof window !== "undefined" &&
   !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;

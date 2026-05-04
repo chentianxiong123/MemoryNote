@@ -2,7 +2,7 @@ import {
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
   type MetaFunction,
-} from "@remix-run/server-runtime";
+} from "@remix-run/node";
 import { Memory } from "@mastra/memory";
 import { useParams, useNavigate, useFetcher, Link } from "@remix-run/react";
 

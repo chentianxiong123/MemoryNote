@@ -1,13 +1,10 @@
 import {
   type Conversation,
   type ConversationHistory,
-  type UserUsage,
 } from "@prisma/client";
 
 import nodeCrypto from "node:crypto";
 import { customAlphabet } from "nanoid";
-
-import { BILLING_CONFIG, isBillingEnabled } from "~/config/billing.server";
 import { prisma } from "~/db.server";
 
 // Token generation utilities
@@ -23,8 +20,6 @@ type CreatePersonalAccessTokenOptions = {
   userId: string;
 };
 
-// TODO remove from here
-// Helper functions for token management
 function createToken() {
   return `${tokenPrefix}${tokenGenerator()}`;
 }
@@ -70,7 +65,6 @@ export async function getOrCreatePersonalAccessToken({
   name,
   userId,
 }: CreatePersonalAccessTokenOptions) {
-  // Try to find an existing, non-revoked token
   const existing = await prisma.personalAccessToken.findFirst({
     where: {
       name,
@@ -80,17 +74,14 @@ export async function getOrCreatePersonalAccessToken({
   });
 
   if (existing) {
-    // Do not return the unencrypted token if it already exists
     return {
       id: existing.id,
       name: existing.name,
       userId: existing.userId,
       obfuscatedToken: existing.obfuscatedToken,
-      // token is not returned
     };
   }
 
-  // Create a new token
   const token = createToken();
   const encryptedToken = encryptToken(token);
 
@@ -116,23 +107,13 @@ export async function getOrCreatePersonalAccessToken({
 export interface InitChatPayload {
   conversationId: string;
   conversationHistoryId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context: any;
   pat: string;
-}
-
-export class Preferences {
-  timezone?: string;
-
-  // Memory details
-  memory_host?: string;
-  memory_api_key?: string;
 }
 
 export interface RunChatPayload {
   conversationId: string;
   conversationHistoryId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context: any;
   conversation: Conversation;
   conversationHistory: ConversationHistory;
@@ -158,36 +139,23 @@ export const getActivityDetails = async (activityId: string) => {
   };
 };
 
-/**
- * Generates a random ID of 6 characters
- * @returns A random string of 6 characters
- */
 export const generateRandomId = (): string => {
-  // Define characters that can be used in the ID
   const characters =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let result = "";
-
-  // Generate 6 random characters
   for (let i = 0; i < 6; i++) {
     const randomIndex = Math.floor(Math.random() * characters.length);
     result += characters.charAt(randomIndex);
   }
-
   return result.toLowerCase();
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function flattenObject(obj: Record<string, any>, prefix = ""): string[] {
   return Object.entries(obj).reduce<string[]>((result, [key, value]) => {
     const entryKey = prefix ? `${prefix}_${key}` : key;
-
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      // For nested objects, flatten them and add to results
       return [...result, ...flattenObject(value, entryKey)];
     }
-
-    // For primitive values or arrays, add directly
     return [...result, `- ${entryKey}: ${value}`];
   }, []);
 }
@@ -199,11 +167,6 @@ export const getActivity = async (activityId: string) => {
     },
     include: {
       workspace: true,
-      integrationAccount: {
-        include: {
-          integrationDefinition: true,
-        },
-      },
     },
   });
 };
@@ -230,298 +193,19 @@ export async function deletePersonalAccessToken(tokenId: string) {
   });
 }
 
-// Credit management functions have been moved to ~/services/billing.server.ts
-// Use deductCredits() instead of these functions
-export type CreditOperation = "addEpisode" | "search" | "chatMessage";
-
-export class InsufficientCreditsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "InsufficientCreditsError";
-  }
-}
-
-/**
- * Track usage analytics without enforcing limits (for self-hosted)
- */
-async function trackUsageAnalytics(
-  userUsage: UserUsage,
-  operation: CreditOperation,
-  amount?: number,
-): Promise<void> {
-  const creditCost = amount || BILLING_CONFIG.creditCosts[operation];
-
-  // Just track usage, don't enforce limits
-  await prisma.userUsage.update({
-    where: { id: userUsage.id },
-    data: {
-      usedCredits: userUsage.usedCredits + creditCost,
-      ...(operation === "addEpisode" && {
-        episodeCreditsUsed: userUsage.episodeCreditsUsed + creditCost,
-      }),
-      ...(operation === "search" && {
-        searchCreditsUsed: userUsage.searchCreditsUsed + creditCost,
-      }),
-      ...(operation === "chatMessage" && {
-        chatCreditsUsed: userUsage.chatCreditsUsed + creditCost,
-      }),
-    },
-  });
-}
-
-/**
- * Deduct credits for a specific operation
- */
-export async function deductCredits(
-  workspaceId: string,
-  userId: string,
-  operation: CreditOperation,
-  amount?: number,
-): Promise<void> {
-  // Get workspace with subscription and usage
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    include: {
-      Subscription: true,
-    },
-  });
-
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
-    include: {
-      UserUsage: true,
-    },
-  });
-
-  if (!workspace || !user) {
-    throw new Error("Workspace or user not found");
-  }
-
-  const subscription = workspace.Subscription;
-  const userUsage = user.UserUsage;
-
-  if (!subscription) {
-    throw new Error("No subscription found for workspace");
-  }
-
-  if (!userUsage) {
-    throw new Error("No user usage record found");
-  }
-
-  // If billing is disabled (self-hosted), allow unlimited usage
-  if (!isBillingEnabled()) {
-    // Still track usage for analytics
-    await trackUsageAnalytics(userUsage, operation, amount);
-    return;
-  }
-
-  // Get the actual credit cost
-  const creditCost = amount || BILLING_CONFIG.creditCosts[operation];
-
-  // Check if user has available credits
-  if (userUsage.availableCredits >= creditCost) {
-    // Deduct from available credits
-    await prisma.userUsage.update({
-      where: { id: userUsage.id },
-      data: {
-        availableCredits: userUsage.availableCredits - creditCost,
-        usedCredits: userUsage.usedCredits + creditCost,
-        // Update usage breakdown
-        ...(operation === "addEpisode" && {
-          episodeCreditsUsed: userUsage.episodeCreditsUsed + creditCost,
-        }),
-        ...(operation === "search" && {
-          searchCreditsUsed: userUsage.searchCreditsUsed + creditCost,
-        }),
-        ...(operation === "chatMessage" && {
-          chatCreditsUsed: userUsage.chatCreditsUsed + creditCost,
-        }),
-      },
-    });
-  } else {
-    // Check if usage billing is enabled (Pro/Max plan)
-    if (subscription.enableUsageBilling) {
-      // Calculate overage
-      const overageAmount = creditCost - userUsage.availableCredits;
-      const cost = overageAmount * (subscription.usagePricePerCredit || 0);
-
-      // Deduct remaining available credits and track overage
-      await prisma.$transaction([
-        prisma.userUsage.update({
-          where: { id: userUsage.id },
-          data: {
-            availableCredits: 0,
-            usedCredits: userUsage.usedCredits + creditCost,
-            overageCredits: userUsage.overageCredits + overageAmount,
-            // Update usage breakdown
-            ...(operation === "addEpisode" && {
-              episodeCreditsUsed: userUsage.episodeCreditsUsed + creditCost,
-            }),
-            ...(operation === "search" && {
-              searchCreditsUsed: userUsage.searchCreditsUsed + creditCost,
-            }),
-            ...(operation === "chatMessage" && {
-              chatCreditsUsed: userUsage.chatCreditsUsed + creditCost,
-            }),
-          },
-        }),
-        prisma.subscription.update({
-          where: { id: subscription.id },
-          data: {
-            overageCreditsUsed: subscription.overageCreditsUsed + overageAmount,
-            overageAmount: subscription.overageAmount + cost,
-          },
-        }),
-      ]);
-    } else {
-      await prisma.userUsage.update({
-        where: { id: userUsage.id },
-        data: {
-          availableCredits: 0,
-          usedCredits: userUsage.usedCredits + creditCost,
-          // Update usage breakdown
-          ...(operation === "addEpisode" && {
-            episodeCreditsUsed: userUsage.episodeCreditsUsed + creditCost,
-          }),
-          ...(operation === "search" && {
-            searchCreditsUsed: userUsage.searchCreditsUsed + creditCost,
-          }),
-          ...(operation === "chatMessage" && {
-            chatCreditsUsed: userUsage.chatCreditsUsed + creditCost,
-          }),
-        },
-      });
-    }
-  }
-}
-
-/**
- * Check if workspace has sufficient credits
- */
 export async function hasCredits(
   workspaceId: string,
   userId: string,
-  operation: CreditOperation,
-  amount?: number,
+  operation: string,
 ): Promise<boolean> {
-  // If billing is disabled, always return true
-  if (!isBillingEnabled()) {
-    return true;
-  }
-
-  const creditCost = amount || BILLING_CONFIG.creditCosts[operation];
-
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    include: {
-      Subscription: true,
-    },
-  });
-
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
-    include: {
-      UserUsage: true,
-    },
-  });
-
-  if (!user?.UserUsage || !workspace?.Subscription) {
-    return false;
-  }
-
-  const userUsage = user.UserUsage;
-  // const subscription = workspace.Subscription;
-
-  // If has available credits, return true
-  if (userUsage.availableCredits >= creditCost) {
-    return true;
-  }
-
-  // If overage is enabled (Pro/Max), return true
-  // if (subscription.enableUsageBilling) {
-  //   return true;
-  // }
-
-  // Free plan with no credits left
-  return false;
+  return true;
 }
 
-/**
- * Reset monthly credits for a workspace
- */
-export async function resetMonthlyCredits(
+export async function deductCredits(
   workspaceId: string,
   userId: string,
-): Promise<void> {
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    include: {
-      Subscription: true,
-    },
-  });
-
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
-    include: {
-      UserUsage: true,
-    },
-  });
-
-  if (!workspace?.Subscription || !user?.UserUsage) {
-    throw new Error("Workspace, subscription, or user usage not found");
-  }
-
-  const subscription = workspace.Subscription;
-  const userUsage = user.UserUsage;
-  const now = new Date();
-  const nextMonth = new Date(now);
-  nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-  // Create billing history record
-  await prisma.billingHistory.create({
-    data: {
-      subscriptionId: subscription.id,
-      periodStart: subscription.currentPeriodStart,
-      periodEnd: subscription.currentPeriodEnd,
-      monthlyCreditsAllocated: subscription.monthlyCredits,
-      creditsUsed: userUsage.usedCredits,
-      overageCreditsUsed: userUsage.overageCredits,
-      subscriptionAmount: 0, // TODO: Get from Stripe
-      usageAmount: subscription.overageAmount,
-      totalAmount: subscription.overageAmount,
-    },
-  });
-
-  // Reset credits
-  await prisma.$transaction([
-    prisma.userUsage.update({
-      where: { id: userUsage.id },
-      data: {
-        availableCredits: subscription.monthlyCredits,
-        usedCredits: 0,
-        overageCredits: 0,
-        lastResetAt: now,
-        nextResetAt: nextMonth,
-        // Reset usage breakdown
-        episodeCreditsUsed: 0,
-        searchCreditsUsed: 0,
-        chatCreditsUsed: 0,
-      },
-    }),
-    prisma.subscription.update({
-      where: { id: subscription.id },
-      data: {
-        currentPeriodStart: now,
-        currentPeriodEnd: nextMonth,
-        overageCreditsUsed: 0,
-        overageAmount: 0,
-      },
-    }),
-  ]);
+  reason: string,
+  credits: number,
+): Promise<{ success: boolean }> {
+  return { success: true };
 }

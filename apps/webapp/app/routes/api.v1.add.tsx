@@ -2,7 +2,7 @@ import { json } from "@remix-run/node";
 
 import { createHybridActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { addToQueue } from "~/lib/ingest.server";
-import { IngestBodyRequest } from "~/trigger/ingest/ingest";
+import { IngestBodyRequest } from "~/jobs/ingest/ingest-episode.logic";
 
 const { action, loader } = createHybridActionApiRoute(
   {

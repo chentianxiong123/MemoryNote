@@ -20,9 +20,7 @@ import { getUserSession } from "../session.server";
 
 import { safeJsonParse } from "~/utils/json";
 
-type AnyZodSchema =
-  | z.ZodFirstPartySchemaTypes
-  | z.ZodDiscriminatedUnion<any, any>;
+type AnyZodSchema = z.ZodType;
 
 type ApiKeyRouteBuilderOptions<
   TParamsSchema extends AnyZodSchema | undefined = undefined,
@@ -650,7 +648,7 @@ export async function authenticateHybridRequest(
 ): Promise<HybridAuthenticationResult | null> {
   // First try API key authentication
   const apiResult = await authenticateApiRequestWithFailure(request, options);
-  if (apiResult.ok) {
+  if (apiResult?.ok) {
     return apiResult;
   }
 

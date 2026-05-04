@@ -95,7 +95,7 @@ export class ProviderFactory {
   }
 
   private static getVectorConfig(prisma?: any): Record<string, any> {
-    const type = process.env.VECTOR_PROVIDER;
+    const type = process.env.VECTOR_PROVIDER || "pgvector";
     console.log("Vector provider type:", type);
     switch (type) {
       case "pgvector":

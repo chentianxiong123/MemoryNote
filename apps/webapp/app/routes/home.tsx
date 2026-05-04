@@ -13,13 +13,9 @@ import { SidebarInset, SidebarProvider } from "~/components/ui/sidebar";
 import { ResizablePanelGroup, ResizablePanel } from "~/components/ui/resizable";
 
 import { json, redirect } from "@remix-run/node";
-import { onboardingPath } from "~/utils/pathBuilder";
 import { getConversationSources } from "~/services/conversation.server";
-import { prisma } from "~/db.server";
-import { SetButlerNameModal } from "~/components/onboarding/set-butler-name-modal";
 import { CollabSocketProvider } from "~/components/editor/collab-socket-context";
 import React from "react";
-import { getIntegrationAccounts } from "~/services/integrationAccount.server";
 import { getAvailableModels } from "~/services/llm-provider.server";
 import { type LLMModel } from "~/components/conversation";
 import { useTauri } from "~/hooks/use-tauri";
@@ -41,21 +37,6 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "name and slug are required" }, { status: 400 });
   }
 
-  const existing = await prisma.workspace.findFirst({
-    where: { id: workspaceId },
-    select: { metadata: true },
-  });
-  const existingMeta = (existing?.metadata ?? {}) as Record<string, unknown>;
-
-  await prisma.workspace.update({
-    where: { id: workspaceId },
-    data: {
-      name,
-      slug,
-      metadata: { ...existingMeta, onboardingV2Complete: true },
-    },
-  });
-
   return json({ ok: true });
 }
 
@@ -72,10 +53,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     user.id,
   );
 
-  const [integrationAccounts, allModels] = await Promise.all([
-    getIntegrationAccounts(user.id, workspace?.id as string),
-    getAvailableModels(),
-  ]);
+  const allModels = await getAvailableModels();
 
   const models = allModels
     .filter(
@@ -89,34 +67,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       isDefault: m.isDefault,
     }));
 
-  const integrationAccountMap: Record<string, string> = {};
-  const integrationFrontendMap: Record<string, string> = {};
-  for (const acc of integrationAccounts) {
-    integrationAccountMap[acc.id] = acc.integrationDefinition.slug;
-    if (acc.integrationDefinition.frontendUrl) {
-      integrationFrontendMap[acc.id] = acc.integrationDefinition.frontendUrl;
-    }
-  }
-
-  if (!user.onboardingComplete) {
-    return redirect(onboardingPath());
-  } else {
-    return typedjson(
-      {
-        user,
-        workspace,
-        conversationSources,
-        models,
-        integrationAccountMap,
-        integrationFrontendMap,
+  return typedjson(
+    {
+      user,
+      workspace,
+      conversationSources,
+      models,
+    },
+    {
+      headers: {
+        "Set-Cookie": await commitSession(await clearRedirectTo(request)),
       },
-      {
-        headers: {
-          "Set-Cookie": await commitSession(await clearRedirectTo(request)),
-        },
-      },
-    );
-  }
+    },
+  );
 };
 
 function HomeInner({
@@ -125,18 +88,14 @@ function HomeInner({
   meta,
   agentName,
   accentColor,
-  needsButlerName,
   models,
-  integrationAccountMap,
 }: {
   conversationSources: any;
   workspace: any;
   meta: Record<string, unknown>;
   agentName: string;
   accentColor: string;
-  needsButlerName: boolean;
   models: LLMModel[];
-  integrationAccountMap: Record<string, string>;
 }) {
   const { isDesktop } = useTauri();
 
@@ -150,16 +109,8 @@ function HomeInner({
         } as React.CSSProperties
       }
     >
-      {needsButlerName && (
-        <SetButlerNameModal
-          defaultName={workspace.name}
-          defaultSlug={workspace.slug}
-          workspaceId={workspace.id}
-        />
-      )}
       <AppSidebar
         conversationSources={conversationSources}
-        widgetsEnabled={!!meta.widgetsEnabled}
         agentName={agentName}
         accentColor={accentColor}
       />
@@ -189,10 +140,9 @@ function HomeInner({
 }
 
 export default function Home() {
-  const { conversationSources, workspace, models, integrationAccountMap } =
+  const { conversationSources, workspace, models } =
     useLoaderData<typeof loader>() as any;
   const meta = (workspace?.metadata ?? {}) as Record<string, unknown>;
-  const needsButlerName = !meta.onboardingV2Complete;
   const accentColor = (meta.accentColor as string) || "#c87844";
   const agentName = (workspace?.name as string) ?? "butler";
 
@@ -205,9 +155,7 @@ export default function Home() {
           meta={meta}
           agentName={agentName}
           accentColor={accentColor}
-          needsButlerName={needsButlerName}
           models={models}
-          integrationAccountMap={integrationAccountMap}
         />
       </DesktopTabsProvider>
     </CollabSocketProvider>

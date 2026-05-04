@@ -1,5 +1,9 @@
 import { type z } from "zod";
 
+type SafeParseResult<T> =
+  | { success: true; data: T; error?: never }
+  | { success: false; error: z.ZodError; data?: never };
+
 export function safeJsonParse(json?: string): unknown {
   if (!json) {
     return;
@@ -15,14 +19,14 @@ export function safeJsonParse(json?: string): unknown {
 export function safeJsonZodParse<T>(
   schema: z.Schema<T>,
   json: string,
-): z.SafeParseReturnType<unknown, T> | undefined {
+): SafeParseResult<T> | undefined {
   const parsed = safeJsonParse(json);
 
   if (parsed === null) {
     return;
   }
 
-  return schema.safeParse(parsed);
+  return schema.safeParse(parsed) as SafeParseResult<T>;
 }
 
 export async function safeJsonFromResponse(response: Response) {
@@ -41,7 +45,7 @@ export async function safeBodyFromResponse<T>(
     return;
   }
 
-  const parsedJson = schema.safeParse(unknownJson);
+  const parsedJson = schema.safeParse(unknownJson) as SafeParseResult<T>;
 
   if (parsedJson.success) {
     return parsedJson.data;
@@ -51,7 +55,7 @@ export async function safeBodyFromResponse<T>(
 export async function safeParseBodyFromResponse<T>(
   response: Response,
   schema: z.Schema<T>,
-): Promise<z.SafeParseReturnType<unknown, T> | undefined> {
+): Promise<SafeParseResult<T> | undefined> {
   try {
     const unknownJson = await response.json();
 
@@ -61,6 +65,6 @@ export async function safeParseBodyFromResponse<T>(
 
     const parsedJson = schema.safeParse(unknownJson);
 
-    return parsedJson;
+    return parsedJson as SafeParseResult<T>;
   } catch (error) {}
 }

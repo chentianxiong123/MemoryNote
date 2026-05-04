@@ -13,9 +13,6 @@ import {
 import {
   Search,
   Brain,
-  Library,
-  CalendarDays,
-  LayoutDashboard,
   MessageSquare,
   ArrowLeft,
   ArrowRight,
@@ -29,42 +26,18 @@ import { CommandBar } from "../command-bar/command-bar";
 import { useNavigate, useParams } from "@remix-run/react";
 import { useTauri } from "~/hooks/use-tauri";
 import { IngestionStatus } from "./ingestion-status";
-import { Task } from "../icons/task";
-import { TryIt } from "./try-it";
-import { ButlerStatusPill } from "../common/butler-status-pill";
 
 const data = {
   navMain: [
-    {
-      title: "Daily",
-      url: "/home/daily",
-      icon: CalendarDays,
-    },
     {
       title: "Chat",
       url: "/home/conversation",
       icon: MessageSquare,
     },
     {
-      title: "Overview",
-      url: "/home/overview",
-      icon: LayoutDashboard,
-      strict: true,
-    },
-    {
       title: "Memory",
       url: "/home/memory",
       icon: Brain,
-    },
-    {
-      title: "Tasks",
-      url: "/home/tasks",
-      icon: Task,
-    },
-    {
-      title: "Skills",
-      url: "/home/agent/skills",
-      icon: Library,
     },
   ],
 };
@@ -115,21 +88,15 @@ export function AppSidebar({
     };
 
     const unsub = tinykeys(window, {
-      "$mod+k": (e) => {
+      "$mod+k": (e: KeyboardEvent) => {
         e.preventDefault();
         setCommandBar(true);
       },
       "g c": whenNotEditing(() => navigate("/home/conversation")),
-      "g d": whenNotEditing(() => navigate("/home/daily")),
-      "g t": whenNotEditing(() => navigate("/home/tasks")),
       "g m": whenNotEditing(() => navigate("/home/memory")),
-      "g s": whenNotEditing(() => navigate("/home/agent/skills")),
-      ...(widgetsEnabled
-        ? { "g o": whenNotEditing(() => navigate("/home/overview")) }
-        : {}),
     });
     return unsub;
-  }, [navigate, widgetsEnabled]);
+  }, [navigate]);
 
   return (
     <>
@@ -176,7 +143,6 @@ export function AppSidebar({
                   agentName={agentName}
                   accentColor={accentColor}
                 />
-                <ButlerStatusPill />
               </div>
 
               <div className="flex gap-1">
@@ -193,28 +159,11 @@ export function AppSidebar({
           </SidebarMenu>
         </SidebarHeader>
         <SidebarContent className="mt-2">
-          <NavMain
-            items={data.navMain.filter(
-              (item) => item.url !== "/home/overview" || widgetsEnabled,
-            )}
-          />
-          <TryIt />
+          <NavMain items={data.navMain} />
         </SidebarContent>
 
         <SidebarFooter className="flex flex-col gap-1 px-2 pb-0">
           <IngestionStatus />
-
-          <div className="flex justify-end">
-            <Button
-              variant="ghost"
-              className="w-fit"
-              onClick={() => {
-                navigate("/settings/billing");
-              }}
-            >
-              <div>{user.availableCredits} credits</div>
-            </Button>
-          </div>
         </SidebarFooter>
       </Sidebar>
 

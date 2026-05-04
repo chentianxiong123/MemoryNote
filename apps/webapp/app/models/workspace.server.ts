@@ -1,17 +1,10 @@
 import { type Workspace } from "@core/database";
 import { prisma } from "~/db.server";
-import { ensureBillingInitialized } from "~/services/billing.server";
 import { ensureDefaultProviders } from "~/services/llm-provider.server";
-import { sendEmail } from "~/services/email.server";
 import { logger } from "~/services/logger.service";
-import { LabelService } from "~/services/label.server";
-import { createSkill } from "~/services/skills.server";
-import { DEFAULT_SKILL_DEFINITIONS } from "~/services/skills.defaults";
-import { READINESS_SKILL_DEFINITIONS } from "~/services/skills.readiness";
 
 interface CreateWorkspaceDto {
   name: string;
-  integrations: string[];
   userId: string;
 }
 
@@ -43,83 +36,16 @@ export async function createWorkspace(
     },
   });
 
-  const user = await prisma.user.update({
+  await prisma.user.update({
     where: { id: input.userId },
     data: {
       confirmedBasicDetails: true,
     },
   });
 
-  await ensureBillingInitialized(workspace.id, input.userId);
   await ensureDefaultProviders();
 
-  // Create persona document and label
-  try {
-    const labelService = new LabelService();
-
-    // Create Persona label
-    await labelService.createLabel({
-      name: "Persona",
-      workspaceId: workspace.id,
-      color: "#8B5CF6", // Purple color for persona
-      description: "Personal persona generated from your episodes",
-    });
-
-    logger.info(`Created persona document and label for user ${input.userId}`);
-  } catch (e) {
-    logger.error(`Error creating persona document: ${e}`);
-    // Don't fail workspace creation if persona setup fails
-  }
-
-  // Seed default skills
-  try {
-    await Promise.all(
-      DEFAULT_SKILL_DEFINITIONS.map((def) =>
-        createSkill(workspace.id, input.userId, {
-          title: def.title,
-          content: def.content,
-          source: "system",
-          metadata: {
-            skillType: def.skillType,
-            shortDescription: def.shortDescription,
-          },
-          ...(def.sessionIdPrefix
-            ? { sessionId: `${def.sessionIdPrefix}-${workspace.id}` }
-            : {}),
-        }),
-      ),
-    );
-    logger.info(`Seeded default skills for workspace ${workspace.id}`);
-  } catch (e) {
-    logger.error(`Error seeding default skills: ${e}`);
-    // Don't fail workspace creation if skill seeding fails
-  }
-
-  // Seed readiness skills (visible in <skills> list, no skillType)
-  try {
-    await Promise.all(
-      READINESS_SKILL_DEFINITIONS.map((def) =>
-        createSkill(workspace.id, input.userId, {
-          title: def.title,
-          content: def.content,
-          source: "system",
-          metadata: {
-            shortDescription: def.shortDescription,
-          },
-        }),
-      ),
-    );
-    logger.info(`Seeded readiness skills for workspace ${workspace.id}`);
-  } catch (e) {
-    logger.error(`Error seeding readiness skills: ${e}`);
-  }
-
-  try {
-    const response = await sendEmail({ email: "welcome", to: user.email });
-    logger.info(`${JSON.stringify(response)}`);
-  } catch (e) {
-    logger.error(`Error sending email: ${e}`);
-  }
+  logger.info(`Created workspace ${workspace.id} for user ${input.userId}`);
 
   return workspace;
 }
@@ -182,17 +108,6 @@ export async function resolveWorkspaceIdForUser(
   }
 
   return membershipWorkspace.workspaceId;
-}
-
-export async function getWorkspacePersona(workspaceId: string) {
-  const personaSessionId = `persona-v2-${workspaceId}`;
-  return await prisma.document.findFirst({
-    where: {
-      sessionId: personaSessionId,
-      workspaceId,
-      source: "persona-v2",
-    },
-  });
 }
 
 export async function getButlerName(workspaceId: string): Promise<string> {

@@ -38,7 +38,9 @@ export const Editor = ({ defaultLabelId, labels }: EditorProps) => {
   });
 
   const handleAdd = async () => {
-    const content = editor?.storage.markdown.getMarkdown();
+    const storage = editor?.storage as unknown as Record<string, unknown>;
+    const markdown = storage?.markdown as { getMarkdown: () => string } | undefined;
+    const content = markdown?.getMarkdown();
 
     if (!content?.trim()) return;
 

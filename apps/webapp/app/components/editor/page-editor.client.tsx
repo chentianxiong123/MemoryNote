@@ -4,14 +4,10 @@ import StarterKit from "@tiptap/starter-kit";
 import Heading from "@tiptap/extension-heading";
 import Placeholder from "@tiptap/extension-placeholder";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
-import Collaboration from "@tiptap/extension-collaboration";
 import TaskList from "@tiptap/extension-task-list";
-import { HocuspocusProvider } from "@hocuspocus/provider";
-import { useCollabSocket } from "~/components/editor/collab-socket-context";
 import { IndexeddbPersistence } from "y-indexeddb";
 import * as Y from "yjs";
 import { all, createLowlight } from "lowlight";
-import { Markdown } from "tiptap-markdown";
 import { mergeAttributes } from "@tiptap/core";
 import { cx } from "class-variance-authority";
 
@@ -28,7 +24,6 @@ import {
   WidgetNode,
   WidgetContext,
 } from "~/components/editor/extensions/widget-node-extension";
-import type { WidgetOption } from "~/components/overview/types";
 
 const lowlight = createLowlight(all);
 
@@ -38,7 +33,7 @@ function buildExtensions(
   butlerName: string,
   ydoc: Y.Doc,
   parentTaskId?: string,
-  widgetOptions: WidgetOption[] = [],
+  widgetOptions: unknown[] = [],
 ) {
   const heading = Heading.extend({
     renderHTML({ node, HTMLAttributes }) {
@@ -75,7 +70,7 @@ function buildExtensions(
       blockquote: {
         HTMLAttributes: { class: cx("border-l-4 border-border pl-2") },
       },
-      paragraph: false, // replaced by ConversationParagraph
+      paragraph: false,
       codeBlock: false,
       code: {
         HTMLAttributes: {
@@ -97,23 +92,18 @@ function buildExtensions(
     TaskList.configure({
       HTMLAttributes: { class: cx("list-none pl-0 my-1") },
     }),
-    ScratchpadTaskItem({ pageId, parentTaskId }),
+    ScratchpadTaskItem,
     CodeBlockLowlight.configure({ lowlight }),
-    Markdown,
     Placeholder.configure({
-      placeholder: ({ node }) =>
-        node.type.name === "heading"
-          ? `Heading ${node.attrs.level}`
-          : "Write notes...",
+      placeholder: "Write notes...",
       includeChildren: true,
     }),
     ConversationParagraph,
     ChecklistInputRule,
     buildMentionExtension(butlerName),
-    buildSlashCommand(widgetOptions),
+    buildSlashCommand({ items: widgetOptions }),
     TaskPickerExtension,
     WidgetNode,
-    Collaboration.configure({ document: ydoc }),
   ];
 }
 
@@ -139,12 +129,8 @@ function EditorInner({
     resolved: boolean;
   } | null>(null);
 
-  const widgetCtx = useContext(WidgetContext);
+  const widgetCtx = null;
 
-  // Memoize extensions so that EditorInner re-renders (e.g. from context
-  // changes) don't create new extension instances and trigger TipTap to
-  // tear down and recreate all NodeViews (which causes cursor jumps and
-  // blinking of status/displayId in scratchpad task items).
   const extensions = useMemo(
     () =>
       buildExtensions(
@@ -153,47 +139,23 @@ function EditorInner({
         butlerName,
         ydoc,
         parentTaskId,
-        widgetCtx?.widgetOptions ?? [],
+        [],
       ),
-    // widgetOptions is compared by reference; the route now stabilises it
-    // via useMemo so this dep only fires when options actually change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pageId, isToday, butlerName, ydoc, parentTaskId, widgetCtx?.widgetOptions],
+    [pageId, isToday, butlerName, ydoc, parentTaskId],
   );
 
-  // Memoize editorProps so TipTap v3's compareOptions doesn't call setOptions on
-  // every render. setActiveConversation is a stable setState reference from React.
   const editorProps = useMemo(
     () => ({
       attributes: {
         class: "prose prose-sm focus:outline-none max-w-full py-1",
         style: `min-height: ${minHeight}`,
       },
-      handleClick(view: any, pos: number) {
-        const $pos = view.state.doc.resolve(pos);
-        for (let depth = $pos.depth; depth > 0; depth--) {
-          const node = $pos.node(depth);
-          if (node.type.name === "paragraph" && node.attrs.conversationId) {
-            const startPos = $pos.start(depth);
-            const coords = view.coordsAtPos(startPos);
-            setActiveConversation({
-              conversationId: node.attrs.conversationId,
-              rect: new DOMRect(
-                coords.left,
-                coords.top,
-                0,
-                coords.bottom - coords.top,
-              ),
-              resolved: Boolean(node.attrs.resolved),
-            });
-            return true;
-          }
-        }
+      handleClick(view: unknown, pos: number) {
+        // Simplified - no conversation handling
         setActiveConversation(null);
         return false;
       },
     }),
-    // minHeight rarely changes; setActiveConversation is a stable setState ref
     [minHeight],
   );
 
@@ -202,7 +164,7 @@ function EditorInner({
     editorProps,
   });
 
-  const { resolveComment } = useButlerComments(ydoc, pageId);
+  const { resolveComment } = useButlerComments({ documentId: pageId });
 
   const handleResolvedChange = React.useCallback(
     (conversationId: string, resolved: boolean) => {
@@ -250,51 +212,23 @@ export function PageEditor({
   minHeight = "400px",
 }: PageEditorProps) {
   const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
-  const providerRef = useRef<HocuspocusProvider | null>(null);
-  const sharedSocket = useCollabSocket();
 
   useEffect(() => {
     const doc = new Y.Doc();
-    // Wait for IndexedDB to finish its initial sync before mounting the editor.
-    // Using the 'synced' event prevents the editor from starting with empty
-    // content and then receiving an IndexedDB update that rebuilds the entire
-    // ProseMirror docView (which destroys all node views and resets the cursor).
     let destroyed = false;
     const idb = new IndexeddbPersistence(pageId, doc);
     const onSynced = () => {
       if (!destroyed) setYdoc(doc);
     };
-    // 'synced' fires when IndexedDB has loaded the stored state. Fall back to a
-    // short timer in case the event never fires (e.g. fresh doc with no data).
     idb.on("synced", onSynced);
     const fallback = setTimeout(() => {
       if (!destroyed) setYdoc(doc);
     }, 300);
 
-    const providerOptions: ConstructorParameters<typeof HocuspocusProvider>[0] =
-      sharedSocket
-        ? {
-            websocketProvider: sharedSocket,
-            name: pageId,
-            document: doc,
-            token: collabToken,
-            onConnect: () => console.log("connected"),
-          }
-        : {
-            url: `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/collab`,
-            name: pageId,
-            document: doc,
-            token: collabToken,
-          };
-
-    providerRef.current = new HocuspocusProvider(providerOptions);
-    if (sharedSocket) providerRef.current.attach();
-
     return () => {
       destroyed = true;
       clearTimeout(fallback);
       idb.off("synced", onSynced);
-      providerRef.current?.destroy();
       doc.destroy();
       setYdoc(null);
     };

@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 # Install claude-code globally
 RUN npm install -g @anthropic-ai/claude-code
 
-# Install corebrain CLI globally
+# Install the MemoryNote-compatible CLI globally
 RUN npm install -g @redplanethq/corebrain
 
 WORKDIR /workspace

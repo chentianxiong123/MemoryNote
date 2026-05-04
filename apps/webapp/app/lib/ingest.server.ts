@@ -5,7 +5,7 @@ import { type z } from "zod";
 import { prisma } from "~/db.server";
 
 import { countTokens } from "~/services/search/tokenBudget";
-import { type IngestBodyRequest } from "~/trigger/ingest/ingest";
+import { type IngestBodyRequest } from "~/jobs/ingest/ingest-episode.logic";
 import { enqueuePreprocessEpisode } from "~/lib/queue-adapter.server";
 import { trackFeatureUsage } from "~/services/telemetry.server";
 import { estimateCreditsFromTokens, reserveCredits } from "~/jobs/credit_utils";

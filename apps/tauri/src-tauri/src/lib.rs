@@ -259,8 +259,8 @@ fn build_tray_menu<R: tauri::Runtime>(
 ) -> tauri::Result<Menu<R>> {
     let toggle_label = if paused { "Enable Capture" } else { "Pause Capture" };
     let toggle_i = MenuItem::with_id(manager, "toggle_capture", toggle_label, true, None::<&str>)?;
-    let open_i = MenuItem::with_id(manager, "open", "Open CORE", true, None::<&str>)?;
-    let quit_i = MenuItem::with_id(manager, "quit", "Quit CORE", true, None::<&str>)?;
+    let open_i = MenuItem::with_id(manager, "open", "Open MemoryNote", true, None::<&str>)?;
+    let quit_i = MenuItem::with_id(manager, "quit", "Quit MemoryNote", true, None::<&str>)?;
     let sep1 = PredefinedMenuItem::separator(manager)?;
     let sep2 = PredefinedMenuItem::separator(manager)?;
     let items: &[&dyn tauri::menu::IsMenuItem<R>] = &[&toggle_i, &sep1, &open_i, &sep2, &quit_i];
@@ -325,7 +325,7 @@ pub fn run() {
             TrayIconBuilder::with_id("main-tray")
                 .icon(tauri::include_image!("icons/tray-icon@2x.png"))
                 .icon_as_template(true)
-                .tooltip("CORE")
+                .tooltip("MemoryNote")
                 .menu(&tray_menu)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "toggle_capture" => {

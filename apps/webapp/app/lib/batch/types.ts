@@ -1,4 +1,4 @@
-import { type CoreMessage } from "ai";
+import { type UIMessage } from "ai";
 import { z } from "zod";
 
 export type BatchStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
@@ -6,7 +6,7 @@ export type BatchStatus = "pending" | "processing" | "completed" | "failed" | "c
 export type ModelComplexity = 'high' | 'low';
 export interface BatchRequest {
   customId: string;
-  messages: CoreMessage[];
+  messages: UIMessage[];
   systemPrompt?: string;
   options?: any;
 }

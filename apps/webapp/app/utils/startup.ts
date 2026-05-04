@@ -1,8 +1,6 @@
 import { logger } from "~/services/logger.service";
-import { IntegrationRunner } from "~/services/integrations/integration-runner";
 import { ProviderFactory } from "@core/providers";
 import { env } from "~/env.server";
-import { initWorkers, shutdownWorkers } from "~/bullmq/start-workers";
 import { trackConfig } from "~/services/telemetry.server";
 import { prisma } from "~/db.server";
 import { migration } from "~/migration";
@@ -78,36 +76,7 @@ export async function initializeStartupServices() {
     ProviderFactory.initializeFromEnv({ prisma });
     logger.info("ProviderFactory initialized successfully");
 
-    // Now initialize queue provider
-    if (env.QUEUE_PROVIDER === "trigger") {
-      const triggerApiUrl = env.TRIGGER_API_URL;
-      // At this point, env validation should have already ensured these are present
-      // But we add a runtime check for safety
-      if (
-        !triggerApiUrl ||
-        !env.TRIGGER_PROJECT_ID ||
-        !env.TRIGGER_SECRET_KEY
-      ) {
-        console.error(
-          "TRIGGER_API_URL, TRIGGER_PROJECT_ID, and TRIGGER_SECRET_KEY must be set when QUEUE_PROVIDER=trigger",
-        );
-        process.exit(1);
-      }
-      await waitForTriggerLogin(triggerApiUrl);
-      await addEnvVariablesInTrigger();
-    } else {
-      // Start BullMQ workers (they need ProviderFactory to be initialized)
-      await initWorkers();
-
-      // Handle graceful shutdown
-      process.on("SIGTERM", async () => {
-        await shutdownWorkers();
-      });
-      process.on("SIGINT", async () => {
-        await shutdownWorkers();
-        process.exit(0);
-      });
-    }
+    logger.info("Background queue disabled: running without Redis/BullMQ.");
 
     // Wait for Neo4j to be ready
     await waitForNeo4j();
@@ -116,8 +85,7 @@ export async function initializeStartupServices() {
     await ProviderFactory.initializeSchemaOnce();
     logger.info("Neo4j schema initialization completed");
 
-    await IntegrationRunner.load();
-    logger.info("Integration definitions load completed");
+    logger.info("Integration definitions skipped (removed)");
 
     // Initialize vector infrastructure through provider
     await ProviderFactory.initializeVectorInfrastructureOnce();
@@ -210,7 +178,7 @@ export async function addEnvVariablesInTrigger() {
   // Map of key to value from env, replacing 'localhost' as needed
   const envVars: Record<string, string> = {
     API_BASE_URL: APP_ORIGIN.includes("localhost")
-      ? APP_ORIGIN.replace("localhost", "core-app")
+      ? APP_ORIGIN.replace("localhost", "memorynote-app")
       : APP_ORIGIN,
     DATABASE_URL: DATABASE_URL ?? "",
     EMBEDDING_MODEL: EMBEDDING_MODEL ?? "",

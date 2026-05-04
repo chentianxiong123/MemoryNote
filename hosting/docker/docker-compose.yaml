@@ -8,9 +8,12 @@ x-logging: &logging-config
 version: "3.8"
 
 services:
-  core:
-    container_name: core-app
-    image: redplanethq/core:${VERSION}
+  memorynote:
+    container_name: memorynote-app
+    image: memorynote:${VERSION:-latest}
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
     restart: ${RESTART_POLICY:-unless-stopped}
     environment:
       - NODE_ENV=${NODE_ENV}
@@ -19,8 +22,8 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - MAGIC_LINK_SECRET=${MAGIC_LINK_SECRET}
-      - LOGIN_ORIGIN=${CORE_LOGIN_ORIGIN}
-      - APP_ORIGIN=${CORE_APP_ORIGIN}
+      - LOGIN_ORIGIN=${MEMORYNOTE_LOGIN_ORIGIN}
+      - APP_ORIGIN=${MEMORYNOTE_APP_ORIGIN}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
@@ -69,10 +72,10 @@ services:
       redis:
         condition: service_started
     networks:
-      - core
+      - memorynote
 
   postgres:
-    container_name: core-postgres
+    container_name: memorynote-postgres
     image: pgvector/pgvector:pg18-trixie
     restart: ${RESTART_POLICY:-unless-stopped}
     environment:
@@ -84,7 +87,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
     networks:
-      - core
+      - memorynote
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
@@ -93,16 +96,16 @@ services:
       start_period: 10s
 
   redis:
-    container_name: core-redis
+    container_name: memorynote-redis
     image: redis:7
     restart: ${RESTART_POLICY:-unless-stopped}
     ports:
       - "6379:6379"
     networks:
-      - core
+      - memorynote
 
   neo4j:
-    container_name: core-neo4j
+    container_name: memorynote-neo4j
     image: redplanethq/neo4j:0.1.0
     restart: ${RESTART_POLICY:-unless-stopped}
     environment:
@@ -120,7 +123,7 @@ services:
     volumes:
       - neo4j_data:/data
     networks:
-      - core
+      - memorynote
     healthcheck:
       test: ["CMD-SHELL", "cypher-shell -u $NEO4J_USERNAME -p $NEO4J_PASSWORD 'RETURN 1'"]
       interval: 10s
@@ -130,7 +133,7 @@ services:
 
   # Uncomment this if you want to use a local embedding modal
   # ollama:
-  #   container_name: core-ollama
+  #   container_name: memorynote-ollama
   #   image: ollama/ollama:0.12.6
   #   ports:
   #     - "11434:11434"
@@ -138,7 +141,7 @@ services:
   #     - ollama_data:/root/.ollama
   #     - ./scripts/ollama-init.sh:/usr/local/bin/ollama-init.sh:ro
   #   networks:
-  #     - core
+  #     - memorynote
   #   entrypoint: ["/bin/bash", "/usr/local/bin/ollama-init.sh"]
   #   healthcheck:
   #     # The upstream `ollama/ollama` image doesn't include `curl`.
@@ -155,8 +158,8 @@ services:
   #   restart: unless-stopped
 
 networks:
-  core:
-    name: core
+  memorynote:
+    name: memorynote
     driver: bridge
 
 volumes:

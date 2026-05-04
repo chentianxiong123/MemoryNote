@@ -96,30 +96,29 @@ function getTemporalDateRange(ctx: HandlerContext): {
 
   switch (temporal.type) {
     case "recent":
-      const days = temporal.days;
+      const days = temporal.days ?? 7;
       const startTime = new Date();
       startTime.setDate(startTime.getDate() - days);
       return { startTime };
 
     case "range":
       return {
-        startTime: new Date(temporal.startDate),
-        endTime: new Date(temporal.endDate),
+        startTime: temporal.startDate ? new Date(temporal.startDate) : undefined,
+        endTime: temporal.endDate ? new Date(temporal.endDate) : undefined,
       };
 
     case "before":
       return {
-        endTime: new Date(temporal.endDate),
+        endTime: temporal.endDate ? new Date(temporal.endDate) : undefined,
       };
 
     case "after":
       return {
-        startTime: new Date(temporal.startDate),
+        startTime: temporal.startDate ? new Date(temporal.startDate) : undefined,
       };
 
     case "all":
     default:
-      // Check options for explicit time filters
       return {
         startTime: ctx.options.startTime,
         endTime: ctx.options.endTime,
@@ -166,7 +165,7 @@ async function getEpisodesViaEntityHints(
 
   const entityUuidSets = await Promise.all(
     hintsToSearch.map(async (hint) => {
-      const embedding = await getEmbedding(hint);
+      const embedding = await getEmbedding(hint, ctx.workspaceId);
       if (!embedding?.length) return [];
       const results = await vectorProvider.search({
         vector: embedding,
@@ -213,7 +212,7 @@ async function getEpisodesViaVectorSearch(
   ctx: HandlerContext,
   maxEpisodes: number,
 ): Promise<EpisodicNode[]> {
-  const queryEmbedding = await getEmbedding(query);
+  const queryEmbedding = await getEmbedding(query, ctx.workspaceId);
   if (!queryEmbedding?.length) return [];
 
   const vectorProvider = ProviderFactory.getVectorProvider();
@@ -332,7 +331,7 @@ export async function handleEntityLookup(
 
   for (const hint of entityHints) {
     // Get embedding for the hint
-    const hintEmbedding = await getEmbedding(hint);
+  const hintEmbedding = await getEmbedding(hint, ctx.workspaceId);
 
     if (!hintEmbedding || hintEmbedding.length === 0) {
       logger.debug(
@@ -648,7 +647,7 @@ export async function handleRelationship(
   const vectorProvider = ProviderFactory.getVectorProvider();
   const entityUuidSets = await Promise.all(
     entityHints.slice(0, 5).map(async (hint) => {
-      const embedding = await getEmbedding(hint);
+      const embedding = await getEmbedding(hint, ctx.workspaceId);
       if (!embedding?.length) return [];
       const results = await vectorProvider.search({
         vector: embedding,
@@ -701,9 +700,10 @@ async function applyVectorReranking(
   query: string,
   maxEpisodes: number,
   threshold: number,
+  workspaceId?: string,
 ): Promise<RankedEpisode[]> {
   const startTime = Date.now();
-  const queryEmbedding = await getEmbedding(query);
+  const queryEmbedding = await getEmbedding(query, workspaceId);
 
   if (!queryEmbedding || queryEmbedding.length === 0) {
     logger.debug(
@@ -805,6 +805,7 @@ async function applyEpisodeReranking(
       query,
       maxEpisodes,
       RELEVANCE_THRESHOLD,
+      ctx.workspaceId,
     );
   } catch (error) {
     logger.warn(`[Reranking:vector] Failed, using original order: ${error}`);
@@ -1268,7 +1269,7 @@ async function searchVoiceAspectsForQuery(
 
   if (requestedVoiceAspects.length === 0) return [];
 
-  const queryEmbedding = await getEmbedding(query);
+  const queryEmbedding = await getEmbedding(query, ctx.workspaceId);
   if (!queryEmbedding || queryEmbedding.length === 0) return [];
 
   // Search for each requested voice aspect type

@@ -34,9 +34,11 @@ export function getCorePrompt(
 ): string {
   let channelFormat: string;
   try {
-    channelFormat = getChannel(channel).getFormat();
+    channelFormat =
+      getChannel(channel)?.format ?? CHANNEL_FORMATS[channel].format;
   } catch {
-    channelFormat = CHANNEL_FORMATS[channel] || CHANNEL_FORMATS.web;
+    channelFormat =
+      CHANNEL_FORMATS[channel]?.format ?? CHANNEL_FORMATS.web.format;
   }
 
   const timezone = userInfo?.timezone || "UTC";
@@ -64,7 +66,10 @@ ${userPersona}
   }
 
   const personalityType = (userInfo?.personality as PersonalityType) || "tars";
-  return `${PERSONALITY(userInfo?.name ?? "User", personalityType, userInfo?.pronoun, butlerName, userInfo?.customPersonality)}\n\n${CAPABILITIES}\n\n${channelFormat}\n\n${currentTime}${userContext}${personaSection}`;
+  const personalityPrompt =
+    PERSONALITY[personalityType] ?? PERSONALITY.friendly;
+
+  return `${personalityPrompt}\n\n${CAPABILITIES}\n\n${channelFormat}\n\n${currentTime}${userContext}${personaSection}`;
 }
 
 // Re-export for convenience

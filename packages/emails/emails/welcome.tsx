@@ -23,17 +23,17 @@ export default function WelcomeEmail() {
           <Link style={anchor} href="https://x.com/manikagg01">
             manik
           </Link>{" "}
-          from core here. welcome to core. three things made it click for me:
+          from MemoryNote here. welcome to MemoryNote. three things made it click for me:
         </Text>
 
         <Text style={heading}>meet your chief of staff</Text>
         <Text style={paragraphLight}>
-          use core as your executive assistant on whatsapp, slack, imessage, and more.
+          use MemoryNote as your executive assistant on whatsapp, slack, imessage, and more.
         </Text>
         <Text style={{ ...paragraphLight, marginTop: 0 }}>
           set a reminder or a skill once, and it works proactively on your behalf in the background,
           no trigger, no prompt needed.{" "}
-          <Link style={anchor} href="https://docs.getcore.me/quickstart/chief-of-staff">
+          <Link style={anchor} href="http://localhost:3033">
             know more
           </Link>
           .
@@ -53,12 +53,12 @@ export default function WelcomeEmail() {
 
         <Text style={heading}>supercharge your coding agent</Text>
         <Text style={paragraphLight}>
-          add core to cursor, claude or any coding agent via a single mcp url. your agent gets
+          add MemoryNote to cursor, claude or any coding agent via a single mcp url. your agent gets
           persistent memory across sessions.
         </Text>
         <Text style={{ ...paragraphLight, marginTop: 0 }}>
           connect{" "}
-          <Link style={anchor} href="https://docs.getcore.me/providers/claude">
+          <Link style={anchor} href="http://localhost:3033">
             claude
           </Link>
           .
@@ -78,15 +78,15 @@ export default function WelcomeEmail() {
 
         <Text style={heading}>sync chatgpt/gemini conversations</Text>
         <Text style={paragraphLight}>
-          saving my insights from chatgpt/gemini conversations as memory in core for future
+          saving my insights from chatgpt/gemini conversations as memory in MemoryNote for future
           reference. check steps to connect{" "}
-          <Link style={anchor} href="https://docs.getcore.me/providers/browser-extension">
+          <Link style={anchor} href="http://localhost:3033">
             here
           </Link>
           .
         </Text>
         <Img
-          alt="Core Extension"
+          alt="MemoryNote Extension"
           style={{
             marginLeft: "auto",
             marginRight: "auto",
@@ -107,7 +107,7 @@ export default function WelcomeEmail() {
         </Text>
         <Text style={paragraphLight}>
           - we are open-source ⭐ us on{" "}
-          <Link style={anchor} href="https://github.com/RedPlanetHQ/core">
+          <Link style={anchor} href="https://github.com/chentianxiong123/MemoryNote">
             github
           </Link>
         </Text>

@@ -206,7 +206,7 @@ export default function MemorySettings() {
           <Card>
             <CardContent className="flex items-center gap-3 p-6 text-sm text-muted-foreground">
               <Monitor size={18} />
-              This feature is only available in the CORE desktop app.
+              This feature is only available in the MemoryNote desktop app.
             </CardContent>
           </Card>
         </SettingSection>
@@ -218,7 +218,7 @@ export default function MemorySettings() {
     <div className="md:w-3xl mx-auto flex w-auto flex-col gap-4 px-4 py-6">
       <SettingSection
         title="Memory"
-        description="Control how CORE captures context from your screen."
+        description="Control how MemoryNote captures context from your screen."
       >
         <div className="flex flex-col gap-6">
           {/* Pause toggle */}
@@ -229,7 +229,7 @@ export default function MemorySettings() {
                 <div>
                   <p className="font-medium">Capture screen context</p>
                   <p className="text-muted-foreground text-sm">
-                    CORE reads the active window via Accessibility API to build
+                    MemoryNote reads the active window via Accessibility API to build
                     context. No screenshots are taken.
                   </p>
                 </div>

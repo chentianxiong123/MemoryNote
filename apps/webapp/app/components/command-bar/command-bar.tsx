@@ -6,9 +6,7 @@ import {
   MessageSquare,
   Tag,
   Brain,
-  Library,
   MessagesSquare,
-  CalendarDays,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -33,28 +31,10 @@ const NAV_ITEMS = [
     shortcut: "G C",
   },
   {
-    label: "Go to Tasks",
-    url: "/home/tasks",
-    icon: Task,
-    shortcut: "G T",
-  },
-  {
     label: "Go to Memory",
     url: "/home/memory",
     icon: Brain,
     shortcut: "G M",
-  },
-  {
-    label: "Go to Daily",
-    url: "/home/daily",
-    icon: CalendarDays,
-    shortcut: "G D",
-  },
-  {
-    label: "Go to Skills",
-    url: "/home/agent/skills",
-    icon: Library,
-    shortcut: "G S",
   },
 ];
 
@@ -84,13 +64,6 @@ interface LabelResult {
   color: string;
 }
 
-interface TaskResult {
-  id: string;
-  title: string;
-  status: string;
-  createdAt: string;
-}
-
 export function CommandBar({ open, onOpenChange }: CommandBarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQuery = useDebounce(searchQuery, 300);
@@ -99,7 +72,6 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
     ConversationResult[]
   >([]);
   const [labelResults, setLabelResults] = useState<LabelResult[]>([]);
-  const [taskResults, setTaskResults] = useState<TaskResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const navigate = useNavigate();
 
@@ -109,14 +81,13 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
       setDocumentResults([]);
       setConversationResults([]);
       setLabelResults([]);
-      setTaskResults([]);
       return;
     }
 
     const search = async () => {
       setIsSearching(true);
       try {
-        const [docsRes, convsRes, labelsRes, tasksRes] = await Promise.all([
+        const [docsRes, convsRes, labelsRes] = await Promise.all([
           fetch(
             `/api/v1/documents/search?${new URLSearchParams({ q: debouncedQuery, mode: "full", limit: "10" })}`,
           ),
@@ -125,9 +96,6 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
           ),
           fetch(
             `/api/v1/labels?${new URLSearchParams({ search: debouncedQuery })}`,
-          ),
-          fetch(
-            `/api/v1/tasks?${new URLSearchParams({ search: debouncedQuery })}`,
           ),
         ]);
         if (docsRes.ok) {
@@ -141,10 +109,6 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
         if (labelsRes.ok) {
           const data = await labelsRes.json();
           setLabelResults(data || []);
-        }
-        if (tasksRes.ok) {
-          const data = await tasksRes.json();
-          setTaskResults(data || []);
         }
       } catch (error) {
         console.error("Search failed:", error);
@@ -186,16 +150,11 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
     onOpenChange(false);
   };
 
-  const handleTaskClick = (taskId: string) => {
-    navigate(`/home/tasks/${taskId}`);
-    onOpenChange(false);
-  };
-
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <Command shouldFilter={false}>
-        <CommandInput
-          placeholder="Search conversations, tasks and documents..."
+          <CommandInput
+            placeholder="Search conversations, labels and documents..."
           className="py-1"
           value={searchQuery}
           onValueChange={setSearchQuery}
@@ -290,25 +249,6 @@ export function CommandBar({ open, onOpenChange }: CommandBarProps) {
                   />
                   <span className="text-foreground truncate text-sm">
                     {label.name}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-
-          {/* Tasks */}
-          {taskResults.length > 0 && (
-            <CommandGroup heading="Tasks" className="max-w-[700px] p-2">
-              {taskResults.map((task) => (
-                <CommandItem
-                  key={task.id}
-                  value={task.id}
-                  onSelect={() => handleTaskClick(task.id)}
-                  className="flex items-center gap-2 py-2"
-                >
-                  <Task className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-foreground truncate text-sm">
-                    {task.title}
                   </span>
                 </CommandItem>
               ))}

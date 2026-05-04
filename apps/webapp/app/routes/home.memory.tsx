@@ -46,15 +46,8 @@ export default function MemoryLayout() {
           variant: "secondary" as const,
         },
       ]
-    : isLabels && location.pathname === "/home/memory/labels"
-      ? [
-          {
-            label: "New label",
-            icon: <Plus size={14} />,
-            onClick: () => navigate("/settings/labels"),
-            variant: "secondary" as const,
-          },
-        ]
+      : isLabels && location.pathname === "/home/memory/labels"
+      ? []
       : [];
 
   return (

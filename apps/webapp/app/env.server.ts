@@ -75,7 +75,7 @@ const EnvironmentSchema = z
 
     //Redis
     REDIS_HOST: z.string().default("localhost"),
-    REDIS_PORT: z.coerce.number().default(6379),
+    REDIS_PORT: z.coerce.number().default(6380),
     REDIS_TLS_DISABLED: z
       .string()
       .optional()
@@ -89,7 +89,10 @@ const EnvironmentSchema = z
 
     //OpenAI
     OPENAI_API_KEY: z.string().optional(),
-    OPENAI_BASE_URL: z.string().optional(),
+    OPENAI_BASE_URL: z
+      .string()
+      .optional()
+      .transform((val) => (val && val.trim().length > 0 ? val : undefined)),
     OPENAI_API_MODE: z
       .enum(["responses", "chat_completions", "chat"])
       .default("responses"),
@@ -127,6 +130,7 @@ const EnvironmentSchema = z
     MODEL: z.string().default(LLMModelEnum.GPT41),
     EMBEDDING_MODEL: z.string().default("mxbai-embed-large"),
     EMBEDDING_MODEL_SIZE: z.string().default("1024"),
+    EMBEDDING_API_KEY: z.string().optional(),
     MODEL_TEMPERATURE: z.coerce.number().default(1),
     LLM_TOLERANT_OUTPUT: z.string().optional(),
     OLLAMA_URL: z.string().optional(),
@@ -139,12 +143,17 @@ const EnvironmentSchema = z
     INLINE_BATCH_CONCURRENCY: z.coerce.number().int().positive().default(8),
 
     // Reranking configuration
-    RERANK_PROVIDER: z.enum(["cohere", "ollama", "none"]).default("none"),
+    RERANK_PROVIDER: z.enum(["cohere", "ollama", "openai", "none"]).default("none"),
     COHERE_API_KEY: z.string().optional(),
     COHERE_RERANK_MODEL: z.string().default("rerank-english-v3.0"),
     COHERE_SCORE_THRESHOLD: z.string().default("0.3"),
     OLLAMA_RERANK_MODEL: z.string().default("dengcao/Qwen3-Reranker-8B:Q4_K_M"),
     OLLAMA_SCORE_THRESHOLD: z.string().default("0.3"),
+    // OpenAI-compatible rerank API (e.g., qwen3-reranker)
+    RERANK_API_KEY: z.string().optional(),
+    RERANK_BASE_URL: z.string().optional(),
+    RERANK_MODEL: z.string().default("qwen3-reranker-8b"),
+    RERANK_SCORE_THRESHOLD: z.string().default("0.3"),
 
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
@@ -256,6 +265,14 @@ try {
     }
   }
   env = process.env as unknown as z.infer<typeof EnvironmentSchema>;
+}
+
+// Normalize blank env vars so lower-level SDKs that read process.env directly
+// don't treat empty strings like valid URLs.
+for (const key of ["OPENAI_BASE_URL", "OLLAMA_URL", "AZURE_BASE_URL"]) {
+  if (typeof process.env[key] === "string" && process.env[key]!.trim() === "") {
+    delete process.env[key];
+  }
 }
 
 export { env };

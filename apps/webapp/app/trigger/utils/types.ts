@@ -1,5 +1,5 @@
 import { type ActionStatusEnum } from "@core/types";
-import { type CoreMessage } from "ai";
+import { type ModelMessage } from "ai";
 import { z } from "zod";
 
 // Define types for the MCP tool schema
@@ -65,7 +65,7 @@ export interface ExecutionState {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context?: string;
   resources: Resource[];
-  previousHistory?: CoreMessage[];
+  previousHistory?: ModelMessage[];
   history: HistoryStep[];
   userMemoryContext?: string;
   automationContext?: string;

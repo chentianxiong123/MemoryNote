@@ -1,33 +1,47 @@
-import * as Y from "yjs";
+import { useEffect, useCallback } from "react";
 
-export function useButlerComments(
-  ydoc: Y.Doc,
-  pageId: string,
-) {
+interface ButlerComment {
+  id: string;
+  content: string;
+  position: { from: number; to: number };
+}
 
-  function resolveComment(conversationId: string, resolved: boolean) {
-    // Update Yjs attribute so all collaborators see the change
-    const fragment = ydoc.getXmlFragment("default");
+interface UseButlerCommentsOptions {
+  documentId?: string;
+  onCommentAdd?: (comment: ButlerComment) => void;
+  onCommentRemove?: (commentId: string) => void;
+  onCommentResolve?: (commentId: string, resolved: boolean) => void;
+}
 
-    function walk(node: Y.XmlFragment | Y.XmlElement) {
-      node.forEach((child) => {
-        if (!(child instanceof Y.XmlElement)) return;
-        if (child.getAttribute("conversationId") === conversationId) {
-          child.setAttribute("resolved", resolved);
-        }
-        walk(child);
-      });
-    }
+export function useButlerComments(options: UseButlerCommentsOptions = {}) {
+  const { documentId, onCommentAdd, onCommentRemove, onCommentResolve } = options;
 
-    ydoc.transact(() => walk(fragment), "client-conversation-resolved");
+  useEffect(() => {
+    // Placeholder implementation
+  }, [documentId]);
 
-    // Persist in DB
-    fetch(`/api/v1/page/${pageId}/comments`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversationId, resolved }),
-    }).catch(() => {});
-  }
+  const addComment = useCallback((content: string, position: { from: number; to: number }) => {
+    const comment: ButlerComment = {
+      id: `comment-${Date.now()}`,
+      content,
+      position,
+    };
+    onCommentAdd?.(comment);
+    return comment;
+  }, [onCommentAdd]);
 
-  return { resolveComment };
+  const removeComment = useCallback((commentId: string) => {
+    onCommentRemove?.(commentId);
+  }, [onCommentRemove]);
+
+  const resolveComment = useCallback((commentId: string, resolved: boolean = true) => {
+    onCommentResolve?.(commentId, resolved);
+  }, [onCommentResolve]);
+
+  return {
+    comments: [] as ButlerComment[],
+    addComment,
+    removeComment,
+    resolveComment,
+  };
 }

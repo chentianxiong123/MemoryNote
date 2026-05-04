@@ -105,6 +105,7 @@ model Conversation {
   activeStreamId String? // Set while background stream is active; cleared on completion
 
   ConversationHistory ConversationHistory[]
+  knowledgeCaptureBatches KnowledgeCaptureBatch[]
   RecallLog           RecallLog[]
   codingSessions      CodingSession[]
 }
@@ -146,6 +147,88 @@ model ConversationHistory {
 
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   conversationId String
+}
+
+enum KnowledgeCaptureBatchStatus {
+  PROPOSED
+  ARCHIVED
+}
+
+enum KnowledgeCaptureItemKind {
+  ENTITY
+  RELATION
+  EVENT
+  DECISION
+}
+
+enum KnowledgeCaptureItemStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  SNOOZED
+  MERGED
+}
+
+model KnowledgeCaptureBatch {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  sessionId String
+  summary   String
+  status    KnowledgeCaptureBatchStatus @default(PROPOSED)
+
+  sourceEpisodeUuids String[] @default([])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  items KnowledgeCaptureItem[]
+
+  @@index([userId, workspaceId, createdAt(sort: Desc)])
+  @@index([conversationId])
+  @@index([sessionId])
+}
+
+model KnowledgeCaptureItem {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batchId String
+  batch   KnowledgeCaptureBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  kind       KnowledgeCaptureItemKind
+  title      String
+  payload    Json
+  evidence   Json?
+  confidence Float?
+  importance Float?
+
+  firstSeenAt    DateTime
+  lastSeenAt     DateTime
+  lastReviewedAt DateTime?
+  status         KnowledgeCaptureItemStatus @default(PROPOSED)
+
+  acceptedGraphUuid String?
+  mergeTargetUuid   String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, status])
+  @@index([userId, workspaceId, status, updatedAt(sort: Desc)])
+  @@index([kind, status])
+  @@index([acceptedGraphUuid])
 }
 
 model Document {
@@ -907,6 +990,8 @@ model User {
   Gateway                   Gateway[]
   VoiceAspect               VoiceAspect[]
   VoiceAspectEmbedding      VoiceAspectEmbedding[]
+  knowledgeCaptureBatches   KnowledgeCaptureBatch[]
+  knowledgeCaptureItems     KnowledgeCaptureItem[]
 }
 
 model UserUsage {
@@ -1051,6 +1136,8 @@ model Workspace {
   voiceAspectEmbeddings   VoiceAspectEmbedding[]
   llmProviders            LLMProvider[]
   codingSessions          CodingSession[]
+  knowledgeCaptureBatches KnowledgeCaptureBatch[]
+  knowledgeCaptureItems   KnowledgeCaptureItem[]
 }
 
 enum TaskStatus {

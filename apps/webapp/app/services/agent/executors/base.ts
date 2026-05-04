@@ -1,105 +1,54 @@
-/**
- * OrchestratorTools abstraction
- *
- * Allows the orchestrator to run in two contexts:
- * - Server (web chat): DirectOrchestratorTools — calls functions directly (DB/websocket)
- * - Trigger/BullMQ jobs: HttpOrchestratorTools — calls via CoreClient HTTP
- *
- * Only leaf operations that touch DB/websocket are abstracted here.
- * The orchestrator calls these methods directly for integrations,
- * and delegates to gateway agents for gateway operations.
- */
-
-import type { MessageChannel } from "../types";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface ConnectedIntegration {
+export type ConnectedIntegration = {
   id: string;
-  accountId: string | null;
-  integrationDefinition: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-}
+  type: string;
+  name: string;
+  config?: Record<string, unknown>;
+};
 
-export interface GatewayAgentInfo {
+export type GatewayAgentInfo = {
   id: string;
   name: string;
-  description: string;
-  tools: string[];
-  platform: string | null;
-  hostname: string | null;
-  status: "CONNECTED" | "DISCONNECTED";
-}
+  type: string;
+};
 
 export interface SendChannelMessageParams {
-  channel: MessageChannel | "web";
+  channelId: string;
   message: string;
-  userId: string;
-  workspaceId: string;
-  conversationId?: string;
-  channelMetadata?: Record<string, unknown>;
+  attachments?: Array<{ filename: string; content: string }>;
 }
 
 export interface SendChannelMessageResult {
   success: boolean;
+  messageId?: string;
   error?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Abstract base
-// ---------------------------------------------------------------------------
+export interface OrchestratorToolsInterface {
+  searchMemory(query: string, userId: string, workspaceId: string, source: string): Promise<string>;
+  getSkill(skillId: string, workspaceId: string): Promise<string>;
+  getIntegrations(workspaceId: string): Promise<ConnectedIntegration[]>;
+  getIntegrationActions(integrationId: string): Promise<{ id: string; name: string }[]>;
+  executeIntegrationAction(integrationId: string, actionId: string, params: Record<string, unknown>): Promise<{ success: boolean; result?: unknown }>;
+}
 
-export abstract class OrchestratorTools {
-  /** Search memory for relevant context. Returns formatted text. */
-  abstract searchMemory(
-    query: string,
-    userId: string,
-    workspaceId: string,
-    source: string,
-  ): Promise<string>;
+export class OrchestratorTools implements OrchestratorToolsInterface {
+  async searchMemory(query: string, userId: string, workspaceId: string, source: string): Promise<string> {
+    return "not implemented";
+  }
 
-  /** Get connected integration accounts for the workspace. */
-  abstract getIntegrations(
-    userId: string,
-    workspaceId: string,
-  ): Promise<ConnectedIntegration[]>;
+  async getSkill(skillId: string, workspaceId: string): Promise<string> {
+    return "not implemented";
+  }
 
-  /** Get connected gateways for the workspace. Returns GatewayAgentInfo[]. */
-  abstract getGateways(workspaceId: string): Promise<GatewayAgentInfo[]>;
+  async getIntegrations(workspaceId: string): Promise<ConnectedIntegration[]> {
+    return [];
+  }
 
-  /** Get available actions for an integration account. */
-  abstract getIntegrationActions(
-    accountId: string,
-    query: string,
-    userId: string,
-  ): Promise<unknown>;
+  async getIntegrationActions(integrationId: string): Promise<{ id: string; name: string }[]> {
+    return [];
+  }
 
-  /** Execute an action on an integration account. */
-  abstract executeIntegrationAction(
-    accountId: string,
-    action: string,
-    parameters: Record<string, unknown>,
-    userId: string,
-    source: string,
-  ): Promise<unknown>;
-
-  /** Execute a specific tool on a gateway. */
-  abstract executeGatewayTool(
-    gatewayId: string,
-    toolName: string,
-    params: Record<string, unknown>,
-  ): Promise<unknown>;
-
-  /** Load a skill's full content by ID. */
-  abstract getSkill(skillId: string, workspaceId: string): Promise<string>;
-
-  /** Send a message to a channel and save to conversation. */
-  abstract sendChannelMessage(
-    params: SendChannelMessageParams,
-  ): Promise<SendChannelMessageResult>;
+  async executeIntegrationAction(integrationId: string, actionId: string, params: Record<string, unknown>): Promise<{ success: boolean; result?: unknown }> {
+    return { success: false };
+  }
 }

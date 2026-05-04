@@ -79,7 +79,7 @@ export function NavUser({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="flex gap-2"
-          onClick={() => navigate("/settings/account")}
+          onClick={() => navigate("/settings/workspace/models")}
         >
           <Settings size={16} />
           Settings
@@ -114,24 +114,9 @@ export function NavUser({
                   )}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="flex gap-2"
-                onClick={() => navigate("/workspace/join")}
-              >
-                <Plus size={16} />
-                Create or join a workspace
-              </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
         </DropdownMenuSub>
-        <DropdownMenuItem
-          className="flex gap-2"
-          onClick={() => navigate("/logout")}
-        >
-          <LogOut size={16} />
-          Log out
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -31,8 +31,8 @@ import { ProviderFactory } from "@core/providers";
  * using a hybrid approach combining BM25, vector similarity, and BFS traversal.
  */
 export class SearchService {
-  async getEmbedding(text: string) {
-    return getEmbedding(text);
+  async getEmbedding(text: string, workspaceId?: string) {
+    return getEmbedding(text, workspaceId);
   }
 
   /**
@@ -93,7 +93,7 @@ export class SearchService {
     };
     // Enhance query with LLM to transform keyword soup into semantic query
 
-    const queryVector = await this.getEmbedding(query);
+    const queryVector = await this.getEmbedding(query, workspaceId);
     const vectorEndTime = Date.now();
     logger.info(`Query vectorization: ${vectorEndTime - startTime}ms`);
 
@@ -228,17 +228,22 @@ export class SearchService {
         ? env.COHERE_SCORE_THRESHOLD
         : env.RERANK_PROVIDER === "ollama"
           ? env.OLLAMA_SCORE_THRESHOLD
-          : "0.2",
+          : env.RERANK_PROVIDER === "openai"
+            ? env.RERANK_SCORE_THRESHOLD
+            : "0.2",
     );
 
     const rerankConfig: RerankConfig = {
-      provider: (env.RERANK_PROVIDER || "none") as "cohere" | "ollama" | "none",
+      provider: (env.RERANK_PROVIDER || "none") as "cohere" | "ollama" | "openai" | "none",
       limit: Math.min(episodesWithProvenance.length, 100),
       threshold: isNaN(thresholdValue) ? 0.3 : thresholdValue,
       cohereApiKey: env.COHERE_API_KEY,
       cohereModel: env.COHERE_RERANK_MODEL,
       ollamaUrl: env.OLLAMA_URL,
       ollamaModel: env.OLLAMA_RERANK_MODEL,
+      openaiApiKey: env.RERANK_API_KEY,
+      openaiBaseUrl: env.RERANK_BASE_URL,
+      openaiModel: env.RERANK_MODEL,
     };
 
     logger.info(

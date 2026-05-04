@@ -1,476 +1,80 @@
-import { type PersonalAccessToken } from "@core/database";
-import { customAlphabet, nanoid } from "nanoid";
-import nodeCrypto from "node:crypto";
-import { z } from "zod";
 import { prisma } from "~/db.server";
-import {
-  encryptSecret,
-  decryptSecret,
-  EncryptedSecretSchema,
-} from "~/lib/encryption.server";
-import { env } from "~/env.server";
-import { logger } from "./logger.service";
+import { nanoid } from "nanoid";
+import crypto from "crypto";
+import type { Prisma } from "@prisma/client";
 
-const tokenValueLength = 40;
-//lowercase only, removed 0 and l to avoid confusion
-const tokenGenerator = customAlphabet(
-  "123456789abcdefghijkmnopqrstuvwxyz",
-  tokenValueLength,
-);
-
-type CreatePersonalAccessTokenOptions = {
-  name: string;
-  userId: string;
-  workspaceId: string;
-};
-
-export const GetPersonalAccessTokenRequestSchema = z.object({
-  authorizationCode: z.string(),
-});
-export type GetPersonalAccessTokenRequest = z.infer<
-  typeof GetPersonalAccessTokenRequestSchema
->;
-
-export const GetPersonalAccessTokenResponseSchema = z.object({
-  token: z
-    .object({
-      token: z.string(),
-      obfuscatedToken: z.string(),
-    })
-    .nullable(),
-});
-export type GetPersonalAccessTokenResponse = z.infer<
-  typeof GetPersonalAccessTokenResponseSchema
->;
-
-/** Returns obfuscated access tokens that aren't revoked */
-export async function getValidPersonalAccessTokens(userId: string) {
-  const personalAccessTokens = await prisma.personalAccessToken.findMany({
-    select: {
-      id: true,
-      name: true,
-      obfuscatedToken: true,
-      createdAt: true,
-      lastAccessedAt: true,
-    },
-    where: {
-      userId,
-      revokedAt: null,
-      name: {
-        notIn: ["cli", "whatsapp", "widget"],
-      },
-    },
-  });
-
-  return personalAccessTokens.map((pat) => ({
-    id: pat.id,
-    name: pat.name,
-    obfuscatedToken: pat.obfuscatedToken,
-    createdAt: pat.createdAt,
-    lastAccessedAt: pat.lastAccessedAt,
-  }));
+function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-export type ObfuscatedPersonalAccessToken = Awaited<
-  ReturnType<typeof getValidPersonalAccessTokens>
->[number];
+function encryptToken(token: string): { encrypted: Prisma.InputJsonValue; obfuscated: string } {
+  const obfuscated = token.slice(0, 8) + "********";
+  return { encrypted: { token } as Prisma.InputJsonValue, obfuscated };
+}
 
-/** Gets a PersonalAccessToken from an Auth Code, this only works within 10 mins of the auth code being created */
-export async function getPersonalAccessTokenFromAuthorizationCode(
-  authorizationCode: string,
+export async function createPersonalAccessToken(
+  userId: string,
+  name: string,
+  workspaceId?: string,
 ) {
-  //only allow authorization codes that were created less than 10 mins ago
-  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-  const code = await prisma.authorizationCode.findUnique({
-    select: {
-      personalAccessToken: true,
-    },
-    where: {
-      code: authorizationCode,
-      createdAt: {
-        gte: tenMinutesAgo,
-      },
-    },
-  });
-  if (!code) {
-    throw new Error("Invalid authorization code, or code expired");
-  }
+  const rawToken = `core_${nanoid(32)}`;
+  const { encrypted, obfuscated } = encryptToken(rawToken);
+  const hashedToken = hashToken(rawToken);
 
-  //there's no PersonalAccessToken associated with this code
-  if (!code.personalAccessToken) {
-    return {
-      token: null,
-    };
-  }
-
-  const decryptedToken = decryptPersonalAccessToken(code.personalAccessToken);
-  return {
-    token: {
-      token: decryptedToken,
-      obfuscatedToken: code.personalAccessToken.obfuscatedToken,
-    },
-  };
-}
-
-export async function revokePersonalAccessToken(tokenId: string) {
-  await prisma.personalAccessToken.update({
-    where: {
-      id: tokenId,
-    },
+  const result = await prisma.personalAccessToken.create({
     data: {
-      revokedAt: new Date(),
+      name,
+      encryptedToken: encrypted,
+      obfuscatedToken: obfuscated,
+      hashedToken,
+      userId,
+      workspaceId,
     },
+  });
+
+  return { ...result, rawToken };
+}
+
+export async function getPersonalAccessToken(hashedToken: string) {
+  return prisma.personalAccessToken.findUnique({
+    where: { hashedToken },
+    include: { user: true },
   });
 }
 
-export type PersonalAccessTokenAuthenticationResult = {
-  userId: string;
-  workspaceId?: string;
-};
+export async function deletePersonalAccessToken(id: string) {
+  return prisma.personalAccessToken.delete({
+    where: { id },
+  });
+}
 
-const EncryptedSecretValueSchema = EncryptedSecretSchema;
-
-const AuthorizationHeaderSchema = z.string().regex(/^Bearer .+$/);
+export async function listPersonalAccessTokens(userId: string) {
+  return prisma.personalAccessToken.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+}
 
 export async function authenticateApiRequestWithPersonalAccessToken(
   request: Request,
-): Promise<PersonalAccessTokenAuthenticationResult | undefined> {
-  const token = getPersonalAccessTokenFromRequest(request);
-  if (!token) {
-    return;
-  }
+) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
 
-  return authenticatePersonalAccessToken(token);
-}
-
-function getPersonalAccessTokenFromRequest(request: Request) {
-  const rawAuthorization = request.headers.get("Authorization");
-
-  const authorization = AuthorizationHeaderSchema.safeParse(rawAuthorization);
-  if (!authorization.success) {
-    return;
-  }
-
-  const personalAccessToken = authorization.data.replace(/^Bearer /, "");
-  return personalAccessToken;
-}
-
-export async function authenticatePersonalAccessToken(
-  token: string,
-): Promise<PersonalAccessTokenAuthenticationResult | undefined> {
-  if (!token.startsWith(tokenPrefix)) {
-    logger.warn(`PAT doesn't start with ${tokenPrefix}`);
-    return;
+  if (!token || !token.startsWith("core_")) {
+    return null;
   }
 
   const hashedToken = hashToken(token);
-
-  const personalAccessToken = await prisma.personalAccessToken.findFirst({
-    where: {
-      hashedToken,
-      revokedAt: null,
-    },
-  });
-
-  if (!personalAccessToken) {
-    // The token may have been revoked or is entirely invalid
-    return;
-  }
-
-  await prisma.personalAccessToken.update({
-    where: {
-      id: personalAccessToken.id,
-    },
-    data: {
-      lastAccessedAt: new Date(),
-    },
-  });
-
-  const decryptedToken = decryptPersonalAccessToken(personalAccessToken);
-
-  if (decryptedToken !== token) {
-    logger.error(
-      `PersonalAccessToken with id: ${personalAccessToken.id} was found in the database with hash ${hashedToken}, but the decrypted token did not match the provided token.`,
-    );
-    return;
-  }
-
-  let workspaceId: string | null = personalAccessToken.workspaceId;
-
-  if (!workspaceId) {
-    const workspace = await prisma.userWorkspace.findFirst({
-      where: {
-        userId: personalAccessToken.userId,
-      },
-    });
-
-    workspaceId = workspace?.id ?? null;
+  const pat = await getPersonalAccessToken(hashedToken);
+  if (!pat) {
+    return null;
   }
 
   return {
-    userId: personalAccessToken.userId,
-    workspaceId: personalAccessToken.workspaceId ?? undefined,
+    userId: pat.userId,
+    user: pat.user,
+    token: pat,
+    workspaceId: pat.workspaceId ?? undefined,
   };
-}
-
-export function isPersonalAccessToken(token: string) {
-  return token.startsWith(tokenPrefix);
-}
-
-export const CreateAuthorizationCodeResponseSchema = z.object({
-  url: z.string().url(),
-  authorizationCode: z.string(),
-});
-
-export type CreateAuthorizationCodeResponse = z.infer<
-  typeof CreateAuthorizationCodeResponseSchema
->;
-
-export function createAuthorizationCode() {
-  return prisma.authorizationCode.create({
-    data: {
-      code: nanoid(64),
-    },
-  });
-}
-
-/** Creates a PersonalAccessToken from an Auth Code, and return the token. We only ever return the unencrypted token once. */
-export async function createPersonalAccessTokenFromAuthorizationCode(
-  authorizationCode: string,
-  userId: string,
-  workspaceId: string,
-  name?: string,
-) {
-  //only allow authorization codes that were created less than 10 mins ago
-  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-  const code = await prisma.authorizationCode.findUnique({
-    where: {
-      code: authorizationCode,
-      personalAccessTokenId: null,
-      createdAt: {
-        gte: tenMinutesAgo,
-      },
-    },
-  });
-
-  if (!code) {
-    throw new Error(
-      "Invalid authorization code, code already used, or code expired",
-    );
-  }
-
-  const existingCliPersonalAccessToken =
-    await prisma.personalAccessToken.findFirst({
-      where: {
-        userId,
-        name: name ?? "cli",
-      },
-    });
-
-  //we only allow you to have one CLI PAT at a time, so return this
-  if (existingCliPersonalAccessToken) {
-    //associate this authorization code with the existing personal access token
-    await prisma.authorizationCode.update({
-      where: {
-        code: authorizationCode,
-      },
-      data: {
-        personalAccessTokenId: existingCliPersonalAccessToken.id,
-      },
-    });
-
-    if (existingCliPersonalAccessToken.revokedAt) {
-      // re-activate revoked CLI PAT so we can use it again
-      await prisma.personalAccessToken.update({
-        where: {
-          id: existingCliPersonalAccessToken.id,
-        },
-        data: {
-          revokedAt: null,
-        },
-      });
-    }
-
-    //we don't return the decrypted token
-    return {
-      id: existingCliPersonalAccessToken.id,
-      name: existingCliPersonalAccessToken.name,
-      userId: existingCliPersonalAccessToken.userId,
-      obfuscateToken: existingCliPersonalAccessToken.obfuscatedToken,
-    };
-  }
-
-  const token = await createPersonalAccessToken({
-    name: "cli",
-    userId,
-    workspaceId,
-  });
-
-  await prisma.authorizationCode.update({
-    where: {
-      code: authorizationCode,
-    },
-    data: {
-      personalAccessTokenId: token.id,
-    },
-  });
-
-  return token;
-}
-
-/** Get or create a PersonalAccessToken for the given name and userId.
- * If one exists (not revoked), return it (without the unencrypted token by default).
- * If not, create a new one and return it (with the unencrypted token).
- *
- * Pass `returnDecrypted: true` to always return the raw token (for internal server use).
- */
-export async function getOrCreatePersonalAccessToken({
-  name,
-  userId,
-  workspaceId,
-  returnDecrypted = false,
-}: CreatePersonalAccessTokenOptions & { returnDecrypted?: boolean }) {
-  // Try to find an existing, non-revoked token
-  const existing = await prisma.personalAccessToken.findFirst({
-    where: {
-      name,
-      userId,
-      workspaceId,
-      revokedAt: null,
-    },
-  });
-
-  if (existing) {
-    if (returnDecrypted) {
-      try {
-        return {
-          id: existing.id,
-          name: existing.name,
-          userId: existing.userId,
-          workspaceId: existing.workspaceId,
-          obfuscatedToken: existing.obfuscatedToken,
-          token: decryptPersonalAccessToken(existing),
-        };
-      } catch {
-        // Decryption failed — delete stale token and create a fresh one below
-        logger.warn(
-          `Decryption failed for PAT ${existing.id}, recreating`,
-        );
-        await prisma.personalAccessToken.delete({
-          where: { id: existing.id },
-        });
-      }
-    } else {
-      return {
-        id: existing.id,
-        name: existing.name,
-        userId: existing.userId,
-        workspaceId: existing.workspaceId,
-        obfuscatedToken: existing.obfuscatedToken,
-        token: undefined,
-      };
-    }
-  }
-
-  // Create a new token
-  const token = createToken();
-  const encryptedToken = encryptToken(token);
-
-  const personalAccessToken = await prisma.personalAccessToken.create({
-    data: {
-      name,
-      userId,
-      workspaceId,
-      encryptedToken,
-      obfuscatedToken: obfuscateToken(token),
-      hashedToken: hashToken(token),
-    },
-  });
-
-  return {
-    id: personalAccessToken.id,
-    name,
-    userId,
-    token,
-    obfuscatedToken: personalAccessToken.obfuscatedToken,
-  };
-}
-
-export async function deletePersonalAccessToken(tokenId: string) {
-  return await prisma.personalAccessToken.delete({
-    where: {
-      id: tokenId,
-    },
-  });
-}
-
-/** Created a new PersonalAccessToken, and return the token. We only ever return the unencrypted token once. */
-export async function createPersonalAccessToken({
-  name,
-  userId,
-  workspaceId,
-}: CreatePersonalAccessTokenOptions) {
-  const token = createToken();
-  const encryptedToken = encryptToken(token);
-
-  const personalAccessToken = await prisma.personalAccessToken.create({
-    data: {
-      name,
-      userId,
-      workspaceId,
-      encryptedToken,
-      obfuscatedToken: obfuscateToken(token),
-      hashedToken: hashToken(token),
-    },
-  });
-
-  return {
-    id: personalAccessToken.id,
-    name,
-    userId,
-    workspaceId,
-    token,
-    obfuscatedToken: personalAccessToken.obfuscatedToken,
-  };
-}
-
-export type CreatedPersonalAccessToken = Awaited<
-  ReturnType<typeof createPersonalAccessToken>
->;
-
-const tokenPrefix = "rc_pat_";
-
-/** Creates a PersonalAccessToken that starts with tr_pat_  */
-function createToken() {
-  return `${tokenPrefix}${tokenGenerator()}`;
-}
-
-/** Obfuscates all but the first and last 4 characters of the token, so it looks like rc_pat_bhbd•••••••••••••••••••fd4a */
-function obfuscateToken(token: string) {
-  const withoutPrefix = token.replace(tokenPrefix, "");
-  const obfuscated = `${withoutPrefix.slice(0, 4)}${"•".repeat(18)}${withoutPrefix.slice(-4)}`;
-  return `${tokenPrefix}${obfuscated}`;
-}
-
-function encryptToken(value: string) {
-  return encryptSecret(value);
-}
-
-function decryptPersonalAccessToken(personalAccessToken: PersonalAccessToken) {
-  const encryptedData = EncryptedSecretValueSchema.safeParse(
-    personalAccessToken.encryptedToken,
-  );
-  if (!encryptedData.success) {
-    throw new Error(
-      `Unable to parse encrypted PersonalAccessToken with id: ${personalAccessToken.id}: ${encryptedData.error.message}`,
-    );
-  }
-
-  return decryptSecret(encryptedData.data);
-}
-
-function hashToken(token: string): string {
-  const hash = nodeCrypto.createHash("sha256");
-  hash.update(token);
-  return hash.digest("hex");
 }

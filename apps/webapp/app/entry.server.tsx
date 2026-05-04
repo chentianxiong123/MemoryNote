@@ -17,17 +17,7 @@ import { RemixServer } from "@remix-run/react";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
 import { initializeStartupServices } from "./utils/startup";
-import { handleMCPRequest, handleSessionRequest } from "~/services/mcp.server";
-import { authenticateHybridRequest } from "~/services/routeBuilders/apiBuilder.server";
 import { trackError } from "~/services/telemetry.server";
-import { setupWebSocket } from "../websocket";
-import {
-  verifyGatewayToken,
-  upsertGateway,
-  updateGatewayTools,
-  updateGatewayLastSeen,
-  disconnectGateway,
-} from "~/services/gateway.server";
 
 const ABORT_DELAY = 5_000;
 
@@ -40,12 +30,10 @@ init();
 
 /**
  * Global error handler for all server-side errors
- * This catches errors from loaders, actions, and rendering
- * Automatically tracks all errors to telemetry
  */
 export const handleError = Sentry.wrapHandleErrorWithSentry(
-  (error, { request }): { request: any } => {
-    // Don't track 404s or aborted requests as errors
+  (error: unknown, args: { request: unknown }): void => {
+    const request = args.request as Request;
     if (
       error instanceof Response &&
       (error.status === 404 || error.status === 304)
@@ -53,13 +41,8 @@ export const handleError = Sentry.wrapHandleErrorWithSentry(
       return;
     }
 
-    // Capture in Sentry
     if (error instanceof Error) {
       Sentry.captureException(error);
-    }
-
-    // Track error to telemetry
-    if (error instanceof Error) {
       const url = new URL(request.url);
       trackError(error, {
         url: request.url,
@@ -67,13 +50,9 @@ export const handleError = Sentry.wrapHandleErrorWithSentry(
         method: request.method,
         userAgent: request.headers.get("user-agent") || "unknown",
         referer: request.headers.get("referer") || undefined,
-      }).catch((trackingError) => {
-        // If telemetry tracking fails, just log it - don't break the app
-        console.error("Failed to track error:", trackingError);
-      });
+      }).catch(() => {});
     }
 
-    // Always log to console for development/debugging
     console.error(error);
   },
 );
@@ -83,9 +62,6 @@ export default function handleRequest(
   responseStatusCode: number,
   responseHeaders: Headers,
   remixContext: EntryContext,
-  // This is ignored so we can keep it in the template for visibility.  Feel
-  // free to delete this parameter in your app if you're not using it!
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   loadContext: AppLoadContext,
 ) {
   return isbot(request.headers.get("user-agent") || "")
@@ -139,9 +115,6 @@ function handleBotRequest(
         },
         onError(error: unknown) {
           responseStatusCode = 500;
-          // Log streaming rendering errors from inside the shell.  Don't log
-          // errors encountered during initial shell rendering since they'll
-          // reject and get logged in handleDocumentRequest.
           if (shellRendered) {
             console.error(error);
           }
@@ -189,9 +162,6 @@ function handleBrowserRequest(
         },
         onError(error: unknown) {
           responseStatusCode = 500;
-          // Log streaming rendering errors from inside the shell.  Don't log
-          // errors encountered during initial shell rendering since they'll
-          // reject and get logged in handleDocumentRequest.
           if (shellRendered) {
             console.error(error);
           }
@@ -202,18 +172,3 @@ function handleBrowserRequest(
     setTimeout(abort, ABORT_DELAY);
   });
 }
-
-export {
-  handleMCPRequest,
-  handleSessionRequest,
-  authenticateHybridRequest,
-  // Gateway functions
-  verifyGatewayToken,
-  upsertGateway,
-  updateGatewayTools,
-  updateGatewayLastSeen,
-  disconnectGateway,
-
-  //Websocket
-  setupWebSocket,
-};

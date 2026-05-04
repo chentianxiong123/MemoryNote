@@ -1,227 +1,353 @@
+import { type Prisma } from "@prisma/client";
+
 import { prisma } from "~/db.server";
 import {
-  encryptSecret,
   decryptSecret,
+  encryptSecret,
   EncryptedSecretSchema,
+  type EncryptedSecret,
 } from "~/lib/encryption.server";
-import { logger } from "./logger.service";
 
-// ---------------------------------------------------------------------------
-// In-memory cache for decrypted BYOK keys (avoids DB + decrypt per request)
-// ---------------------------------------------------------------------------
+export type SupportedProvider =
+  | "openai"
+  | "anthropic"
+  | "google"
+  | "azure"
+  | "ollama"
+  | "openrouter"
+  | "deepseek"
+  | "vercel"
+  | "groq"
+  | "mistral"
+  | "xai";
 
-const CACHE_TTL_MS = 60_000; // 60 seconds
+export type ProviderApiMode = "responses" | "chat_completions";
 
-interface CacheEntry {
-  key: string;
-  expiry: number;
+export interface BYOKConfig {
+  provider: string;
+  apiKey: string;
+  baseUrl?: string;
+  apiMode?: ProviderApiMode;
+  models?: Array<{ id: string; name: string }>;
 }
 
-const keyCache = new Map<string, CacheEntry>();
-
-function cacheKey(workspaceId: string, providerType: string): string {
-  return `${workspaceId}:${providerType}`;
+export interface WorkspaceKeyStatus {
+  providerType: SupportedProvider;
+  hasKey: boolean;
+  keyPrefix: string | null;
+  baseUrl?: string | null;
+  apiMode?: ProviderApiMode | null;
 }
 
-function getCached(workspaceId: string, providerType: string): string | null {
-  const entry = keyCache.get(cacheKey(workspaceId, providerType));
-  if (!entry) return null;
-  if (Date.now() > entry.expiry) {
-    keyCache.delete(cacheKey(workspaceId, providerType));
-    return null;
-  }
-  return entry.key;
-}
+type WorkspaceProviderConfig = {
+  apiKeyEncrypted?: EncryptedSecret;
+  keyPrefix?: string | null;
+  baseUrl?: string | null;
+  apiMode?: ProviderApiMode | null;
+};
 
-function setCache(workspaceId: string, providerType: string, key: string) {
-  keyCache.set(cacheKey(workspaceId, providerType), {
-    key,
-    expiry: Date.now() + CACHE_TTL_MS,
-  });
-}
-
-function invalidateCache(workspaceId: string, providerType: string) {
-  keyCache.delete(cacheKey(workspaceId, providerType));
-}
-
-// ---------------------------------------------------------------------------
-// BYOK key management
-// ---------------------------------------------------------------------------
-
-const SUPPORTED_PROVIDERS = [
+const SUPPORTED_PROVIDERS: SupportedProvider[] = [
   "openai",
   "anthropic",
   "google",
+  "azure",
+  "ollama",
   "openrouter",
   "deepseek",
   "vercel",
   "groq",
   "mistral",
   "xai",
-  "ollama",
-  "azure",
-] as const;
-export type SupportedProvider = (typeof SUPPORTED_PROVIDERS)[number];
+];
 
-export function isSupportedProvider(type: string): type is SupportedProvider {
-  return (SUPPORTED_PROVIDERS as readonly string[]).includes(type);
-}
+function normalizeProviderBaseUrl(
+  provider: SupportedProvider,
+  baseUrl?: string | null,
+): string | undefined {
+  const trimmed = baseUrl?.trim();
+  if (!trimmed) return undefined;
 
-/**
- * Store (or update) a workspace-scoped API key for a provider.
- * The key is encrypted at rest using AES-256-GCM.
- */
-export async function setWorkspaceApiKey(
-  workspaceId: string,
-  providerType: SupportedProvider,
-  apiKey: string,
-  baseUrl?: string,
-) {
-  const encryptedApiKey = encryptSecret(apiKey);
-
-  const config: any = { encryptedApiKey };
-  if (baseUrl) {
-    config.baseUrl = baseUrl;
+  if (provider !== "openai") {
+    return trimmed.replace(/\/+$/, "");
   }
 
-  // Find the global provider to copy its name
-  const globalProvider = await prisma.lLMProvider.findFirst({
-    where: { type: providerType, workspaceId: null },
+  const normalized = trimmed.replace(/\/+$/, "");
+  try {
+    const url = new URL(normalized);
+    if (url.pathname === "" || url.pathname === "/") {
+      url.pathname = "/v1";
+    }
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return normalized;
+  }
+}
+
+function normalizeApiMode(
+  provider: SupportedProvider,
+  apiMode?: string | null,
+  hasBaseUrl?: boolean,
+): ProviderApiMode | undefined {
+  if (provider !== "openai") return undefined;
+
+  if (apiMode === "responses" || apiMode === "chat_completions") {
+    return apiMode;
+  }
+
+  return hasBaseUrl ? "chat_completions" : "responses";
+}
+
+function obfuscateKeyPrefix(apiKey: string): string {
+  const trimmed = apiKey.trim();
+  const visible = trimmed.slice(0, Math.min(8, trimmed.length));
+  return visible.length > 0 ? `${visible}********` : "********";
+}
+
+function parseWorkspaceProviderConfig(
+  config: Prisma.JsonValue | null | undefined,
+): WorkspaceProviderConfig {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return {};
+  }
+
+  const raw = config as Record<string, unknown>;
+  const encrypted = EncryptedSecretSchema.safeParse(raw.apiKeyEncrypted);
+
+  return {
+    apiKeyEncrypted: encrypted.success ? encrypted.data : undefined,
+    keyPrefix:
+      typeof raw.keyPrefix === "string" && raw.keyPrefix.length > 0
+        ? raw.keyPrefix
+        : null,
+    baseUrl:
+      typeof raw.baseUrl === "string" && raw.baseUrl.length > 0
+        ? raw.baseUrl
+        : null,
+    apiMode:
+      raw.apiMode === "responses" || raw.apiMode === "chat_completions"
+        ? raw.apiMode
+        : null,
+  };
+}
+
+function toProviderConfigJson(
+  config: WorkspaceProviderConfig,
+): Prisma.InputJsonValue {
+  return {
+    ...(config.apiKeyEncrypted ? { apiKeyEncrypted: config.apiKeyEncrypted } : {}),
+    ...(config.keyPrefix ? { keyPrefix: config.keyPrefix } : {}),
+    ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
+    ...(config.apiMode ? { apiMode: config.apiMode } : {}),
+  } as Prisma.InputJsonValue;
+}
+
+async function getWorkspaceProviderRecord(
+  workspaceId: string,
+  provider: SupportedProvider | string,
+) {
+  return prisma.lLMProvider.findFirst({
+    where: {
+      workspaceId,
+      type: provider,
+      isActive: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export function isSupportedProvider(provider: string): provider is SupportedProvider {
+  return SUPPORTED_PROVIDERS.includes(provider as SupportedProvider);
+}
+
+export async function getWorkspaceKeyStatus(
+  workspaceId: string,
+): Promise<WorkspaceKeyStatus[]> {
+  const providers = await prisma.lLMProvider.findMany({
+    where: {
+      workspaceId,
+      isActive: true,
+      type: { in: SUPPORTED_PROVIDERS },
+    },
+    orderBy: { type: "asc" },
   });
 
-  const name = globalProvider?.name ?? providerType;
+  return providers
+    .map((provider) => {
+      const config = parseWorkspaceProviderConfig(provider.config);
+      return {
+        providerType: provider.type as SupportedProvider,
+        hasKey: !!config.apiKeyEncrypted,
+        keyPrefix: config.keyPrefix ?? null,
+        baseUrl: config.baseUrl ?? null,
+        apiMode: config.apiMode ?? null,
+      };
+    })
+    .filter((provider) => provider.hasKey || provider.baseUrl || provider.apiMode);
+}
 
-  // Upsert workspace-scoped provider
-  const existing = await prisma.lLMProvider.findFirst({
-    where: { workspaceId, type: providerType },
-  });
+export async function setWorkspaceApiKey(
+  workspaceId: string,
+  provider: SupportedProvider,
+  apiKey: string,
+  baseUrl?: string,
+  apiMode?: string,
+): Promise<void> {
+  const existing = await getWorkspaceProviderRecord(workspaceId, provider);
+  const normalizedBaseUrl = normalizeProviderBaseUrl(provider, baseUrl);
+  const normalizedApiMode = normalizeApiMode(
+    provider,
+    apiMode,
+    !!normalizedBaseUrl,
+  );
+
+  const nextConfig: WorkspaceProviderConfig = {
+    ...parseWorkspaceProviderConfig(existing?.config),
+    apiKeyEncrypted: encryptSecret(apiKey.trim()),
+    keyPrefix: obfuscateKeyPrefix(apiKey),
+    baseUrl: normalizedBaseUrl ?? null,
+    apiMode: normalizedApiMode ?? null,
+  };
 
   if (existing) {
     await prisma.lLMProvider.update({
       where: { id: existing.id },
-      data: { config, isActive: true },
-    });
-  } else {
-    await prisma.lLMProvider.create({
       data: {
-        workspaceId,
-        name,
-        type: providerType,
-        config,
+        name: existing.name,
         isActive: true,
+        config: toProviderConfigJson(nextConfig),
       },
     });
+    return;
   }
 
-  invalidateCache(workspaceId, providerType);
-  logger.info(
-    `BYOK: set key for workspace=${workspaceId} provider=${providerType}`,
-  );
+  await prisma.lLMProvider.create({
+    data: {
+      workspaceId,
+      name: provider === "openai" ? "OpenAI Compatible" : provider,
+      type: provider,
+      isActive: true,
+      config: toProviderConfigJson(nextConfig),
+    },
+  });
 }
 
-/**
- * Remove the workspace-scoped provider (and its BYOK key).
- */
 export async function deleteWorkspaceApiKey(
   workspaceId: string,
-  providerType: SupportedProvider,
-) {
-  const existing = await prisma.lLMProvider.findFirst({
-    where: { workspaceId, type: providerType },
+  provider: SupportedProvider,
+): Promise<void> {
+  await prisma.lLMProvider.deleteMany({
+    where: {
+      workspaceId,
+      type: provider,
+    },
+  });
+}
+
+export async function getBYOKConfig(userId: string): Promise<BYOKConfig | null> {
+  const membership = await prisma.userWorkspace.findFirst({
+    where: { userId, isActive: true },
+    select: { workspaceId: true },
   });
 
-  if (existing) {
-    await prisma.lLMProvider.delete({ where: { id: existing.id } });
-  }
+  if (!membership?.workspaceId) return null;
 
-  invalidateCache(workspaceId, providerType);
-  logger.info(
-    `BYOK: deleted key for workspace=${workspaceId} provider=${providerType}`,
+  const record = await prisma.lLMProvider.findFirst({
+    where: {
+      workspaceId: membership.workspaceId,
+      isActive: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!record) return null;
+
+  const config = parseWorkspaceProviderConfig(record.config);
+  if (!config.apiKeyEncrypted) return null;
+
+  return {
+    provider: record.type,
+    apiKey: decryptSecret(config.apiKeyEncrypted),
+    baseUrl: config.baseUrl ?? undefined,
+    apiMode: config.apiMode ?? undefined,
+  };
+}
+
+export async function saveBYOKConfig(
+  userId: string,
+  config: BYOKConfig,
+): Promise<void> {
+  const membership = await prisma.userWorkspace.findFirst({
+    where: { userId, isActive: true },
+    select: { workspaceId: true },
+  });
+
+  if (!membership?.workspaceId || !isSupportedProvider(config.provider)) return;
+
+  await setWorkspaceApiKey(
+    membership.workspaceId,
+    config.provider,
+    config.apiKey,
+    config.baseUrl,
+    config.apiMode,
   );
 }
 
-/**
- * Returns the BYOK key status per provider for a workspace.
- * Never returns the actual key — only whether one exists.
- */
-export async function getWorkspaceKeyStatus(workspaceId: string) {
-  const workspaceProviders = await prisma.lLMProvider.findMany({
-    where: { workspaceId, isActive: true },
-    select: { type: true, createdAt: true, updatedAt: true },
+export async function deleteBYOKConfig(userId: string): Promise<void> {
+  const membership = await prisma.userWorkspace.findFirst({
+    where: { userId, isActive: true },
+    select: { workspaceId: true },
   });
 
-  return workspaceProviders.map((p) => ({
-    providerType: p.type,
-    hasKey: true,
-    createdAt: p.createdAt,
-    updatedAt: p.updatedAt,
-  }));
+  if (!membership?.workspaceId) return;
+
+  await prisma.lLMProvider.deleteMany({
+    where: {
+      workspaceId: membership.workspaceId,
+      isActive: true,
+    },
+  });
 }
 
-/**
- * Decrypt and return the workspace API key for a provider.
- * Returns null if no BYOK key exists.
- * Internal use only — never expose the raw key via API.
- */
+export async function hasBYOKConfig(userId: string): Promise<boolean> {
+  const config = await getBYOKConfig(userId);
+  return !!config;
+}
+
+export async function isWorkspaceBYOK(workspaceId: string): Promise<boolean> {
+  const count = await prisma.lLMProvider.count({
+    where: {
+      workspaceId,
+      isActive: true,
+      type: { in: SUPPORTED_PROVIDERS },
+    },
+  });
+
+  return count > 0;
+}
+
 export async function resolveWorkspaceApiKey(
   workspaceId: string,
-  providerType: string,
+  provider: SupportedProvider | string,
 ): Promise<string | null> {
-  // Check cache first
-  const cached = getCached(workspaceId, providerType);
-  if (cached) return cached;
-
-  const provider = await prisma.lLMProvider.findFirst({
-    where: { workspaceId, type: providerType, isActive: true },
-  });
-
-  if (!provider) return null;
-
-  const config = provider.config as Record<string, unknown> | null;
-  if (!config?.encryptedApiKey) return null;
-
-  const parsed = EncryptedSecretSchema.safeParse(config.encryptedApiKey);
-  if (!parsed.success) {
-    logger.error(
-      `BYOK: failed to parse encrypted key for workspace=${workspaceId} provider=${providerType}`,
-    );
-    return null;
-  }
-
-  const decrypted = decryptSecret(parsed.data);
-  setCache(workspaceId, providerType, decrypted);
-  return decrypted;
+  const record = await getWorkspaceProviderRecord(workspaceId, provider);
+  const config = parseWorkspaceProviderConfig(record?.config);
+  return config.apiKeyEncrypted ? decryptSecret(config.apiKeyEncrypted) : null;
 }
 
-/**
- * For providers that need extra config alongside the API key (e.g. Azure resource name),
- * returns the stored `baseUrl` field from the provider config.
- * Returns null if no BYOK config exists for the provider.
- */
 export async function resolveWorkspaceProviderBaseUrl(
   workspaceId: string,
-  providerType: string,
+  provider: SupportedProvider | string,
 ): Promise<string | null> {
-  const provider = await prisma.lLMProvider.findFirst({
-    where: { workspaceId, type: providerType, isActive: true },
-  });
-  if (!provider) return null;
-  const config = provider.config as Record<string, unknown> | null;
-  return (config?.baseUrl as string | undefined) ?? null;
+  const record = await getWorkspaceProviderRecord(workspaceId, provider);
+  const config = parseWorkspaceProviderConfig(record?.config);
+  return config.baseUrl ?? null;
 }
 
-/**
- * Check if a workspace has any (or a specific) BYOK key.
- */
-export async function isWorkspaceBYOK(
+export async function resolveWorkspaceProviderApiMode(
   workspaceId: string,
-  providerType?: string,
-): Promise<boolean> {
-  const where: Record<string, unknown> = { workspaceId, isActive: true };
-  if (providerType) {
-    where.type = providerType;
-  }
-
-  const count = await prisma.lLMProvider.count({ where });
-  return count > 0;
+  provider: SupportedProvider | string,
+): Promise<ProviderApiMode | null> {
+  const record = await getWorkspaceProviderRecord(workspaceId, provider);
+  const config = parseWorkspaceProviderConfig(record?.config);
+  return config.apiMode ?? null;
 }

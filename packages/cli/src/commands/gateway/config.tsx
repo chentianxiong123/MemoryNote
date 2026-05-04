@@ -41,7 +41,7 @@ import {
 
 const execAsync = promisify(exec);
 
-const DEFAULT_APP_URL = 'https://app.getcore.me';
+const DEFAULT_APP_URL = 'http://localhost:3033';
 
 // Tool slot definitions
 type ToolSlot = 'browser' | 'coding' | 'exec' | 'imessage';
@@ -343,7 +343,7 @@ async function configureIMessage(): Promise<boolean | null> {
 	if (isAppBundleInstalled() && testMessagesAccess()) {
 		p.log.success(
 			chalk.green(
-				'CoreBrainGateway.app already installed and has Full Disk Access',
+				'MemoryNoteGateway.app already installed and has Full Disk Access',
 			),
 		);
 		return true;
@@ -353,7 +353,7 @@ async function configureIMessage(): Promise<boolean | null> {
 
 	// Step 1: Create the .app bundle
 	const bundleSpinner = p.spinner();
-	bundleSpinner.start('Creating CoreBrainGateway.app in /Applications...');
+	bundleSpinner.start('Creating MemoryNoteGateway.app in /Applications...');
 	try {
 		const __filename = fileURLToPath(import.meta.url);
 		const __dirname = dirname(__filename);
@@ -366,7 +366,7 @@ async function configureIMessage(): Promise<boolean | null> {
 		);
 		createAppBundle(process.execPath, gatewayEntryPath);
 		bundleSpinner.stop(
-			chalk.green('CoreBrainGateway.app created in /Applications'),
+			chalk.green('MemoryNoteGateway.app created in /Applications'),
 		);
 	} catch (err) {
 		bundleSpinner.stop(chalk.red('Failed to create app bundle'));
@@ -380,9 +380,9 @@ async function configureIMessage(): Promise<boolean | null> {
 	p.log.info(
 		[
 			'',
-			chalk.bold('Grant Full Disk Access to CoreBrain Gateway:'),
+			chalk.bold('Grant Full Disk Access to MemoryNote Gateway:'),
 			`  1. In the panel that just opened, click ${chalk.bold('+')}`,
-			`  2. Select ${chalk.bold('CoreBrainGateway')} from Applications`,
+			`  2. Select ${chalk.bold('MemoryNoteGateway')} from Applications`,
 			`  3. Make sure the toggle is ${chalk.bold('ON')}`,
 			'',
 		].join('\n'),
@@ -392,7 +392,7 @@ async function configureIMessage(): Promise<boolean | null> {
 	let verified = false;
 	while (!verified) {
 		const next = await p.select({
-			message: "Once you've added CoreBrainGateway to Full Disk Access:",
+			message: "Once you've added MemoryNoteGateway to Full Disk Access:",
 			options: [
 				{value: 'verify', label: 'Verify access'},
 				{value: 'skip', label: 'Skip iMessage for now'},
@@ -738,7 +738,7 @@ async function runInteractiveConfig() {
 	const useAppBundle = imessageEnabled && isAppBundleInstalled();
 	const serviceConfig: ServiceConfig = {
 		name: serviceName,
-		displayName: 'CoreBrain Gateway',
+		displayName: 'MemoryNote Gateway',
 		command: useAppBundle ? getAppExecutablePath() : process.execPath,
 		args: useAppBundle ? [] : [gatewayEntryPath],
 		port: 0,

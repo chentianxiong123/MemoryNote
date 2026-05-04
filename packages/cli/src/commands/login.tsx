@@ -7,7 +7,7 @@ import { exec } from 'node:child_process';
 import { CoreClient } from '@redplanethq/sdk';
 import { getConfig, updateConfig } from '@/config/index';
 
-const DEFAULT_URL = 'https://app.getcore.me';
+const DEFAULT_URL = 'http://localhost:3033';
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 300_000; // 5 minutes
 
@@ -26,7 +26,7 @@ function openBrowser(url: string): void {
 	});
 }
 
-export const description = 'Authenticate with your CORE account';
+export const description = 'Authenticate with your MemoryNote account';
 
 export const options = zod.object({});
 
@@ -81,9 +81,13 @@ async function runLogin(): Promise<{ success: boolean; error?: string }> {
 		const res = await client.getAuthorizationCode();
 		authCode = res.authorizationCode!;
 		const base64Token = Buffer.from(
-			JSON.stringify({ authorizationCode: authCode, source: 'core-cli', clientName: 'core-cli' })
+			JSON.stringify({
+				authorizationCode: authCode,
+				source: 'memorynote-cli',
+				clientName: 'memorynote-cli',
+			})
 		).toString('base64');
-		verifyUrl = `${baseUrl}/agent/verify/${base64Token}?source=core-cli`;
+		verifyUrl = `${baseUrl}/agent/verify/${base64Token}?source=memorynote-cli`;
 	} catch (err) {
 		spinner.stop(chalk.red('Failed to get authorization code'));
 		return {

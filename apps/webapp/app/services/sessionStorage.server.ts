@@ -3,7 +3,7 @@ import { createThemeSessionResolver } from "remix-themes";
 import { env } from "~/env.server";
 import { type AuthUser } from "./authUser";
 
-let SESSION_KEY = "user";
+const SESSION_KEY = "user" as const;
 
 // Check if origin uses HTTPS
 const isHttps = env.APP_ORIGIN?.startsWith("https://") ?? false;

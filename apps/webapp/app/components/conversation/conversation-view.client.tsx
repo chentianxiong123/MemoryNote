@@ -29,7 +29,7 @@ interface ConversationHistory {
   userType: string;
   message: string;
   parts: any;
-  createdAt?: string;
+  createdAt?: string | Date;
 }
 
 interface ConversationViewProps {

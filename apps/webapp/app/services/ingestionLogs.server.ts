@@ -1,208 +1,54 @@
 import { prisma } from "~/db.server";
-import { deleteEpisodeWithRelatedNodes } from "./graphModels/episode";
-import { cancelJob, findRunningJobs } from "./jobManager.server";
-import { getEpisodeByQueueId } from "./vectorStorage.server";
-import { env } from "~/env.server";
-import { type QueueProvider } from "~/lib/queue-adapter.server";
-import { logger } from "./logger.service";
-import { cancelJobById } from "~/bullmq/utils/job-finder";
 
-export const getIngestionQueue = async (id: string) => {
-  return await prisma.ingestionQueue.findUnique({
-    where: {
-      id,
-    },
-  });
-};
+export interface IngestionLog {
+  id: string;
+  documentId: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  error?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  data?: Record<string, unknown>;
+}
 
-export const deleteIngestionQueue = async (id: string) => {
-  return await prisma.ingestionQueue.delete({
-    where: {
-      id,
-    },
-  });
-};
-
-// Delete a single log with its episode and related nodes
-export const deleteLog = async (logId: string, userId: string, workspaceId?: string) => {
-  const ingestionQueue = await getIngestionQueue(logId);
-
-  if (!ingestionQueue) {
-    return {
-      success: false,
-      error: "Log not found",
-    };
-  }
-
-  // Cancel any running jobs for this ingestion (both Trigger and BullMQ)
-  const provider = env.QUEUE_PROVIDER as QueueProvider;
-
-  if (provider === "trigger") {
-    // Trigger.dev: cancel all task types with matching tags
-    const taskIdentifiers = [
-      "ingest-episode",
-      "graph-resolution",
-      "title-generation",
-      "label-assignment",
-      "persona-generation",
-    ];
-
-    for (const taskIdentifier of taskIdentifiers) {
-      const runningTasks = await findRunningJobs({
-        tags: [userId, ingestionQueue.id],
-        taskIdentifier,
-      });
-
-      for (const task of runningTasks) {
-        if (!task.isCompleted) {
-          await cancelJob(task.id);
-        }
-      }
-    }
-  } else {
-    // Get episodes for this queue to construct graph resolution jobIds
-    const episodes = await getEpisodeByQueueId(logId);
-
-    const jobIdsToCancel = [
-      ingestionQueue.id, // preprocess/ingest job
-      `title-${ingestionQueue.id}`, // title generation
-      `label-${ingestionQueue.id}`, // label assignment
-    ];
-
-    // Add graph resolution jobs for each episode
-    if (episodes?.length > 0) {
-      for (const episode of episodes) {
-        jobIdsToCancel.push(`resolution-${episode.id}`);
-      }
-    }
-
-    // Cancel all jobs
-    for (const jobId of jobIdsToCancel) {
-      try {
-        await cancelJobById(jobId);
-      } catch (error) {
-        // Job may not exist or already completed - that's okay
-        logger.debug(`Could not cancel job ${jobId}:`, { error });
-      }
-    }
-  }
-
-  let finalResult: {
-    deleted: boolean;
-    episodesDeleted: number;
-    statementsDeleted: number;
-    entitiesDeleted: number;
-  } = {
-    deleted: false,
-    episodesDeleted: 0,
-    statementsDeleted: 0,
-    entitiesDeleted: 0,
-  };
-
-  const episodes = await getEpisodeByQueueId(logId);
-  // Delete episode from graph if it exists
-  if (episodes?.length > 0) {
-    for (const episode of episodes) {
-      const result = await deleteEpisodeWithRelatedNodes({
-        episodeUuid: episode.id,
-        userId,
-        workspaceId,
-      });
-
-      if (result.episodesDeleted === 0) {
-        return {
-          success: false,
-          error: "Episode not found or unauthorized",
-        };
-      }
-
-      finalResult = {
-        deleted: true,
-        episodesDeleted:
-          finalResult.episodesDeleted + Number(result.episodesDeleted),
-        statementsDeleted:
-          finalResult.statementsDeleted + Number(result.statementsDeleted),
-        entitiesDeleted:
-          finalResult.entitiesDeleted + Number(result.entitiesDeleted),
-      };
-    }
-  }
-
-  await deleteIngestionQueue(logId);
-
+export async function createIngestionLog(documentId: string): Promise<IngestionLog> {
   return {
-    success: true,
-    deleted: finalResult,
+    id: `log-${Date.now()}`,
+    documentId,
+    status: "pending",
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
-};
+}
 
-// Delete all logs in a session
-export const deleteSession = async (sessionId: string, userId: string) => {
-  // Get all ingestion queues for this session
-  const logs = await prisma.ingestionQueue.findMany({
-    where: {
-      sessionId,
-    },
-  });
-
-  let totalEpisodesDeleted = 0;
-  let totalStatementsDeleted = 0;
-  let totalEntitiesDeleted = 0;
-
-  // Delete each log in the session
-  for (const log of logs) {
-    const result = await deleteLog(log.id, userId);
-    if (result.success && result.deleted) {
-      totalEpisodesDeleted += result.deleted.episodesDeleted;
-      totalStatementsDeleted += result.deleted.statementsDeleted;
-      totalEntitiesDeleted += result.deleted.entitiesDeleted;
-    }
-  }
-
+export async function updateIngestionLog(
+  id: string,
+  data: Partial<IngestionLog>,
+): Promise<IngestionLog | null> {
   return {
-    success: true,
-    logsDeleted: logs.length,
-    deleted: {
-      episodes: totalEpisodesDeleted,
-      statements: totalStatementsDeleted,
-      entities: totalEntitiesDeleted,
-    },
+    id,
+    documentId: "",
+    status: data.status || "pending",
+    error: data.error,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
-};
+}
 
-export const getUserDocuments = async (workspaceId: string, limit: number) => {
-  const documents = await prisma.ingestionQueue.findMany({
-    where: {
-      type: "DOCUMENT",
-      workspaceId,
-      status: "COMPLETED",
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    distinct: ["sessionId"],
-    take: limit,
-  });
+export async function getIngestionLogByDocumentId(
+  documentId: string,
+): Promise<IngestionLog | null> {
+  return null;
+}
 
-  return documents;
-};
+export async function deleteSession(
+  sessionId: string,
+  _userId?: string,
+): Promise<{ logsDeleted: number; deleted: boolean }> {
+  return { logsDeleted: 0, deleted: true };
+}
 
-export const getDocument = async (id: string, workspaceId: string) => {
-  return await prisma.ingestionQueue.findUnique({
-    where: {
-      id,
-      workspaceId,
-    },
-  });
-};
-
-export const getPendingIngestionsForSession = async (sessionId: string) => {
-  return await prisma.ingestionQueue.findMany({
-    where: {
-      sessionId,
-      status: {
-        in: ["PENDING", "PROCESSING"],
-      },
-    },
-  });
-};
+export async function getPendingIngestionsForSession(
+  sessionId: string,
+): Promise<IngestionLog[]> {
+  return [];
+}

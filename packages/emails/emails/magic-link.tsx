@@ -10,7 +10,7 @@ export default function MagicLinkEmail({ magicLink }: { magicLink: string }) {
       <Preview>Log in with this magic link 🪄</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Text style={h1}>Log in to C.O.R.E.</Text>
+          <Text style={h1}>Log in to MemoryNote</Text>
           <Link
             href={magicLink}
             target="_blank"
@@ -30,7 +30,7 @@ export default function MagicLinkEmail({ magicLink }: { magicLink: string }) {
           >
             If you didn&apos;t try to log in, you can safely ignore this email.
           </Text>
-          <Image path="/emails/logo-mono.png" width="120" height="22" alt="app.getcore.me" />
+          <Image path="/emails/logo-mono.png" width="120" height="22" alt="MemoryNote" />
           <Footer />
         </Container>
       </Body>

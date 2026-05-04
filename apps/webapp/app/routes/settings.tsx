@@ -2,16 +2,6 @@ import React from "react";
 import { useTauri } from "~/hooks/use-tauri";
 import {
   ArrowLeft,
-  Code,
-  Webhook,
-  CreditCard,
-  User,
-  Tag,
-  Building,
-  Activity,
-  Bot,
-  Server,
-  MessageSquare,
   Cpu,
   Brain,
 } from "lucide-react";
@@ -58,20 +48,10 @@ export default function Settings() {
 
   const workspaceNav = [
     {
-      name: "Overview",
-      icon: Building,
-      path: "/settings/workspace",
+      name: "Models",
+      icon: Cpu,
+      path: "/settings/workspace/models",
       strict: true,
-    },
-    { name: "Labels", icon: Tag, path: "/settings/labels" },
-    { name: "Activity", icon: Activity, path: "/settings/activity" },
-    { name: "Agent", icon: Bot, path: "/settings/workspace/agent" },
-    { name: "Models", icon: Cpu, path: "/settings/workspace/models" },
-    { name: "Gateway", icon: Server, path: "/settings/workspace/gateway" },
-    {
-      name: "Channels",
-      icon: MessageSquare,
-      path: "/settings/workspace/channels",
     },
     ...(isDesktop
       ? [{ name: "Memory", icon: Brain, path: "/settings/workspace/memory" }]
@@ -79,12 +59,6 @@ export default function Settings() {
   ];
 
   const data = {
-    nav: [
-      { name: "Account", icon: User, path: "account" },
-      { name: "Billing", icon: CreditCard, path: "billing" },
-      { name: "API", icon: Code, path: "api" },
-      { name: "Webhooks", icon: Webhook, path: "webhooks" },
-    ],
     workspace: workspaceNav,
   };
   const navigate = useNavigate();
@@ -133,29 +107,7 @@ export default function Settings() {
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu className="gap-0.5">
-                  {data.nav.map((item) => (
-                    <SidebarMenuItem key={item.name}>
-                      <Button
-                        variant="ghost"
-                        isActive={isActive(item)}
-                        onClick={() => navigate(`/settings/${item.path}`)}
-                        className={cn(
-                          "text-foreground flex w-fit min-w-0 justify-start gap-1",
-                        )}
-                      >
-                        <item.icon size={18} />
-                        <span>{item.name}</span>
-                      </Button>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5">
-                  <h2 className="mb-1">Workspace</h2>
+                  <h2 className="mb-1">Settings</h2>
                   {data.workspace.map((item) => (
                     <SidebarMenuItem key={item.name}>
                       <Button

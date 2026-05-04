@@ -18,7 +18,7 @@ export interface OAuth2Context {
     id: string;
     token: string;
     scope: string | null;
-    expiresAt: Date;
+    expiresAt: Date | null;
   };
 }
 
@@ -39,6 +39,16 @@ export async function requireOAuth2(request: Request): Promise<OAuth2Context> {
 
   try {
     const accessToken = await oauth2Service.validateAccessToken(token);
+
+    if (!accessToken) {
+      throw json(
+        {
+          error: "invalid_token",
+          error_description: "Invalid or expired access token",
+        },
+        { status: 401 },
+      );
+    }
 
     return {
       user: {

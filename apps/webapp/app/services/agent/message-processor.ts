@@ -13,7 +13,7 @@ import {
   type Trigger,
   type DecisionContext,
 } from "~/services/agent/types/decision-agent";
-import { type OrchestratorTools } from "~/services/agent/orchestrator-tools";
+import { type OrchestratorTools } from "~/services/agent/executors/base";
 import { createConversation } from "../conversation.server";
 import { type InboundAttachment } from "~/services/channels/types";
 import { formatDailyWhatsAppTitle } from "~/services/channels/whatsapp/utils";
@@ -154,11 +154,16 @@ export async function processInboundMessage({
   const messageParts: any[] = [{ type: "text", text: userMessage }];
   if (attachments && attachments.length > 0) {
     for (const attachment of attachments) {
+      const mimeType = attachment.mimeType ?? attachment.contentType;
+      const data = attachment.data ?? attachment.content;
+      const name = attachment.name ?? attachment.filename;
+      if (!mimeType || !data) continue;
+
       messageParts.push({
         type: "file",
-        mediaType: attachment.mimeType,
-        url: `data:${attachment.mimeType};base64,${attachment.data}`,
-        ...(attachment.name ? { filename: attachment.name } : {}),
+        mediaType: mimeType,
+        url: `data:${mimeType};base64,${data}`,
+        ...(name ? { filename: name } : {}),
       });
     }
   }

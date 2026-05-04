@@ -2,7 +2,7 @@
 
 ## Our Commitment to Security
 
-C.O.R.E (Contextual Observation & Recall Engine) takes security seriously. We are committed to protecting user data and maintaining the highest security standards for our memory graph platform.
+MemoryNote takes security seriously. We are committed to protecting user data and maintaining strong security standards for this personal knowledge platform.
 
 ## Supported Versions
 
@@ -46,7 +46,7 @@ Please include the following information in your report:
 
 ## Security Best Practices for Users
 
-### For Cloud Users (app.getcore.me)
+### For Hosted Deployments
 
 - Use strong, unique passwords for your account
 - Enable two-factor authentication when available
@@ -122,7 +122,7 @@ Security updates will be:
 For security-related inquiries:
 
 - **Security Team**: harshith@poozle.dev
-- **General Support**: [Discord Community](https://discord.gg/YGUZcvDjUa)
+- **General Support**: Open an issue in the project repository
 
 ## Bug Bounty Program
 

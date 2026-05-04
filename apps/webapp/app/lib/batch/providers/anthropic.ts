@@ -90,7 +90,8 @@ export class AnthropicBatchProvider extends BaseBatchProvider {
           const batchResults =
             await this.anthropicClient.messages.batches.results(params.batchId);
 
-          results = batchResults.map((result) => {
+          const collectedResults: BatchResponse<T>[] = [];
+          for await (const result of batchResults as AsyncIterable<any>) {
             try {
               if (result.result.type === "succeeded") {
                 const message = result.result.message;
@@ -102,34 +103,35 @@ export class AnthropicBatchProvider extends BaseBatchProvider {
                   processedResponse = message.content[0].input;
                 }
 
-                return {
+                collectedResults.push({
                   customId: result.custom_id,
                   response: processedResponse,
-                };
+                });
               } else {
-                return {
+                collectedResults.push({
                   customId: result.custom_id,
                   error: {
                     code: result.result.error?.type || "unknown",
                     message: result.result.error?.message || "Unknown error",
                     type: "api_error" as const,
                   },
-                };
+                });
               }
             } catch (parseError) {
               logger.error("Failed to parse Anthropic batch result:", {
                 parseError,
               });
-              return {
+              collectedResults.push({
                 customId: result.custom_id,
                 error: {
                   code: "parse_error",
                   message: "Failed to parse batch result",
                   type: "api_error" as const,
                 },
-              };
+              });
             }
-          });
+          }
+          results = collectedResults;
         } catch (fetchError) {
           logger.error("Failed to fetch Anthropic batch results:", {
             fetchError,

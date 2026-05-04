@@ -1,6 +1,7 @@
 # @core/providers
 
-Provider abstraction layer for CORE project.
+Provider abstraction layer for MemoryNote. The package name still uses the
+internal `@core/*` workspace namespace for compatibility.
 
 ## Supported Providers
 
@@ -40,7 +41,7 @@ Set these environment variables:
 GRAPH_PROVIDER=neo4j
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=password
+NEO4J_PASSWORD=
 
 # Vector Provider (when implemented)
 VECTOR_PROVIDER=pgvector
@@ -48,7 +49,7 @@ DATABASE_URL=postgresql://...
 
 # Model Provider (when implemented)
 MODEL_PROVIDER=vercel-ai
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=
 ```
 
 ## Adding New Providers

@@ -17,7 +17,7 @@ pub fn check_corebrain_installed(login_path: tauri::State<SharedLoginPath>) -> R
         Ok(())
     } else {
         Err(
-            "corebrain CLI is not installed. Run: npm install -g @redplanethq/corebrain"
+            "corebrain CLI is not installed. Install the configured MemoryNote CLI first."
                 .to_string(),
         )
     }

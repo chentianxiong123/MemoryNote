@@ -21,10 +21,10 @@ export default defineConfig({
     },
   }), tsconfigPaths(), sentryVitePlugin({
     org: "tegon",
-    project: "core-app"
+    project: "memorynote-app"
   }), sentryVitePlugin({
     org: "tegon",
-    project: "core-app"
+    project: "memorynote-app"
   })],
 
   server: {

@@ -20,7 +20,7 @@ import {
   type DecisionContext,
 } from "~/services/agent/types/decision-agent";
 import { type OrchestratorTools } from "~/services/agent/executors/base";
-import { deductCredits } from "~/trigger/utils/utils";
+import { deductCredits } from "~/jobs/credit_utils";
 import { addToQueue } from "~/lib/ingest.server";
 import {
   selectModelMessages,
@@ -82,12 +82,14 @@ export async function noStreamProcess(
   const conversationHistory = conversation?.ConversationHistory ?? [];
 
   if (conversationHistory.length === 1 && !isAssistantApproval) {
-    const message = body.message?.parts[0].text;
+    const firstConversationHistoryId = conversationHistory[0]?.id;
     // Trigger conversation title task
-    await enqueueCreateConversationTitle({
-      conversationId: body.id,
-      message,
-    });
+    if (firstConversationHistoryId) {
+      await enqueueCreateConversationTitle({
+        conversationId: body.id,
+        conversationHistoryId: firstConversationHistoryId,
+      });
+    }
   }
 
   const messageUserType = body.messageUserType ?? UserTypeEnum.User;
@@ -101,7 +103,7 @@ export async function noStreamProcess(
     const messageParts = body.message?.parts;
 
     await upsertConversationHistory(
-      message.id ?? crypto.randomUUID(),
+      body.message?.id ?? crypto.randomUUID(),
       messageParts,
       body.id,
       messageUserType,

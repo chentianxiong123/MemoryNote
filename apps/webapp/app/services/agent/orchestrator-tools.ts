@@ -1,12 +1,15 @@
-/**
- * Re-export from new location.
- * @deprecated Import from ~/services/agent/executors/base or ~/services/agent/executors/direct instead.
- */
-export {
-  OrchestratorTools,
-  type ConnectedIntegration,
-  type GatewayAgentInfo,
-  type SendChannelMessageParams,
-  type SendChannelMessageResult,
-} from "./executors/base";
-export { DirectOrchestratorTools } from "./executors/direct";
+import { type Tool } from "ai";
+
+export interface OrchestratorToolSet {
+  memory: Tool<any, any>;
+  search: Tool<any, any>;
+  graph: Tool<any, any>;
+}
+
+export function createOrchestratorTools(): OrchestratorToolSet {
+  return {
+    memory: {} as Tool<any, any>,
+    search: {} as Tool<any, any>,
+    graph: {} as Tool<any, any>,
+  };
+}

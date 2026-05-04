@@ -1,5 +1,11 @@
 {
-  "exclude": [],
+  "exclude": [
+    "app/trigger/**/*",
+    "prisma/migrations/**/*",
+    "server.ts",
+    "app/services/agent/agents/orchestrator.ts",
+    "../../node_modules/.pnpm/gpt-tokenizer@*/node_modules/gpt-tokenizer/esm/**/*.d.ts"
+  ],
   "include": [
     "remix.env.d.ts",
     "global.d.ts",

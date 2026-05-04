@@ -1,26 +1,20 @@
-import type { WidgetConfigField } from "@redplanethq/types";
-
-export interface OverviewCell {
+export interface OverviewItem {
   id: string;
-  x: number;
-  y: number;
-  w: number; // 1–3 columns
-  h: number; // row-height units
-  widgetSlug: string | null;
-  integrationSlug: string | null;
-  integrationAccountId: string | null;
-  config: Record<string, string> | null;
+  title: string;
+  type: "document" | "conversation" | "note";
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-/** A single renderable widget option available to the user */
-export interface WidgetOption {
-  widgetSlug: string;
-  widgetName: string;
-  widgetDescription: string;
-  integrationSlug: string;
-  integrationName: string;
-  integrationIcon: string | null;
-  frontendUrl: string;
-  integrationAccountId: string;
-  configSchema: WidgetConfigField[];
+export interface OverviewFilter {
+  type?: "document" | "conversation" | "note";
+  search?: string;
 }
+
+export interface WidgetOption {
+  type: string;
+  label: string;
+  data?: Record<string, unknown>;
+}
+
+export type { default as DocumentEditorViewClient } from "../logs/views/document-editor-view.client";

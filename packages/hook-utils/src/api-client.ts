@@ -1,6 +1,6 @@
 import { getTimeout, HOOK_TIMEOUTS } from "./cli";
 
-const API_BASE_URL = "https://app.getcore.me/api/v1";
+const API_BASE_URL = "http://localhost:3033/api/v1";
 
 export interface AddEpisodePayload {
   episodeBody: string;
@@ -22,7 +22,7 @@ export interface DocumentResponse {
 }
 
 /**
- * Add episode/conversation to CORE
+ * Add episode/conversation to MemoryNote
  * @param payload Episode data to add
  * @param token Authentication token
  * @returns True if successful, false otherwise

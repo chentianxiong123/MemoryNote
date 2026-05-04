@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { X, Loader2, LoaderCircle } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { ClientOnly } from "remix-utils/client-only";
-import { DocumentEditorView } from "../logs/views/document-editor-view.client";
+import DocumentEditorView from "../logs/views/document-editor-view.client";
 
 interface SessionDocument {
   title: string | null;

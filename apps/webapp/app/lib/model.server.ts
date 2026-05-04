@@ -10,6 +10,7 @@ import {
   ModelRouterEmbeddingModel,
 } from "@mastra/core/llm";
 import { logger } from "~/services/logger.service";
+import { env } from "~/env.server";
 
 import { createOllama } from "ollama-ai-provider-v2";
 import { createAzure } from "@ai-sdk/azure";
@@ -115,6 +116,7 @@ export const getModel = (takeModel?: string) => {
   const model = takeModel || getDefaultChatModelId();
   const provider = getProvider(model);
   const modelId = getModelId(model);
+  const openaiConfig = getProviderConfig("openai");
 
   // Ollama: use direct AI SDK provider (needs custom URL)
   if (provider === "ollama" || getDefaultChatProviderType() === "ollama") {
@@ -145,19 +147,24 @@ export const getModel = (takeModel?: string) => {
     return azureClient(modelId);
   }
 
-  // OpenAI proxy: use direct AI SDK provider (needs custom base URL)
-  const openaiConfig = getProviderConfig("openai");
-  if (provider === "openai" && openaiConfig.baseUrl) {
+  // OpenAI: use direct AI SDK provider for both standard and proxy setups.
+  if (provider === "openai") {
     const openaiKey = resolveApiKey("openai");
     if (!openaiKey) {
       throw new Error(
-        "OpenAI proxy configured but OPENAI_API_KEY is missing.",
+        "OpenAI provider selected but OPENAI_API_KEY is missing.",
       );
     }
-    const openaiClient = createOpenAI({
-      baseURL: openaiConfig.baseUrl,
-      apiKey: openaiKey,
-    });
+    const openaiClient = createOpenAI(
+      openaiConfig.baseUrl
+        ? {
+            baseURL: openaiConfig.baseUrl,
+            apiKey: openaiKey,
+          }
+        : {
+            apiKey: openaiKey,
+          },
+    );
     const apiMode = openaiConfig.apiMode ?? "responses";
     return apiMode === "chat_completions"
       ? openaiClient.chat(modelId)
@@ -177,11 +184,15 @@ function buildOpenAIProviderOptions(
   model: string,
   cacheKey: string,
   reasoningEffort?: ModelComplexity,
+  runtimeConfig?: { baseUrl?: string; apiMode?: string },
 ): Record<string, any> | undefined {
   const provider = getProvider(model);
   if (provider !== "openai") return undefined;
 
-  const openaiConfig = getProviderConfig("openai");
+  const openaiConfig = {
+    ...getProviderConfig("openai"),
+    ...(runtimeConfig ?? {}),
+  };
 
   // Skip for proxy mode (no Responses API support)
   if (openaiConfig.baseUrl) return undefined;
@@ -235,14 +246,41 @@ export function createAgent(
   modelString: string,
   instructions?: string,
   tools?: ToolsInput,
-  options?: { apiKey?: string; baseUrl?: string },
+  options?: { apiKey?: string; baseUrl?: string; apiMode?: string },
 ): Agent {
   const provider = getProvider(modelString);
   const openaiConfig = getProviderConfig("openai");
+  const modelId = getModelId(modelString);
+
+  if (provider === "openai" && options?.apiKey) {
+    const openaiClient = createOpenAI(
+      options.baseUrl
+        ? {
+            baseURL: options.baseUrl,
+            apiKey: options.apiKey,
+          }
+        : {
+            apiKey: options.apiKey,
+          },
+    );
+    const apiMode =
+      options.apiMode ??
+      (options.baseUrl ? "chat_completions" : openaiConfig.apiMode ?? "responses");
+
+    return new Agent({
+      id: `model-call-${modelString}`,
+      name: `Model Call (${modelString})`,
+      model:
+        apiMode === "chat_completions"
+          ? (openaiClient.chat(modelId) as any)
+          : (openaiClient.responses(modelId) as any),
+      instructions: instructions || "",
+      ...(tools && { tools }),
+    });
+  }
 
   // BYOK Azure: apiKey carries the API key, options.baseUrl carries the endpoint URL
   if (provider === "azure" && options?.apiKey) {
-    const modelId = getModelId(modelString);
     const baseURL = options.baseUrl ?? getProviderConfig("azure").baseUrl;
     if (!baseURL) {
       throw new Error("Azure BYOK requires a base URL (e.g. https://<resource>.openai.azure.com/openai/v1).");
@@ -259,7 +297,6 @@ export function createAgent(
 
   // BYOK Ollama: apiKey field carries the base URL (Ollama has no API key).
   if (options?.apiKey && provider === "ollama") {
-    const modelId = getModelId(modelString);
     const ollama = createOllama({ baseURL: options.apiKey });
     return new Agent({
       id: `model-call-${modelString}`,
@@ -318,16 +355,21 @@ export async function makeModelCall(
   workspaceId?: string,
   useCase: UseCase = "chat",
 ) {
-  const { modelId: model, apiKey, isBYOK, baseUrl } = await resolveModelForWorkspace(workspaceId, useCase, complexity);
+  const { modelId: model, apiKey, isBYOK, baseUrl, apiMode } =
+    await resolveModelForWorkspace(workspaceId, useCase, complexity);
   logger.info(`[${useCase}/${complexity}] model: ${model}${isBYOK ? " (BYOK)" : ""}`);
 
   const providerOptions = buildOpenAIProviderOptions(
     model,
     cacheKey || `${useCase}-${complexity}`,
     reasoningEffort,
+    { baseUrl, apiMode },
   );
 
-  const agentOptions = apiKey ? { apiKey, ...(baseUrl && { baseUrl }) } : undefined;
+  const agentOptions =
+    isBYOK && apiKey
+      ? { apiKey, ...(baseUrl && { baseUrl }), ...(apiMode && { apiMode }) }
+      : undefined;
   const agent = createAgent(model, undefined, undefined, agentOptions);
 
   if (stream) {
@@ -378,11 +420,22 @@ function tryParseJsonFromText(raw: string): unknown | undefined {
   }
 }
 
-function needsTolerantParsing(): boolean {
-  const openaiConfig = getProviderConfig("openai");
+function needsTolerantParsing(config?: {
+  provider?: string;
+  baseUrl?: string;
+  apiMode?: string;
+}): boolean {
+  const provider = config?.provider ?? getDefaultChatProviderType();
+  const openaiConfig = {
+    ...getProviderConfig("openai"),
+    ...(config ?? {}),
+  };
   const apiMode = openaiConfig.apiMode ?? "responses";
-  const isProxyChatMode = apiMode === "chat_completions" && !!openaiConfig.baseUrl;
-  const isOllama = getDefaultChatProviderType() === "ollama";
+  const isProxyChatMode =
+    provider === "openai" &&
+    apiMode === "chat_completions" &&
+    !!openaiConfig.baseUrl;
+  const isOllama = provider === "ollama";
   return isProxyChatMode || isOllama;
 }
 
@@ -395,24 +448,36 @@ export async function makeStructuredModelCall<T extends z.ZodType>(
   workspaceId?: string,
   useCase: UseCase = "chat",
 ): Promise<{ object: z.infer<T>; usage: TokenUsage | undefined }> {
-  const { modelId: model, apiKey, baseUrl } = await resolveModelForWorkspace(workspaceId, useCase, complexity);
+  const { modelId: model, apiKey, baseUrl, apiMode, isBYOK } =
+    await resolveModelForWorkspace(workspaceId, useCase, complexity);
   logger.info(`[Structured/${useCase}/${complexity}] model: ${model}`);
 
   const providerOptions = buildOpenAIProviderOptions(
     model,
     cacheKey || `structured-${complexity}`,
+    undefined,
+    { baseUrl, apiMode },
   );
 
-  const agentApiOptions = apiKey ? { apiKey, ...(baseUrl && { baseUrl }) } : undefined;
+  const agentApiOptions =
+    isBYOK && apiKey
+      ? { apiKey, ...(baseUrl && { baseUrl }), ...(apiMode && { apiMode }) }
+      : undefined;
 
   // Proxy/Ollama: manual JSON extraction (no structured output support)
-  if (needsTolerantParsing()) {
+  if (
+    needsTolerantParsing({
+      provider: getProvider(model),
+      baseUrl,
+      apiMode,
+    })
+  ) {
     const { object, usage } = await structuredCallWithTolerantParsing(
       schema,
       messages,
       model,
       temperature,
-      apiKey,
+      agentApiOptions,
     );
     const tokenUsage = toTokenUsage(usage);
     logTokenUsage(`Structured/${complexity.toUpperCase()}`, model, tokenUsage);
@@ -435,7 +500,7 @@ export async function makeStructuredModelCall<T extends z.ZodType>(
 
     const tokenUsage = toTokenUsage(result.usage);
     logTokenUsage(`Structured/${complexity.toUpperCase()}`, model, tokenUsage);
-    return { object: result.object, usage: tokenUsage };
+    return { object: result.object as z.infer<T>, usage: tokenUsage };
   } catch (error) {
     // Fallback: try to recover JSON from error text
     const rawText = extractTextFromError(error);
@@ -459,14 +524,13 @@ async function structuredCallWithTolerantParsing<T extends z.ZodType>(
   messages: ModelMessage[],
   modelString: string,
   temperature?: number,
-  apiKey?: string,
+  agentOpts?: { apiKey?: string; baseUrl?: string; apiMode?: string },
 ): Promise<{ object: z.infer<T>; usage: any }> {
   const jsonPreamble =
     "Return ONLY a single valid JSON object that matches the requested schema. " +
     "Do not wrap it in Markdown fences. Do not include extra text. " +
     "Include every required key; use null for nullable fields; use [] for empty arrays.";
 
-  const agentOpts = apiKey ? { apiKey } : undefined;
   const agent = createAgent(modelString, jsonPreamble, undefined, agentOpts);
 
   const textResult = await agent.generate(messages as any, {
@@ -551,20 +615,44 @@ export async function resolveModelString(
 // Embeddings — Mastra ModelRouterEmbeddingModel
 // ---------------------------------------------------------------------------
 
-async function getEmbeddingModel() {
-  const embeddingInfo = await getDefaultEmbeddingInfo();
+async function getEmbeddingModel(workspaceId?: string) {
+  const embeddingInfo = await getDefaultEmbeddingInfo(workspaceId);
+  const embeddingApiKey = env.EMBEDDING_API_KEY;
 
   if (!embeddingInfo) {
-    // Fallback: use OpenAI text-embedding-3-small via router
-    return new ModelRouterEmbeddingModel("openai/text-embedding-3-small" as any);
+    const openaiKey = embeddingApiKey ?? resolveApiKey("openai");
+    if (!openaiKey) {
+      return new ModelRouterEmbeddingModel("openai/text-embedding-3-small" as any);
+    }
+
+    const openaiConfig = getProviderConfig("openai");
+    const openaiClient = createOpenAI(
+      openaiConfig.baseUrl
+        ? {
+            baseURL: openaiConfig.baseUrl,
+            apiKey: openaiKey,
+          }
+        : {
+            apiKey: openaiKey,
+          },
+    );
+    return openaiClient.embedding("text-embedding-3-small");
   }
 
   const { modelId, providerType } = embeddingInfo;
+  const embeddingModelId = getModelId(modelId);
   const providerConfig = getProviderConfig(providerType);
+  const resolvedApiKey = await resolveApiKeyForWorkspace(workspaceId, providerType);
+  const resolvedBaseUrl = workspaceId
+    ? await import("~/services/byok.server").then((module) =>
+        module.resolveWorkspaceProviderBaseUrl(workspaceId, providerType),
+      )
+    : null;
+  const effectiveBaseUrl = resolvedBaseUrl ?? providerConfig.baseUrl;
 
   // Ollama: use config object with custom URL
   if (providerType === "ollama") {
-    const baseUrl = providerConfig.baseUrl;
+    const baseUrl = effectiveBaseUrl;
     if (!baseUrl) {
       throw new Error(
         "Ollama embedding selected but no baseUrl configured for Ollama provider.",
@@ -572,35 +660,43 @@ async function getEmbeddingModel() {
     }
     return new ModelRouterEmbeddingModel({
       providerId: "ollama",
-      modelId,
+      modelId: embeddingModelId,
       url: `${baseUrl.replace(/\/+$/, "")}/v1`,
       apiKey: "not-needed",
     });
   }
 
-  // OpenAI proxy: use config object with custom URL
-  if (providerType === "openai" && providerConfig.baseUrl) {
-    const openaiKey = resolveApiKey("openai");
+  // OpenAI: use direct AI SDK provider for both standard and proxy setups.
+  if (providerType === "openai") {
+    const openaiKey = embeddingApiKey ?? resolvedApiKey.apiKey ?? resolveApiKey("openai");
     if (!openaiKey) {
       throw new Error(
-        "OpenAI proxy configured but OPENAI_API_KEY is missing.",
+        "OpenAI embedding provider selected but OPENAI_API_KEY is missing.",
       );
     }
-    return new ModelRouterEmbeddingModel({
-      providerId: "openai",
-      modelId,
-      url: providerConfig.baseUrl,
-      apiKey: openaiKey,
-    });
+
+    const openaiClient = createOpenAI(
+      effectiveBaseUrl
+        ? {
+            baseURL: effectiveBaseUrl,
+            apiKey: openaiKey,
+          }
+        : {
+            apiKey: openaiKey,
+          },
+    );
+    return openaiClient.embedding(embeddingModelId as any);
   }
 
   // All other providers: use router string
-  return new ModelRouterEmbeddingModel(`${providerType}/${modelId}` as any);
+  return new ModelRouterEmbeddingModel(
+    `${providerType}/${embeddingModelId}` as any,
+  );
 }
 
-export async function getEmbedding(text: string) {
-  const targetDim = await getEmbeddingDimensions();
-  const embeddingInfo = await getDefaultEmbeddingInfo();
+export async function getEmbedding(text: string, workspaceId?: string) {
+  const targetDim = await getEmbeddingDimensions(workspaceId);
+  const embeddingInfo = await getDefaultEmbeddingInfo(workspaceId);
   const embeddingProviderType = embeddingInfo?.providerType ?? "openai";
   const embeddingModelId = embeddingInfo?.modelId ?? "text-embedding-3-small";
 
@@ -608,7 +704,7 @@ export async function getEmbedding(text: string) {
   let lastEmbedding: number[] = [];
   let textForEmbedding = (text ?? "").toString();
 
-  const embeddingModel = await getEmbeddingModel();
+  const embeddingModel = await getEmbeddingModel(workspaceId);
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {

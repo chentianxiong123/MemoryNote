@@ -28,7 +28,6 @@ import {
 import { env } from "./env.server";
 import { getUser, getWorkspaceId } from "./services/session.server";
 import { getUserWorkspaces, getWorkspaceById } from "./models/workspace.server";
-import { usePostHog } from "./hooks/usePostHog";
 import {
   AppContainer,
   MainCenteredContainer,
@@ -42,12 +41,7 @@ import {
   useTheme,
 } from "remix-themes";
 import clsx from "clsx";
-import { getUsageSummary } from "./services/billing.server";
 import { Toaster } from "./components/ui/toaster";
-import {
-  getPersonaDocumentForUser,
-  getPersonaForUser,
-} from "./services/document.server";
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
 
@@ -56,41 +50,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const toastMessage = session.get("toastMessage") as ToastMessage;
   const { getTheme } = await themeSessionResolver(request);
 
-  const posthogProjectKey = env.POSTHOG_PROJECT_KEY;
-  const telemetryEnabled = env.TELEMETRY_ENABLED;
   const sentryDsn = env.SENTRY_DSN;
   const user = await getUser(request);
 
   // Only fetch workspace data if user is authenticated
   let workspaceId: string | undefined;
-  let usageSummary = null;
   let workspaces: Awaited<ReturnType<typeof getUserWorkspaces>> = [];
   let currentWorkspace = null;
-  let userPersonaDocumentId = null;
 
   if (user) {
-    workspaceId = await getWorkspaceId(request, user.id, user.workspaceId);
-    usageSummary = workspaceId
-      ? await getUsageSummary(workspaceId, user.id)
-      : null;
+    workspaceId = await getWorkspaceId(request, user.id, user.workspaceId ?? undefined);
     workspaces = await getUserWorkspaces(user.id);
-    userPersonaDocumentId = await getPersonaForUser(workspaceId as string);
-
     currentWorkspace = workspaceId ? await getWorkspaceById(workspaceId) : null;
   }
 
   return typedjson(
     {
       user: user,
-      availableCredits: usageSummary?.credits.available ?? 0,
-      totalCredits: usageSummary?.credits.monthly ?? 0,
       workspaces,
       currentWorkspace,
       toastMessage,
       theme: getTheme(),
-      posthogProjectKey,
-      telemetryEnabled,
-      userPersonaDocumentId,
       appEnv: env.APP_ENV,
       appOrigin: env.APP_ORIGIN,
       sentryDsn,
@@ -144,10 +124,7 @@ export function ErrorBoundary() {
 }
 
 function App() {
-  const { posthogProjectKey, telemetryEnabled, sentryDsn } =
-    useTypedLoaderData<typeof loader>();
-
-  usePostHog(posthogProjectKey, telemetryEnabled);
+  const { sentryDsn } = useTypedLoaderData<typeof loader>();
   const [theme] = useTheme();
 
   return (

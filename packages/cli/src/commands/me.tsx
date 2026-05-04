@@ -6,7 +6,7 @@ import zod from 'zod';
 import { CoreClient } from '@redplanethq/sdk';
 import { getConfig } from '@/config/index';
 
-const BASE_URL = 'https://app.getcore.me';
+const BASE_URL = 'http://localhost:3033';
 
 export const description = 'Show current authenticated user info';
 

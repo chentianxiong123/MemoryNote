@@ -2,12 +2,12 @@ import { useEffect, useRef } from "react";
 
 /** Call a function when the id of the item changes */
 export function useChanged<T extends { id: string }>(
-  getItem: () => T | undefined,
+  getItem: (matches?: unknown) => T | undefined,
   action: (item: T | undefined) => void,
   sendInitialUndefined = true
 ) {
-  const previousItemId = useRef<string | undefined>();
-  const item = getItem();
+  const previousItemId = useRef<string | undefined>(undefined);
+  const item = getItem(undefined);
 
   //when the value changes, call the action
   useEffect(() => {

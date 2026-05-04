@@ -112,7 +112,7 @@ export interface EpisodeSearchResult {
  * Configuration for reranking
  */
 export interface RerankConfig {
-  provider: "cohere" | "ollama" | "none";
+  provider: "cohere" | "ollama" | "openai" | "none";
   limit?: number;
   threshold: number;
   // Cohere-specific
@@ -121,4 +121,8 @@ export interface RerankConfig {
   // Ollama-specific
   ollamaUrl?: string;
   ollamaModel?: string;
+  // OpenAI-compatible rerank API
+  openaiApiKey?: string;
+  openaiBaseUrl?: string;
+  openaiModel?: string;
 }

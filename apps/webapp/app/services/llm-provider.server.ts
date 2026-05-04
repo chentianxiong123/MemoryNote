@@ -38,6 +38,48 @@ interface ProviderConfig {
 export type UseCase = "chat" | "memory" | "search";
 export type ModelComplexity = "low" | "medium" | "high";
 
+type WorkspaceMetadata = {
+  modelConfig?: Record<string, { modelId: string } | undefined>;
+  embeddingConfig?: {
+    modelId?: string;
+    dimensions?: number | null;
+  };
+  rerankConfig?: {
+    provider?: string;
+    modelId?: string;
+    threshold?: number | null;
+  };
+};
+
+async function getWorkspaceMetadata(
+  workspaceId: string,
+): Promise<WorkspaceMetadata> {
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { metadata: true },
+  });
+
+  return ((workspace?.metadata as WorkspaceMetadata | null) ?? {}) as WorkspaceMetadata;
+}
+
+function splitProviderModel(modelId: string): {
+  providerType: string;
+  bareModelId: string;
+} {
+  if (modelId.includes("/")) {
+    const [providerType, ...rest] = modelId.split("/");
+    return {
+      providerType,
+      bareModelId: rest.join("/"),
+    };
+  }
+
+  return {
+    providerType: inferProviderFromModelId(modelId),
+    bareModelId: modelId,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Seeder
 // ---------------------------------------------------------------------------
@@ -234,7 +276,67 @@ export function getProviderConfig(providerType: string): ProviderConfig {
   return {};
 }
 
-export async function getDefaultEmbeddingInfo(): Promise<EmbeddingInfo | null> {
+export async function getDefaultEmbeddingInfo(
+  workspaceId?: string | null,
+): Promise<EmbeddingInfo | null> {
+  if (workspaceId) {
+    const metadata = await getWorkspaceMetadata(workspaceId);
+    const workspaceEmbedding = metadata.embeddingConfig;
+
+    if (workspaceEmbedding?.modelId) {
+      const { providerType, bareModelId } = splitProviderModel(
+        workspaceEmbedding.modelId,
+      );
+
+      const workspaceProvider = await prisma.lLMProvider.findFirst({
+        where: {
+          workspaceId,
+          type: providerType,
+          isActive: true,
+        },
+      });
+
+      const matchingModels = await prisma.lLMModel.findMany({
+        where: {
+          modelId: bareModelId,
+          capabilities: { has: "embedding" },
+          provider: {
+            OR: [
+              ...(workspaceProvider ? [{ id: workspaceProvider.id }] : []),
+              { type: providerType, workspaceId: null },
+            ],
+          },
+        },
+        include: { provider: true },
+      });
+
+      const model =
+        matchingModels.find((candidate) => candidate.provider.workspaceId === workspaceId) ??
+        matchingModels[0];
+
+      if (model) {
+        return {
+          modelId: model.modelId,
+          providerId: model.providerId,
+          providerType: model.provider.type,
+          dimensions:
+            workspaceEmbedding.dimensions ??
+            model.dimensions ??
+            parseInt(env.EMBEDDING_MODEL_SIZE || "1024", 10),
+        };
+      }
+
+      return {
+        modelId: bareModelId,
+        providerId: workspaceProvider?.id ?? `${providerType}:workspace`,
+        providerType,
+        dimensions:
+          workspaceEmbedding.dimensions ??
+          parseInt(env.EMBEDDING_MODEL_SIZE || "1024", 10),
+      };
+    }
+  }
+
   const embeddingModelId = env.EMBEDDING_MODEL || "text-embedding-3-small";
   const model = await prisma.lLMModel.findFirst({
     where: { modelId: embeddingModelId, capabilities: { has: "embedding" } },
@@ -249,8 +351,10 @@ export async function getDefaultEmbeddingInfo(): Promise<EmbeddingInfo | null> {
   };
 }
 
-export async function getEmbeddingDimensions(): Promise<number> {
-  const info = await getDefaultEmbeddingInfo();
+export async function getEmbeddingDimensions(
+  workspaceId?: string | null,
+): Promise<number> {
+  const info = await getDefaultEmbeddingInfo(workspaceId);
   return info?.dimensions ?? parseInt(env.EMBEDDING_MODEL_SIZE || "1024", 10);
 }
 
@@ -423,6 +527,7 @@ export function resolveApiKey(providerType: string): string | undefined {
 import {
   resolveWorkspaceApiKey,
   resolveWorkspaceProviderBaseUrl,
+  resolveWorkspaceProviderApiMode,
 } from "~/services/byok.server";
 
 export interface ResolvedKey {
@@ -485,6 +590,7 @@ export async function resolveModelForWorkspace(
   apiKey: string | undefined;
   isBYOK: boolean;
   baseUrl?: string;
+  apiMode?: string;
 }> {
   const modelId = await getModelForUseCase(useCase, workspaceId, complexity);
   const providerType = inferProviderFromModelId(modelId);
@@ -500,6 +606,27 @@ export async function resolveModelForWorkspace(
       : null;
     const baseUrl = byokBaseUrl ?? env.AZURE_BASE_URL;
     return { modelId, apiKey, isBYOK, baseUrl };
+  }
+
+  if (providerType === "openai") {
+    const byokBaseUrl = workspaceId
+      ? await resolveWorkspaceProviderBaseUrl(workspaceId, "openai")
+      : null;
+    const byokApiMode = workspaceId
+      ? await resolveWorkspaceProviderApiMode(workspaceId, "openai")
+      : null;
+
+    return {
+      modelId,
+      apiKey,
+      isBYOK,
+      baseUrl: byokBaseUrl ?? env.OPENAI_BASE_URL,
+      apiMode:
+        byokApiMode ??
+        (env.OPENAI_API_MODE === "chat"
+          ? "chat_completions"
+          : env.OPENAI_API_MODE),
+    };
   }
 
   return { modelId, apiKey, isBYOK };
@@ -533,7 +660,17 @@ export async function resolveModelConfig(
   const routerString = toRouterString(modelString) as `${string}/${string}`;
 
   if (isBYOK && apiKey) {
-    return { modelConfig: { id: routerString, apiKey }, isBYOK: true };
+    const baseUrl = workspaceId
+      ? await resolveWorkspaceProviderBaseUrl(workspaceId, providerType)
+      : null;
+    return {
+      modelConfig: {
+        id: routerString,
+        apiKey,
+        ...(baseUrl ? { url: baseUrl } : {}),
+      },
+      isBYOK: true,
+    };
   }
 
   return { modelConfig: routerString, isBYOK: false };

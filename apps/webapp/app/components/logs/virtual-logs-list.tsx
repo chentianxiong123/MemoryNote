@@ -1,74 +1,28 @@
-import { useEffect, useRef } from "react";
-import {
-  InfiniteLoader,
-  AutoSizer,
-  CellMeasurer,
-  CellMeasurerCache,
-  type Index,
-  type ListRowProps,
-} from "react-virtualized";
-import { type DocumentItem } from "~/hooks/use-documents";
-import { ScrollManagedList } from "../virtualized-list";
-import { LogTextCollapse } from "./log-text-collapse";
-import { LoaderCircle } from "lucide-react";
-import { type Label } from "./label-dropdown";
+import { useRef, useCallback } from "react";
+
+interface Label {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface DocumentItem {
+  id: string;
+  title?: string;
+  content?: string;
+  createdAt: string | Date;
+  status?: string;
+  source?: string;
+  labelIds?: string[];
+}
 
 interface VirtualLogsListProps {
   documents: DocumentItem[];
   hasMore: boolean;
   loadMore: () => void;
   isLoading: boolean;
-  height?: number;
-  reset?: () => void;
+  height: number;
   labels: Label[];
-}
-
-function DocumentItemRenderer(
-  props: ListRowProps,
-  documents: DocumentItem[],
-  cache: CellMeasurerCache,
-  labels: Label[],
-) {
-  const { index, key, style, parent } = props;
-  const document = documents[index];
-
-  if (!document) {
-    return (
-      <CellMeasurer
-        key={key}
-        cache={cache}
-        columnIndex={0}
-        parent={parent}
-        rowIndex={index}
-      >
-        <div key={key} style={style} className="p-4">
-          <div className="h-24 animate-pulse rounded bg-gray-200" />
-        </div>
-      </CellMeasurer>
-    );
-  }
-
-  return (
-    <CellMeasurer
-      key={key}
-      cache={cache}
-      columnIndex={0}
-      parent={parent}
-      rowIndex={index}
-    >
-      <div key={key} style={style}>
-        <div className="group mx-3 flex cursor-default gap-2">
-          <LogTextCollapse
-            text={document.content}
-            error={document.error}
-            document={document}
-            id={document.id}
-            labels={labels}
-          />
-        </div>
-      </div>
-    </CellMeasurer>
-  );
 }
 
 export function VirtualLogsList({
@@ -76,78 +30,58 @@ export function VirtualLogsList({
   hasMore,
   loadMore,
   isLoading,
+  height,
   labels,
 }: VirtualLogsListProps) {
-  // Create a CellMeasurerCache instance using useRef to prevent recreation
-  const cacheRef = useRef<CellMeasurerCache | null>(null);
-  if (!cacheRef.current) {
-    cacheRef.current = new CellMeasurerCache({
-      defaultHeight: 120, // Default row height
-      fixedWidth: true, // Rows have fixed width but dynamic height
-    });
-  }
-  const cache = cacheRef.current;
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  useEffect(() => {
-    cache.clearAll();
-  }, [documents, cache]);
+  const lastElementRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isLoading) return;
+      if (observerRef.current) observerRef.current.disconnect();
 
-  const isRowLoaded = ({ index }: { index: number }) => {
-    return !!documents[index];
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadMore();
+        }
+      });
+
+      if (node) observerRef.current.observe(node);
+    },
+    [isLoading, hasMore, loadMore],
+  );
+
+  const getLabelNames = (labelIds?: string[]) => {
+    if (!labelIds || !labels) return [];
+    return labelIds
+      .map((id) => labels.find((l) => l.id === id))
+      .filter(Boolean)
+      .map((l) => l!.name);
   };
-
-  const loadMoreRows = async () => {
-    if (hasMore) {
-      return loadMore();
-    }
-
-    return false;
-  };
-
-  const rowRenderer = (props: ListRowProps) => {
-    return DocumentItemRenderer(props, documents, cache, labels);
-  };
-
-  const rowHeight = ({ index }: Index) => {
-    return cache.getHeight(index, 0);
-  };
-
-  const itemCount = hasMore
-    ? (documents?.length ?? 0) + 1
-    : (documents?.length ?? 0);
 
   return (
-    <div className="h-full grow overflow-hidden rounded-lg">
-      <AutoSizer className="h-full">
-        {({ width, height: autoHeight }) => (
-          <InfiniteLoader
-            isRowLoaded={isRowLoaded}
-            loadMoreRows={loadMoreRows}
-            rowCount={itemCount}
-            threshold={5}
-          >
-            {({ onRowsRendered, registerChild }) => (
-              <ScrollManagedList
-                ref={registerChild}
-                className="h-auto overflow-auto"
-                height={autoHeight}
-                width={width}
-                rowCount={itemCount}
-                rowHeight={rowHeight}
-                onRowsRendered={onRowsRendered}
-                rowRenderer={rowRenderer}
-                deferredMeasurementCache={cache}
-                overscanRowCount={10}
-              />
-            )}
-          </InfiniteLoader>
-        )}
-      </AutoSizer>
-
-      {isLoading && (
-        <div className="text-muted-foreground p-4 text-center text-sm">
-          <LoaderCircle size={18} className="mr-1 animate-spin" />
+    <div className="overflow-auto" style={{ height }}>
+      {documents.map((doc, index) => (
+        <div
+          key={doc.id}
+          ref={index === documents.length - 1 ? lastElementRef : undefined}
+          className="border-b p-4 hover:bg-muted/50"
+        >
+          <div className="font-medium">{doc.title || "Untitled"}</div>
+          <div className="text-sm text-muted-foreground truncate">
+            {doc.content?.slice(0, 100)}
+          </div>
+          <div className="flex gap-2 mt-2">
+            {getLabelNames(doc.labelIds).map((name) => (
+              <span key={name} className="text-xs bg-primary/10 px-2 py-0.5 rounded">
+                {name}
+              </span>
+            ))}
+          </div>
         </div>
+      ))}
+      {isLoading && (
+        <div className="p-4 text-center text-muted-foreground">Loading...</div>
       )}
     </div>
   );

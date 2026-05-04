@@ -38,7 +38,7 @@ export interface ProviderConfig {
 }
 
 export interface AppConfig {
-	// Core authentication
+	// MemoryNote authentication
 	auth?: {
 		url: string;
 		apiKey: string;
@@ -103,7 +103,7 @@ export interface GatewayConfig {
 	id?: string; // Generated gateway ID
 	name?: string; // Gateway name
 	description?: string; // Gateway description/role for meta-agent selection
-	url?: string; // App URL (default: https://app.getcore.me)
+	url?: string; // App URL (default: http://localhost:3033)
 	port?: number;
 	pid: number;
 	startedAt: number;

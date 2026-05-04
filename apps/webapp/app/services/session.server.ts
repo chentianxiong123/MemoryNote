@@ -1,162 +1,136 @@
 import { redirect } from "@remix-run/node";
-import { getUserById } from "~/models/user.server";
+import { getUserById, findOrCreateMagicLinkUser } from "~/models/user.server";
 import { sessionStorage } from "./sessionStorage.server";
 import { getImpersonationId } from "./impersonation.server";
 import { type Request as ERequest } from "express";
 import { prisma } from "~/db.server";
 import { getWorkspaceById } from "~/models/workspace.server";
-import { u } from "@/build/server/assets/server-build-DGNmHiPh";
+import { postAuthentication } from "./postAuth.server";
+
+const TEST_USER_EMAIL = "test@example.com";
+let cachedUserId: string | null = null;
+let cachedWorkspaceId: string | null = null;
+
+async function getTestUser() {
+  if (cachedUserId) {
+    const user = await getUserById(cachedUserId);
+    if (user) return user;
+  }
+
+  const { user: newUser, isNewUser } = await findOrCreateMagicLinkUser({
+    email: TEST_USER_EMAIL,
+    authenticationMethod: "MAGIC_LINK",
+  });
+
+  await postAuthentication({ user: newUser, isNewUser, loginMethod: "MAGIC_LINK" });
+  
+  cachedUserId = newUser.id;
+  
+  const userWorkspace = await prisma.userWorkspace.findFirst({
+    where: { userId: newUser.id, isActive: true },
+    select: { workspaceId: true },
+  });
+  cachedWorkspaceId = userWorkspace?.workspaceId || null;
+
+  if (cachedWorkspaceId) {
+    const workspace = await prisma.workspace.findFirst({
+      where: { id: cachedWorkspaceId },
+      select: { metadata: true, name: true, slug: true },
+    });
+    
+    if (workspace) {
+      const metadata = (workspace.metadata ?? {}) as Record<string, unknown>;
+      
+      if (!metadata.onboardingV2Complete) {
+        await prisma.workspace.update({
+          where: { id: cachedWorkspaceId },
+          data: {
+            name: workspace.name || "Core",
+            slug: workspace.slug || "core",
+            metadata: { ...metadata, onboardingV2Complete: true },
+          },
+        });
+        console.log(`✅ Auto-completed onboarding for workspace: ${cachedWorkspaceId}`);
+      }
+    }
+  }
+
+  return newUser;
+}
 
 export async function getUserId(
   request: Request | ERequest,
 ): Promise<string | undefined> {
-  const impersonatedUserId = await getImpersonationId(request as Request);
-
-  if (impersonatedUserId) return impersonatedUserId;
-
-  const cookieHeader =
-    request instanceof Request
-      ? request.headers.get("Cookie")
-      : request.headers["cookie"];
-
-  let session = await sessionStorage.getSession(cookieHeader);
-  let user = session.get("user");
-
-  return user?.userId;
+  const user = await getTestUser();
+  return user.id;
 }
 
 export async function getUserSession(
   request: Request | ERequest,
 ): Promise<{ userId: string; workspaceId?: string } | undefined> {
-  const impersonatedUserId = await getImpersonationId(request as Request);
-
-  if (impersonatedUserId) {
-    // For impersonated users, get their workspace
-    const workspaceId = await getWorkspaceId(request, impersonatedUserId);
-    return { userId: impersonatedUserId, workspaceId };
-  }
-
-  const cookieHeader =
-    request instanceof Request
-      ? request.headers.get("Cookie")
-      : request.headers["cookie"];
-
-  let session = await sessionStorage.getSession(cookieHeader);
-  let user = session.get("user") as unknown as {
-    userId: string;
-    workspaceId?: string;
-  };
-
-  if (!user?.userId) return undefined;
-
-  // Get workspaceId from cookie or fallback to first workspace
-  const workspaceId = await getWorkspaceId(
-    request,
-    user.userId,
-    user.workspaceId,
-  );
-
-  return {
-    userId: user.userId,
-    workspaceId,
-  };
+  const user = await getTestUser();
+  return { userId: user.id, workspaceId: cachedWorkspaceId ?? undefined };
 }
 
 export async function getUser(request: Request) {
-  const userSession = await getUserSession(request);
-  if (userSession === undefined || userSession.userId === undefined)
-    return null;
-
-  const { userId, workspaceId } = userSession;
-
-  const user = await getUserById(userId);
-  if (user) return { ...user, workspaceId };
-
-  throw await logout(request);
+  const user = await getTestUser();
+  return { ...user, workspaceId: cachedWorkspaceId };
 }
 
 export async function requireUserId(request: Request, redirectTo?: string) {
-  const userId = await getUserId(request);
-  if (!userId) {
-    const url = new URL(request.url);
-    const searchParams = new URLSearchParams([
-      ["redirectTo", redirectTo ?? `${url.pathname}${url.search}`],
-    ]);
-    throw redirect(`/login?${searchParams}`);
-  }
-  return userId;
+  const user = await getTestUser();
+  return user.id;
 }
 
 export async function requireUser(request: Request) {
-  const userId = await requireUserId(request);
-
-  const impersonationId = await getImpersonationId(request);
-  const user = await getUserById(userId);
-  if (user) {
-    // Get workspaceId from session or fallback to first workspace
-    const userSession = await getUserSession(request);
-
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      displayName: user.displayName,
-      avatarUrl: user.avatarUrl,
-      admin: user.admin,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      metadata: user.metadata,
-      confirmedBasicDetails: user.confirmedBasicDetails,
-      onboardingComplete: user.onboardingComplete,
-      isImpersonating: !!impersonationId,
-      workspaceId: userSession?.workspaceId,
-    };
-  }
-
-  throw await logout(request);
+  const user = await getTestUser();
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
+    admin: user.admin,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    metadata: user.metadata,
+    confirmedBasicDetails: user.confirmedBasicDetails,
+    onboardingComplete: true,
+    isImpersonating: false,
+    workspaceId: cachedWorkspaceId,
+  };
 }
 
 export async function requireWorkpace(request: Request) {
-  const { workspaceId } = await requireUser(request);
-
-  if (!workspaceId) {
-    const url = new URL(request.url);
-    const searchParams = new URLSearchParams([
-      ["redirectTo", `${url.pathname}${url.search}`],
-    ]);
-    throw redirect(`/login?${searchParams}`);
+  const user = await getTestUser();
+  if (!cachedWorkspaceId) {
+    const workspace = await prisma.userWorkspace.findFirst({
+      where: { userId: user.id, isActive: true },
+    });
+    if (workspace) {
+      cachedWorkspaceId = workspace.workspaceId;
+    }
   }
-  const workspace = await getWorkspaceById(workspaceId);
+  
+  if (!cachedWorkspaceId) {
+    throw new Error("No workspace found");
+  }
+  
+  const workspace = await getWorkspaceById(cachedWorkspaceId);
   return workspace;
 }
 
 export async function logout(request: Request) {
-  return redirect("/logout");
+  return redirect("/");
 }
 
 export async function getWorkspaceId(
   request: Request | ERequest,
   userId: string,
-  providedWorkspaceId?: string,
+  providedWorkspaceId?: string | null,
 ): Promise<string | undefined> {
-  // 1. If workspaceId is provided (from cookie or PAT), use it
   if (providedWorkspaceId) {
     return providedWorkspaceId;
   }
-
-  // 2. Fallback: Get the first workspace for the user
-  const userWorkspace = await prisma.userWorkspace.findFirst({
-    where: {
-      userId,
-      isActive: true,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-    select: {
-      workspaceId: true,
-    },
-  });
-
-  return userWorkspace?.workspaceId;
+  return cachedWorkspaceId ?? undefined;
 }

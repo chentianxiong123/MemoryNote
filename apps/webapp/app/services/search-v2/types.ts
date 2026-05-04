@@ -364,6 +364,7 @@ export const ASPECT_DEFINITIONS: Record<StatementAspect, string> = {
     "How they want things - likes, dislikes, style choices, preferences",
   Habit: "What they do regularly - recurring behaviors, habits, routines",
   Goal: "What they want to achieve - future targets, aims, objectives",
+  Task: "One-time commitments - follow-ups, promises, action items",
   Directive:
     "Rules and automation - always do X, notify when Y, remind me to Z",
   Decision: "Choices made, conclusions reached, determinations",

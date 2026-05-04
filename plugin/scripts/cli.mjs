@@ -190,7 +190,7 @@ EXECUTE THIS TOOL FIRST:
 `;
 
 // src/api-client.ts
-var API_BASE_URL = "https://app.getcore.me/api/v1";
+var API_BASE_URL = "http://localhost:3033/api/v1";
 async function addEpisode(payload, token) {
   try {
     const response = await fetch(`${API_BASE_URL}/add`, {

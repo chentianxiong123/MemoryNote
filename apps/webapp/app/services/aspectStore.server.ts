@@ -73,7 +73,9 @@ export async function saveVoiceAspects(
   }
 
   // Generate and store embeddings in vector provider
-  const embeddings = await Promise.all(saved.map((s) => getEmbedding(s.fact)));
+  const embeddings = await Promise.all(
+    saved.map((s) => getEmbedding(s.fact, s.workspaceId)),
+  );
 
   const items = saved.map((s, i) => ({
     id: s.uuid,
@@ -103,7 +105,7 @@ export async function findSimilarVoiceAspects(params: {
   limit?: number;
   threshold?: number;
 }): Promise<Array<VoiceAspectNode & { score: number }>> {
-  const embedding = await getEmbedding(params.fact);
+  const embedding = await getEmbedding(params.fact, params.workspaceId);
 
   const results = await vectorProvider().search({
     vector: embedding,

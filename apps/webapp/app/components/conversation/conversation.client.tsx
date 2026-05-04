@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocalCommonState } from "~/hooks/use-local-state";
 import { Form, useFetcher, useSubmit } from "@remix-run/react";
 import { cn } from "~/lib/utils";
-import { ArrowUp, EyeOff } from "lucide-react";
+import { ArrowUp, EyeOff, Mail, Calendar, LayoutGrid } from "lucide-react";
 import { Document } from "@tiptap/extension-document";
 import HardBreak from "@tiptap/extension-hard-break";
 import { History } from "@tiptap/extension-history";
@@ -11,11 +11,7 @@ import { Text } from "@tiptap/extension-text";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { Button } from "../ui";
-import { ExampleUseCases } from "./example-usecases";
 import { RiGithubFill } from "@remixicon/react";
-import { Gmail } from "../icons/gmail";
-import { LinearIcon } from "../icons/linear-icon";
-import { GoogleCalendar } from "../icons/google-calendar";
 import {
   Select,
   SelectContent,
@@ -37,17 +33,17 @@ export const SUGGESTED = [
       "Find the 3 oldest GitHub pull requests waiting for my review and summarize the changes",
   },
   {
-    icon: Gmail,
+    icon: Mail,
     prompt:
       "Find all unread emails from today, group them by sender importance, and create a prioritized summary with action items",
   },
   {
-    icon: LinearIcon,
+    icon: LayoutGrid,
     prompt:
       "Retrieve all Linear issues assigned to me across all teams, filter by status, and create a prioritized task list with due dates",
   },
   {
-    icon: GoogleCalendar,
+    icon: Calendar,
     prompt:
       "Show all my scheduled events for the next 7 days in chronological order with meeting titles, times, and participants",
   },

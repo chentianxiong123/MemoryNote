@@ -13,7 +13,7 @@ export function toGraphNode(node: Node): GraphNode {
 
   return {
     id: node.uuid,
-    value: node.name,
+    value: node.name || "",
     uuid: node.uuid,
     name: node.name,
     createdAt: node.createdAt,
@@ -21,7 +21,7 @@ export function toGraphNode(node: Node): GraphNode {
     summary: node.summary,
     labels: node.labels,
     primaryLabel,
-    clusterId: node?.clusterId, // Extract cluster ID from attributes
+    clusterId: node?.clusterId,
   };
 }
 

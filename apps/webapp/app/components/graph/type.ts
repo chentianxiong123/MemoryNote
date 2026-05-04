@@ -1,5 +1,6 @@
 export interface Node {
   uuid: string;
+  name?: string;
   summary?: string;
   labels?: string[];
   attributes?: Record<string, any>;
@@ -43,23 +44,6 @@ export interface GraphTriplet {
 export interface IdValue {
   id: string;
   value: string;
-}
-
-// Graph visualization types
-export interface GraphNode extends Node {
-  id: string;
-  value: string;
-}
-
-export interface GraphEdge extends Edge {
-  id: string;
-  value: string;
-}
-
-export interface GraphTriplet {
-  source: GraphNode;
-  relation: GraphEdge;
-  target: GraphNode;
 }
 
 // Popup content types for UI

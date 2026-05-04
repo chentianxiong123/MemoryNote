@@ -8,7 +8,7 @@ import {
 } from '../utils/stream.js';
 import type {IntegrationDefinition, IntegrationAccount} from '../utils/stream.js';
 
-const DASHBOARD_URL = 'https://app.getcore.me';
+const DASHBOARD_URL = 'http://localhost:3033';
 
 const selectListTheme = {
 	selectedPrefix: (s: string) => chalk.cyan(s),

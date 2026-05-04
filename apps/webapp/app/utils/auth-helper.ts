@@ -59,6 +59,9 @@ export async function requireAuth(request: Request): Promise<AuthenticatedUser> 
     // Try OAuth2 access token
     try {
       const accessToken = await oauth2Service.validateAccessToken(token);
+      if (!accessToken) {
+        throw new Error("Invalid access token");
+      }
       return {
         id: accessToken.user.id,
         email: accessToken.user.email,
@@ -75,7 +78,7 @@ export async function requireAuth(request: Request): Promise<AuthenticatedUser> 
           clientId: accessToken.client.clientId,
           scope: accessToken.scope,
         },
-        workspaceId: accessToken.workspaceId
+        workspaceId: accessToken.workspaceId ?? undefined
 
       };
     } catch (error) {

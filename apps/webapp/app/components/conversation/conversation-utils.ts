@@ -1,4 +1,7 @@
-import type { UIMessagePart } from "ai";
+import type { UIMessagePart, UITool } from "ai";
+
+type UIDataTypes = Record<string, unknown>;
+type UITools = Record<string, UITool>;
 
 // ── Mastra data structures ────────────────────────────────────────────────────
 
@@ -84,7 +87,7 @@ export interface AgentToolPart extends ConversationToolPart {
 }
 
 export type ExtendedPart =
-  | UIMessagePart
+  | UIMessagePart<UIDataTypes, UITools>
   | StepStartPart
   | DataToolAgentPart
   | AgentToolPart;
@@ -237,13 +240,16 @@ export const getNestedPartsFromOutput = (
  * Recursively checks if any nested part has state "approval-requested"
  */
 export const hasNeedsApprovalDeep = (
-  parts: ConversationToolPart[],
+  parts: unknown[],
 ): boolean => {
   for (const part of parts) {
-    if (part.state === "approval-requested") return true;
-    const nested = getNestedPartsFromOutput(part.output);
+    if (!part || typeof part !== "object") continue;
+    if (!("state" in part)) continue;
+    if ((part as { state: string }).state === "approval-requested") return true;
+    const output = "output" in part ? part.output : undefined;
+    const nested = getNestedPartsFromOutput(output);
     const toolParts = nested.filter((p): p is ConversationToolPart =>
-      p.type.includes("tool-"),
+      "type" in p && typeof p.type === "string" && p.type.includes("tool-"),
     );
     if (toolParts.length > 0 && hasNeedsApprovalDeep(toolParts)) return true;
   }
@@ -394,12 +400,16 @@ export const findPendingApprovals = (
         // Expand take_action: show only nested tools without results as separate cards
         if (toolName === "take_action" || toolName === "agent-take_action") {
           const nested = getNestedPartsFromOutput(part.output).filter(
-            (np): np is ConversationToolPart =>
-              np.type.includes("tool-") &&
-              np.state !== "output-available" &&
-              np.state !== "output-error" &&
-              np.state !== "output-denied" &&
-              np.state !== "approval-responded",
+            (np): np is ConversationToolPart => {
+              if (!("state" in np)) return false;
+              return (
+                np.type.includes("tool-") &&
+                np.state !== "output-available" &&
+                np.state !== "output-error" &&
+                np.state !== "output-denied" &&
+                np.state !== "approval-responded"
+              );
+            },
           );
           if (nested.length > 0) {
             // Each nested card borrows the parent approval id
@@ -478,7 +488,7 @@ export const getToolDisplayName = (toolType: string): string => {
  * Mastra streams subagent activity as separate "data-tool-agent" sibling parts
  * instead of nesting them inside the parent tool's output during streaming.
  */
-export const mergeAgentParts = (parts: UIMessagePart[]): ExtendedPart[] => {
+export const mergeAgentParts = (parts: UIMessagePart<UIDataTypes, UITools>[]): ExtendedPart[] => {
   const result: ExtendedPart[] = [];
   let lastAgentTool: AgentToolPart | null = null;
 

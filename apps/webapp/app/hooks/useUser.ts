@@ -30,9 +30,9 @@ export function useOptionalUser(matches?: UIMatch[]): ExtendedUser | undefined {
   return routeMatch?.user
     ? {
         ...routeMatch?.user,
-        userPersonaDocumentId: routeMatch?.userPersonaDocumentId,
-        availableCredits: routeMatch?.availableCredits,
-        totalCredits: routeMatch?.totalCredits,
+        userPersonaDocumentId: undefined,
+        availableCredits: 0,
+        totalCredits: 0,
         workspaces: routeMatch?.workspaces ?? [],
         currentWorkspace: routeMatch?.currentWorkspace ?? null,
       }
@@ -52,7 +52,7 @@ export function useUser(matches?: UIMatch[]): ExtendedUser {
 export function useUserChanged(
   callback: (user: ExtendedUser | undefined) => void,
 ) {
-  useChanged(useOptionalUser, callback);
+  useChanged(useOptionalUser as (matches?: unknown) => ExtendedUser | undefined, callback);
 }
 
 export function useHasAdminAccess(matches?: UIMatch[]): boolean {

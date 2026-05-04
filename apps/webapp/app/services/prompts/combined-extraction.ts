@@ -22,6 +22,14 @@ export const CombinedEntitySchema = z.object({
     .enum(EntityTypes)
     .nullable()
     .describe("The entity type classification"),
+  definition_draft: z
+    .string()
+    .nullable()
+    .describe("Short candidate definition grounded only in this episode, or null when unknown"),
+  aliases: z
+    .array(z.string())
+    .nullable()
+    .describe("Known aliases or alternate spellings mentioned in the episode, or null"),
   attributes: z
     .record(
       z.string(),
@@ -158,7 +166,7 @@ WHEN USER NAME IS NEEDED (Level: User or User→Topic):
 
 WHEN USER NAME IS NOT NEEDED (Level: Topic):
 - Plan/strategy details (implicitly user's)
-- Project facts (CORE → uses → TypeScript)
+- Project facts (MemoryNote → uses → TypeScript)
 - System/component facts (API → supports → pagination)
 
 ALWAYS CREATE TOPIC ANCHORS when user discusses:
@@ -194,9 +202,13 @@ Extract entities for:
 • Features/Components being built or modified
 • Projects, technologies, products involved
 
+For each entity, also provide:
+• definition_draft: one short personal-wiki definition grounded only in the episode. It is a DRAFT for user review, not a final fact.
+• aliases: alternate names explicitly mentioned in the episode, or null.
+
 ENTITY TEST: "Would I search for this entity to find user-specific information?"
 - ✅ "Fat Loss" - Yes, to find user's fat loss goals/progress
-- ✅ "CORE" - Yes, to find project details
+- ✅ "MemoryNote" - Yes, to find project details
 - ❌ "Compound Movement" - No, this is just fitness vocabulary
 - ❌ "Progressive Overload" - No, this is a generic training concept
 
@@ -235,9 +247,9 @@ Examples:
    → Statement: User → updated_contact → Sarah (Relationship aspect)
 
 2. PROJECT metadata:
-   Episode: "CORE repo is at github.com/acme/core, currently in beta"
-   → Entity: CORE (Project) with attributes: {github_url: "github.com/acme/core", status: "beta"}
-   → Statement: CORE → has → active development (null aspect)
+   Episode: "MemoryNote repo is at github.com/acme/memorynote, currently in beta"
+   → Entity: MemoryNote (Project) with attributes: {github_url: "github.com/acme/memorynote", status: "beta"}
+   → Statement: MemoryNote → has → active development (null aspect)
 
 3. PRODUCT version:
    Episode: "PostgreSQL 16 added better JSON support"
@@ -256,8 +268,8 @@ IMPORTANT: User's identity → statements with Identity aspect (for history trac
 | **Organization** | Companies, teams, institutions | Google, Red Planet, Design Team, Stanford | Department names without company context |
 | **Place** | Physical locations, cities, venues | Bangalore, San Francisco, Office HQ, District (venue) | Online communities, virtual spaces |
 | **Event** | Named occurrences, meetings, conferences | React Conf, Sprint Review, Q2 Planning, Product Demo | Generic activities ("meeting", "call") |
-| **Project** | Work initiatives, named efforts | CORE, MVP Launch, Website Redesign, Migration Plan | Generic work ("development", "testing") |
-| **Task** | Tracked work items with IDs | CORE-123, Issue #456, TODO-789, JIRA-5001 | Tasks without tracking IDs |
+| **Project** | Work initiatives, named efforts | MemoryNote, MVP Launch, Website Redesign, Migration Plan | Generic work ("development", "testing") |
+| **Task** | Tracked work items with IDs | MN-123, Issue #456, TODO-789, JIRA-5001 | Tasks without tracking IDs |
 | **Technology** | Dev tools, frameworks, languages, infrastructure | TypeScript, PostgreSQL, Docker, npm, AWS, Kubernetes, React | Business software (use Product) |
 | **Product** | Apps, services, platforms, business software | Slack, GitHub, Perplexity, Figma, iPhone, Zomato, Cult.fit, Reddit | Programming languages/frameworks (use Technology) |
 | **Standard** | Protocols, methodologies, specifications | OAuth 2.0, REST API, Agile, HTTP, JSON, Scrum | Generic terms ("best practices") |
@@ -534,7 +546,7 @@ ONLY use event_date for Event aspect (occurrences with specific timing):
 - "Meeting scheduled for Jan 30" → event_date: 2026-01-30
 
 Leave null for all other aspects (most facts are timeless):
-- "CORE uses TypeScript" → null
+- "MemoryNote uses TypeScript" → null
 - "Manoj prefers dark mode" → null
 - "slack_list_messages supports pagination" → null
 
@@ -603,7 +615,13 @@ Keep facts SHORT: max 15 words, one clear sentence.
 <output_format>
 {
   "entities": [
-    {"name": "Name", "type": "Type", "attributes": {"key": "value"}}
+    {
+      "name": "Name",
+      "type": "Type",
+      "definition_draft": "Short reviewable definition or null",
+      "aliases": ["Alias"],
+      "attributes": {"key": "value"}
+    }
   ],
   "statements": [
     {
@@ -696,11 +714,11 @@ Key points:
 
 EXAMPLE 4: Project tech stack
 
-Episode: "CORE uses TypeScript, Remix for frontend, Prisma ORM. Decided to use PostgreSQL."
+Episode: "MemoryNote uses TypeScript, Remix for frontend, Prisma ORM. Decided to use PostgreSQL."
 
 Entities:
 [
-  {"name": "CORE", "type": "Project"},
+  {"name": "MemoryNote", "type": "Project"},
   {"name": "TypeScript", "type": "Technology"},
   {"name": "Remix", "type": "Technology"},
   {"name": "Prisma", "type": "Technology"},
@@ -710,14 +728,14 @@ Entities:
 Statements:
 | Source | Predicate | Target | Fact | Aspect | event_date |
 |--------|-----------|--------|------|--------|------------|
-| CORE | uses | TypeScript | CORE uses TypeScript. | null | null |
-| CORE | uses | Remix | CORE uses Remix for frontend. | null | null |
-| CORE | uses | Prisma | CORE uses Prisma for ORM. | null | null |
-| CORE | decided | PostgreSQL | CORE decided to use PostgreSQL. | Decision | null |
+| MemoryNote | uses | TypeScript | MemoryNote uses TypeScript. | null | null |
+| MemoryNote | uses | Remix | MemoryNote uses Remix for frontend. | null | null |
+| MemoryNote | uses | Prisma | MemoryNote uses Prisma for ORM. | null | null |
+| MemoryNote | decided | PostgreSQL | MemoryNote decided to use PostgreSQL. | Decision | null |
 
 Key points:
-• Subject is CORE (project owns its tech stack)
-• NOT "Manoj uses TypeScript for CORE" (verbose)
+• Subject is MemoryNote (project owns its tech stack)
+• NOT "Manoj uses TypeScript for MemoryNote" (verbose)
 • Decision aspect only for explicit choice
 
 

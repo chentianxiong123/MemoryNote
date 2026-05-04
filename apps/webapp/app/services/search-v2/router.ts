@@ -173,7 +173,7 @@ async function searchLabels(
   const vectorProvider = ProviderFactory.getVectorProvider();
 
   // Get embedding for intent
-  const intentEmbedding = await getEmbedding(intent);
+  const intentEmbedding = await getEmbedding(intent, workspaceId);
 
   if (!intentEmbedding || intentEmbedding.length === 0) {
     logger.warn("[Router] Failed to get embedding for intent");

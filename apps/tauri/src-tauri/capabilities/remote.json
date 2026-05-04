@@ -3,7 +3,7 @@
   "identifier": "remote-access",
   "description": "Allow remote webapp to use Tauri APIs",
   "remote": {
-    "urls": ["https://app.getcore.me"]
+    "urls": ["http://localhost:3033"]
   },
   "windows": ["main"],
   "permissions": [

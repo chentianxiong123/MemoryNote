@@ -29,11 +29,7 @@ export const createTools = async (
     workspaceId,
     timezone,
     source,
-    readOnly,
-    skills,
-    onMessage,
-    defaultChannel,
-    availableChannels,
-    isBackgroundExecution,
+    conversationId: _conversationId ?? "",
+    interactive: !isBackgroundExecution,
   });
 };

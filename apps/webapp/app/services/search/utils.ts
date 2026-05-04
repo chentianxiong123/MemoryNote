@@ -541,11 +541,11 @@ export async function extractEntitiesFromQuery(
       const chunks = generateQueryChunks(query);
       // Get embeddings for each chunk
       chunkEmbeddings = await Promise.all(
-        chunks.map((chunk) => getEmbedding(chunk)),
+        chunks.map((chunk) => getEmbedding(chunk, workspaceId)),
       );
     } else {
       chunkEmbeddings = await Promise.all(
-        startEntities.map((chunk) => getEmbedding(chunk)),
+        startEntities.map((chunk) => getEmbedding(chunk, workspaceId)),
       );
     }
 

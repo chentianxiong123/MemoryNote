@@ -299,7 +299,6 @@ export async function postAuthentication({
     workspace = await createWorkspace({
       name: defaultName,
       userId: user.id,
-      integrations: [],
     });
 
     // Auto-create Gmail and Calendar integrations for Google signups

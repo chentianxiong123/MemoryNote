@@ -85,10 +85,11 @@ const { loader, action } = createHybridActionApiRoute(
     // Persist incoming user message (skip on approval flows)
     // -----------------------------------------------------------------------
     if (!isAssistantApproval) {
-      if (conversationHistory.length === 1 && incomingUserText) {
+      const firstConversationHistoryId = conversationHistory[0]?.id;
+      if (conversationHistory.length === 1 && firstConversationHistoryId) {
         await enqueueCreateConversationTitle({
           conversationId: body.id,
-          message: incomingUserText,
+          conversationHistoryId: firstConversationHistoryId,
         });
       }
 

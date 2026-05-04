@@ -1,0 +1,103 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": [ "^build" ],
+      "inputs": [ "$TURBO_DEFAULT$", ".env*" ],
+      "outputs": [ "dist/**", "public/build/**", "build/**", "app/styles/tailwind.css", ".cache" ]
+    },
+    "lint": {
+      "dependsOn": [ "^lint" ]
+    },
+    "check-types": {
+      "dependsOn": [ "^check-types" ]
+    },
+    "dev": {
+      "cache": false,
+      "interactive": true
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate:deploy": {
+      "cache": false
+    },
+    "db:migrate:create": {
+      "cache": false,
+      "interactive": true
+    },
+    "db:studio": {
+      "cache": false
+    },
+    "db:reset": {
+      "interactive": true,
+      "cache": false
+    },
+    "generate": {
+      "dependsOn": [ "^generate" ]
+    },
+    "trigger:dev": {
+      "interactive": true,
+      "cache": false
+    },
+    "trigger:deploy": {
+      "interactive": true,
+      "cache": false
+    }
+  },
+  "globalDependencies": [ ".env" ],
+  "globalEnv": [
+    "NODE_ENV",
+    "REMIX_APP_PORT",
+    "CI",
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "SESSION_SECRET",
+    "APP_ORIGIN",
+    "LOGIN_ORIGIN",
+    "API_BASE_URL",
+    "POSTHOG_PROJECT_KEY",
+    "AUTH_GOOGLE_CLIENT_ID",
+    "AUTH_GOOGLE_CLIENT_SECRET",
+    "APP_ENV",
+    "APP_LOG_LEVEL",
+    "ENCRYPTION_KEY",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "REDIS_TLS_DISABLED",
+    "NEO4J_URI",
+    "NEO4J_USERNAME",
+    "NEO4J_PASSWORD",
+    "OPENAI_API_KEY",
+    "MAGIC_LINK_SECRET",
+    "ENABLE_EMAIL_LOGIN",
+    "MODEL",
+    "OLLAMA_URL",
+    "TRIGGER_PROJECT_ID",
+    "TRIGGER_API_URL",
+    "TRIGGER_SECRET_KEY",
+    "EMBEDDING_MODEL",
+    "MODEL",
+    "COHERE_API_KEY",
+    "RESEND_API_KEY",
+    "FROM_EMAIL",
+    "REPLY_TO_EMAIL",
+    "EMAIL_TRANSPORT",
+    "AWS_REGION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "STRIPE_PUBLISHABLE_KEY",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "PRO_PLAN_STRIPE_PRICE_ID",
+    "MAX_PLAN_STRIPE_PRICE_ID",
+    "FREE_PLAN_CREDITS",
+    "PRO_PLAN_CREDITS",
+    "PRO_OVERAGE_PRICE",
+    "MAX_PLAN_CREDITS",
+    "MAX_OVERAGE_PRICE",
+    "TELEMETRY_ENABLED",
+    "TELEMETRY_ANONYMOUS"
+  ]
+}

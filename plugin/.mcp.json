@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "core_brain": {
-      "type": "http",
-      "url": "http://localhost:3033/api/v1/mcp?source=claude&skip_tools=memory_ingest,initialize_conversation_session,memory_about_user"
-    }
-  }
-}

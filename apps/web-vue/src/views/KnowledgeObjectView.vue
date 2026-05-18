@@ -6,20 +6,25 @@ import GraphLocalView from "@/components/GraphLocalView.vue";
 import {
   fetchKnowledgeObject,
   fetchKnowledgeObjectGraph,
+  fetchWikiEntry,
   type KnowledgeCaptureItemRecord,
   type KnowledgeObjectDetailResponse,
   type KnowledgeObjectGraphResponse,
+  type WikiEntryResponse,
 } from "@/lib/api";
 
 const route = useRoute();
 
 const detail = ref<KnowledgeObjectDetailResponse | null>(null);
 const graph = ref<KnowledgeObjectGraphResponse | null>(null);
+const wikiEntry = ref<WikiEntryResponse | null>(null);
 const error = ref("");
 const isLoading = ref(false);
+const isLoadingWiki = ref(false);
 const graphDepth = ref(1);
 const selectedNodeId = ref<string | null>(null);
 const selectedEdgeId = ref<string | null>(null);
+const colorMode = ref<"type" | "community">("type");
 
 const objectId = computed(() => route.params.objectId as string);
 
@@ -83,6 +88,22 @@ async function loadObject() {
   } finally {
     isLoading.value = false;
   }
+
+  loadWikiEntry();
+}
+
+async function loadWikiEntry() {
+  if (!detail.value?.object.uuid) return;
+  isLoadingWiki.value = true;
+
+  try {
+    const response = await fetchWikiEntry(detail.value.object.uuid);
+    wikiEntry.value = response;
+  } catch {
+    wikiEntry.value = null;
+  } finally {
+    isLoadingWiki.value = false;
+  }
 }
 
 async function expandGraph() {
@@ -142,7 +163,26 @@ onMounted(() => {
 
     <p v-if="error" class="knowledge-object__error">{{ error }}</p>
 
-    <template v-else-if="detail && graph">
+    <article v-if="wikiEntry && !isLoadingWiki" class="wiki-entry-card">
+      <div class="wiki-entry-card__header">
+        <p class="panel-card__eyebrow">Wiki 词条</p>
+        <RouterLink
+          class="button button--ghost button--small"
+          :to="`/home/wiki/${encodeURIComponent(wikiEntry.entityUuid)}`"
+        >
+          查看完整词条
+        </RouterLink>
+      </div>
+      <h2 class="wiki-entry-card__title">{{ wikiEntry.title }}</h2>
+      <p v-if="wikiEntry.definition" class="wiki-entry-card__definition">
+        <strong>定义：</strong>{{ wikiEntry.definition }}
+      </p>
+      <p v-if="wikiEntry.summary" class="wiki-entry-card__summary">
+        {{ wikiEntry.summary }}
+      </p>
+    </article>
+
+    <template v-if="detail && graph">
       <section class="knowledge-object__hero">
         <article class="hero-card">
           <span>类型</span>
@@ -166,7 +206,16 @@ onMounted(() => {
         <article class="panel-card panel-card--main">
           <div class="panel-card__head">
             <p class="panel-card__eyebrow">Local Graph</p>
-            <span class="chip">depth {{ graph.meta.depth }}</span>
+            <div class="panel-card__actions">
+              <span class="chip">depth {{ graph.meta.depth }}</span>
+              <button
+                class="button button--ghost button--small"
+                :class="{ 'button--active': colorMode === 'community' }"
+                @click="colorMode = colorMode === 'type' ? 'community' : 'type'"
+              >
+                {{ colorMode === 'type' ? 'Type' : 'Community' }}
+              </button>
+            </div>
           </div>
           <GraphLocalView
             title="局部关系图"
@@ -174,6 +223,7 @@ onMounted(() => {
             :edges="graph.edges"
             :selected-node-id="selectedNodeId"
             :selected-edge-id="selectedEdgeId"
+            :color-mode="colorMode"
             @node-select="selectedNodeId = $event; selectedEdgeId = null"
             @edge-select="selectedEdgeId = $event; selectedNodeId = null"
           />
@@ -308,7 +358,8 @@ onMounted(() => {
 
 .knowledge-object__header,
 .hero-card,
-.panel-card {
+.panel-card,
+.wiki-entry-card {
   border-radius: 20px;
   border: 1px solid rgba(95, 64, 28, 0.14);
   background: rgba(255, 250, 244, 0.84);
@@ -390,6 +441,51 @@ onMounted(() => {
   font-size: 1.3rem;
 }
 
+.wiki-entry-card {
+  padding: 18px 20px;
+}
+
+.wiki-entry-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.wiki-entry-card__title {
+  margin: 0 0 12px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.4rem;
+}
+
+.wiki-entry-card__definition {
+  margin: 0 0 10px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.wiki-entry-card__definition strong {
+  color: var(--text-soft);
+  font-weight: 500;
+}
+
+.wiki-entry-card__summary {
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+
+.button--small {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.button--active {
+  background: rgba(47, 125, 128, 0.15);
+  color: #2f7d80;
+  border-color: rgba(47, 125, 128, 0.3);
+}
+
 .knowledge-object__grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.9fr);
@@ -406,10 +502,14 @@ onMounted(() => {
 }
 
 .panel-card__head,
-.evidence-item__head {
+.panel-card__actions {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+}
+
+.panel-card__actions {
+  align-items: center;
 }
 
 .attribute-list,

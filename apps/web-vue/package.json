@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "graphology": "^0.26.0",
+    "graphology-layout-forceatlas2": "^0.3.0",
+    "graphology-communities-louvain": "^0.2.0",
     "pinia": "^2.3.1",
     "sigma": "^3.0.2",
     "vue": "^3.5.13",

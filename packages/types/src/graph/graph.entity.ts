@@ -415,6 +415,8 @@ export interface AdjacentChunks {
  * Interface for WikiEntry - a wiki entry associated with an entity
  * Wiki entries provide detailed documentation and knowledge about entities
  */
+export type WikiEntryStatus = "DRAFT" | "PUBLISHED" | "REJECTED";
+
 export interface WikiEntry {
   id: string;
   entityUuid: string;
@@ -422,6 +424,8 @@ export interface WikiEntry {
   definition: string;
   summary: string;
   content: string;
+  status: WikiEntryStatus;
+  reviewedAt?: Date | null;
   userId: string;
   workspaceId?: string;
   createdAt: Date;

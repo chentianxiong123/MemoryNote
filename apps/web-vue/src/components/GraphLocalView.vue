@@ -119,6 +119,22 @@ const linkCounts = computed(() => {
   return counts;
 });
 
+// Cache the maximum link count once per data change (was being recomputed per node)
+const maxLinkCount = computed(() => {
+  let max = 1;
+  for (const c of linkCounts.value.values()) {
+    if (c > max) max = c;
+  }
+  return max;
+});
+
+// Lookup map for node type by id (avoids props.nodes.find() in Sigma reducers)
+const nodeTypeMap = computed(() => {
+  const map = new Map<string, string>();
+  for (const n of props.nodes) map.set(n.id, n.type);
+  return map;
+});
+
 // Detect communities using Louvain
 function detectCommunities() {
   const result = detectCommunitiesUtil(props.nodes, props.edges);
@@ -140,9 +156,8 @@ function detectKnowledgeGaps() {
 function nodeSize(nodeId: string): number {
   const BASE_SIZE = 8;
   const MAX_SIZE = 28;
-  const maxLinks = Math.max(...Array.from(linkCounts.value.values()), 1);
   const count = linkCounts.value.get(nodeId) ?? 0;
-  const ratio = count / maxLinks;
+  const ratio = count / maxLinkCount.value;
   return BASE_SIZE + Math.sqrt(ratio) * (MAX_SIZE - BASE_SIZE);
 }
 
@@ -177,10 +192,10 @@ function isNodeHidden(nodeId: string, type: string): boolean {
 
 // Whether an edge is hidden by filters
 function isEdgeHidden(edge: GraphEdge): boolean {
-  const sNode = props.nodes.find((n: GraphNode) => n.id === edge.source);
-  const tNode = props.nodes.find((n: GraphNode) => n.id === edge.target);
-  if (!sNode || !tNode) return true;
-  return isNodeHidden(edge.source, sNode.type) || isNodeHidden(edge.target, tNode.type);
+  const sType = nodeTypeMap.value.get(edge.source);
+  const tType = nodeTypeMap.value.get(edge.target);
+  if (!sType || !tType) return true;
+  return isNodeHidden(edge.source, sType) || isNodeHidden(edge.target, tType);
 }
 
 // Stats: visible counts
@@ -454,14 +469,17 @@ function showAllTypes() {
 
 function applyDynamicFilters() {
   if (!graph || !sigma) return;
+  const typeMap = nodeTypeMap.value;
+  const edgeMap = new Map<string, GraphEdge>();
+  for (const e of props.edges) edgeMap.set(e.id, e);
   graph.forEachNode((nodeId: string) => {
-    const node = props.nodes.find((n: GraphNode) => n.id === nodeId);
-    if (node) {
-      graph!.setNodeAttribute(nodeId, "hidden", isNodeHidden(nodeId, node.type));
+    const type = typeMap.get(nodeId);
+    if (type !== undefined) {
+      graph!.setNodeAttribute(nodeId, "hidden", isNodeHidden(nodeId, type));
     }
   });
   graph.forEachEdge((edgeId: string) => {
-    const edge = props.edges.find((e: GraphEdge) => e.id === edgeId);
+    const edge = edgeMap.get(edgeId);
     if (edge) {
       graph!.setEdgeAttribute(edgeId, "hidden", isEdgeHidden(edge));
     }
@@ -497,8 +515,11 @@ function dismissInsight(key: string) {
 function applySelectionState() {
   if (!graph || !sigma) return;
 
+  const nodeMap = new Map<string, GraphNode>();
+  for (const n of props.nodes) nodeMap.set(n.id, n);
+
   graph.forEachNode((nodeId: string) => {
-    const node = props.nodes.find((candidate: GraphNode) => candidate.id === nodeId);
+    const node = nodeMap.get(nodeId);
     if (!node) return;
 
     const active = props.selectedNodeId === nodeId;
@@ -547,28 +568,22 @@ watch(
   () => props.colorMode,
   () => {
     if (!graph || !sigma) return;
+    const typeMap = nodeTypeMap.value;
     graph.forEachNode((nodeId: string) => {
-      const node = props.nodes.find((n: GraphNode) => n.id === nodeId);
-      if (node) {
-        graph!.setNodeAttribute(nodeId, "color", getNodeColor(nodeId, node.type));
+      const type = typeMap.get(nodeId);
+      if (type !== undefined) {
+        graph!.setNodeAttribute(nodeId, "color", getNodeColor(nodeId, type));
       }
     });
     sigma.refresh();
   }
 );
 
-// Handle Sigma resize when container size changes (prevents WebGL crashes)
+// Sigma manages its own ResizeObserver — just nudge it on container resize
 watch(
   () => containerRef.value?.clientWidth,
   () => {
-    if (sigma) {
-      sigma.kill();
-      sigma = null;
-      graph = null;
-      sigmaKey.value++;
-      // Remount after a short delay
-      setTimeout(mountGraph, 50);
-    }
+    sigma?.refresh();
   }
 );
 

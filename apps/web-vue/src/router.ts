@@ -7,6 +7,8 @@ import MemoryDocumentsView from "@/views/MemoryDocumentsView.vue";
 import MemoryGraphView from "@/views/MemoryGraphView.vue";
 import MemoryLabelsView from "@/views/MemoryLabelsView.vue";
 import SettingsModelsView from "@/views/SettingsModelsView.vue";
+import WikiEntryView from "@/views/WikiEntryView.vue";
+import WikiListView from "@/views/WikiListView.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,6 +29,8 @@ const router = createRouter({
     { path: "/home/memory/graph/inbox", component: KnowledgeInboxView },
     { path: "/home/memory/graph/object/:objectId", component: KnowledgeObjectView, props: true },
     { path: "/home/memory/labels", component: MemoryLabelsView },
+    { path: "/home/wiki", component: WikiListView },
+    { path: "/home/wiki/:entityUuid", component: WikiEntryView, props: true },
     { path: "/settings", redirect: "/settings/workspace/models" },
     { path: "/settings/workspace/models", component: SettingsModelsView },
   ],

@@ -271,6 +271,49 @@ export interface KnowledgeSearchResponse {
   }>;
 }
 
+export interface WikiEntryResponse {
+  id: string;
+  entityUuid: string;
+  title: string;
+  definition: string;
+  summary: string;
+  content: string;
+  userId: string;
+  workspaceId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WikiEntryVersionResponse {
+  id: string;
+  wikiEntryId: string;
+  version: number;
+  title: string;
+  definition: string;
+  summary: string;
+  content: string;
+  sourceEpisodeUuid: string | null;
+  createdAt: string;
+}
+
+export interface WikiTimelineItem {
+  uuid: string;
+  fact: string;
+  aspect: string | null;
+  validAt: string;
+  source: string;
+}
+
+export interface WikiEntryListResponse {
+  entries: WikiEntryResponse[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export interface ModelOption {
   id: string;
   modelId: string;
@@ -503,6 +546,31 @@ export async function fetchKnowledgeObjectGraph(
 export async function searchKnowledgeObjects(queryText: string) {
   const query = new URLSearchParams({ q: queryText });
   return request<KnowledgeSearchResponse>(`/api/v1/knowledge/search?${query.toString()}`);
+}
+
+export async function fetchWikiEntries(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<WikiEntryListResponse> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<WikiEntryListResponse>(`/api/v1/wiki/entries${suffix}`);
+}
+
+export async function fetchWikiEntry(entityUuid: string): Promise<WikiEntryResponse | null> {
+  return request<WikiEntryResponse | null>(`/api/v1/wiki/entries/${entityUuid}`);
+}
+
+export async function fetchWikiEntryVersions(entityUuid: string): Promise<WikiEntryVersionResponse[]> {
+  return request<WikiEntryVersionResponse[]>(`/api/v1/wiki/entries/${entityUuid}/versions`);
+}
+
+export async function fetchWikiEntryTimeline(entityUuid: string): Promise<WikiTimelineItem[]> {
+  return request<WikiTimelineItem[]>(`/api/v1/wiki/entries/${entityUuid}/timeline`);
 }
 
 export async function createGraphTriplet(payload: {

@@ -135,9 +135,70 @@ export function detectCommunities(
   return { assignments, communities };
 }
 
-// ---------------------------------------------------------------------------
-// Surprising Connections
-// ---------------------------------------------------------------------------
+export function buildCommunityInfoFromAssignments(
+  assignments: Map<string, number>,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): CommunityInfo[] {
+  if (assignments.size === 0) return [];
+
+  // Group nodes by community
+  const groups = new Map<number, string[]>();
+  for (const [nodeId, commId] of assignments) {
+    const list = groups.get(commId) ?? [];
+    list.push(nodeId);
+    groups.set(commId, list);
+  }
+
+  // Build edge lookup for cohesion
+  const edgeSet = new Set<string>();
+  for (const edge of edges) {
+    edgeSet.add(`${edge.source}:::${edge.target}`);
+    edgeSet.add(`${edge.target}:::${edge.source}`);
+  }
+
+  // Build label + linkCount lookup
+  const nodeInfo = new Map(
+    nodes.map((n: GraphNode) => {
+      const linkCount = edges.filter((e: GraphEdge) => e.source === n.id || e.target === n.id).length;
+      return [n.id, { label: n.label, linkCount }];
+    })
+  );
+
+  const communities: CommunityInfo[] = [];
+  for (const [commId, memberIds] of groups) {
+    const n = memberIds.length;
+    let intraEdges = 0;
+    for (let i = 0; i < memberIds.length; i++) {
+      for (let j = i + 1; j < memberIds.length; j++) {
+        if (edgeSet.has(`${memberIds[i]}:::${memberIds[j]}`)) intraEdges++;
+      }
+    }
+    const possibleEdges = n > 1 ? (n * (n - 1)) / 2 : 1;
+    const cohesion = intraEdges / possibleEdges;
+
+    const sorted = [...memberIds].sort(
+      (a: string, b: string) => (nodeInfo.get(b)?.linkCount ?? 0) - (nodeInfo.get(a)?.linkCount ?? 0)
+    );
+    const topNodes = sorted.slice(0, 5).map((id: string) => nodeInfo.get(id)?.label ?? id);
+
+    communities.push({ id: commId, nodeCount: n, cohesion, topNodes });
+  }
+
+  communities.sort((a: CommunityInfo, b: CommunityInfo) => b.nodeCount - a.nodeCount);
+
+  // Re-number sequentially
+  const idRemap = new Map<number, number>();
+  communities.forEach((c: CommunityInfo, idx: number) => {
+    idRemap.set(c.id, idx);
+    c.id = idx;
+  });
+  for (const [nodeId, oldId] of assignments) {
+    assignments.set(nodeId, idRemap.get(oldId) ?? 0);
+  }
+
+  return communities;
+}
 
 export function findSurprisingConnections(
   nodes: GraphNode[],

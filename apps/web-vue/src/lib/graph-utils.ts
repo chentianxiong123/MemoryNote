@@ -48,6 +48,16 @@ export interface KnowledgeGap {
 // Community Detection (Louvain)
 // ---------------------------------------------------------------------------
 
+function buildDegreeMap(nodes: GraphNode[], edges: GraphEdge[]): Map<string, number> {
+  const degree = new Map<string, number>();
+  for (const n of nodes) degree.set(n.id, 0);
+  for (const e of edges) {
+    degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
+    degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
+  }
+  return degree;
+}
+
 export function detectCommunities(
   nodes: GraphNode[],
   edges: GraphEdge[],
@@ -88,12 +98,10 @@ export function detectCommunities(
     edgeSet.add(`${edge.target}:::${edge.source}`);
   }
 
-  // Build label + linkCount lookup
+  // Build label + linkCount lookup (O(V + E) via shared degree map)
+  const degreeMap = buildDegreeMap(nodes, edges);
   const nodeInfo = new Map(
-    nodes.map((n: GraphNode) => {
-      const linkCount = edges.filter((e: GraphEdge) => e.source === n.id || e.target === n.id).length;
-      return [n.id, { label: n.label, linkCount }];
-    })
+    nodes.map((n: GraphNode) => [n.id, { label: n.label, linkCount: degreeMap.get(n.id) ?? 0 }])
   );
 
   // Compute per-community info
@@ -157,12 +165,10 @@ export function buildCommunityInfoFromAssignments(
     edgeSet.add(`${edge.target}:::${edge.source}`);
   }
 
-  // Build label + linkCount lookup
+  // Build label + linkCount lookup (O(V + E) via shared degree map)
+  const degreeMap = buildDegreeMap(nodes, edges);
   const nodeInfo = new Map(
-    nodes.map((n: GraphNode) => {
-      const linkCount = edges.filter((e: GraphEdge) => e.source === n.id || e.target === n.id).length;
-      return [n.id, { label: n.label, linkCount }];
-    })
+    nodes.map((n: GraphNode) => [n.id, { label: n.label, linkCount: degreeMap.get(n.id) ?? 0 }])
   );
 
   const communities: CommunityInfo[] = [];
@@ -207,12 +213,7 @@ export function findSurprisingConnections(
   limit: number = 5,
 ): SurprisingConnection[] {
   const nodeMap = new Map(nodes.map((n: GraphNode) => [n.id, n]));
-  const degreeMap = new Map(
-    nodes.map((n: GraphNode) => {
-      const count = edges.filter((e: GraphEdge) => e.source === n.id || e.target === n.id).length;
-      return [n.id, count];
-    })
-  );
+  const degreeMap = buildDegreeMap(nodes, edges);
   const maxDegree = Math.max(...Array.from(degreeMap.values()), 1);
 
   const scored: SurprisingConnection[] = [];
@@ -263,13 +264,8 @@ export function detectKnowledgeGaps(
 ): KnowledgeGap[] {
   const gaps: KnowledgeGap[] = [];
 
-  // Build degree map
-  const degreeMap = new Map(
-    nodes.map((n: GraphNode) => {
-      const count = edges.filter((e: GraphEdge) => e.source === n.id || e.target === n.id).length;
-      return [n.id, count];
-    })
-  );
+  // Build degree map (O(V + E) instead of O(V * E))
+  const degreeMap = buildDegreeMap(nodes, edges);
 
   // 1. Isolated nodes (degree <= 1)
   const isolatedNodes = nodes.filter(

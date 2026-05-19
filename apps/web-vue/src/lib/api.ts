@@ -271,6 +271,8 @@ export interface KnowledgeSearchResponse {
   }>;
 }
 
+export type WikiEntryStatus = "DRAFT" | "PUBLISHED" | "REJECTED";
+
 export interface WikiEntryResponse {
   id: string;
   entityUuid: string;
@@ -278,6 +280,8 @@ export interface WikiEntryResponse {
   definition: string;
   summary: string;
   content: string;
+  status: WikiEntryStatus;
+  reviewedAt: string | null;
   userId: string;
   workspaceId: string;
   createdAt: string;
@@ -312,6 +316,7 @@ export interface WikiEntryListResponse {
     total: number;
     totalPages: number;
   };
+  statusCounts?: { DRAFT: number; PUBLISHED: number; REJECTED: number };
 }
 
 export interface ModelOption {
@@ -552,13 +557,29 @@ export async function fetchWikiEntries(params?: {
   page?: number;
   limit?: number;
   search?: string;
+  status?: WikiEntryStatus;
 }): Promise<WikiEntryListResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return request<WikiEntryListResponse>(`/api/v1/wiki/entries${suffix}`);
+}
+
+export async function publishWikiEntry(entryId: string) {
+  return request<{ success: boolean; entry: WikiEntryResponse }>(
+    `/api/v1/wiki/entries/${entryId}/publish`,
+    { method: "POST" },
+  );
+}
+
+export async function rejectWikiEntry(entryId: string) {
+  return request<{ success: boolean; entry: WikiEntryResponse }>(
+    `/api/v1/wiki/entries/${entryId}/reject`,
+    { method: "POST" },
+  );
 }
 
 export async function fetchWikiEntry(entityUuid: string): Promise<WikiEntryResponse | null> {

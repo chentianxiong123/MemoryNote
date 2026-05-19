@@ -9,6 +9,7 @@ const WikiEntriesSearchParams = z.object({
   page: z.string().optional(),
   limit: z.string().optional(),
   search: z.string().optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "REJECTED"]).optional(),
 });
 
 export const loader = createHybridLoaderApiRoute(
@@ -22,6 +23,7 @@ export const loader = createHybridLoaderApiRoute(
     const page = parseInt(searchParams.page || "1");
     const limit = parseInt(searchParams.limit || "25");
     const search = searchParams.search;
+    const status = searchParams.status;
 
     if (!authentication.workspaceId) {
       throw new Response("Workspace not found", { status: 404 });
@@ -29,12 +31,14 @@ export const loader = createHybridLoaderApiRoute(
 
     const offset = (page - 1) * limit;
 
-    // Build where clause for filtering
     const whereClause: any = {
       workspaceId: authentication.workspaceId,
     };
 
-    // Add search filter if provided
+    if (status) {
+      whereClause.status = status;
+    }
+
     if (search && search.trim()) {
       whereClause.OR = [
         { title: { contains: search, mode: "insensitive" } },
@@ -43,8 +47,7 @@ export const loader = createHybridLoaderApiRoute(
       ];
     }
 
-    // Fetch wiki entries with pagination
-    const [entries, totalCount] = await Promise.all([
+    const [entries, totalCount, statusCounts] = await Promise.all([
       prisma.wikiEntry.findMany({
         where: whereClause,
         orderBy: { updatedAt: "desc" },
@@ -56,15 +59,23 @@ export const loader = createHybridLoaderApiRoute(
           title: true,
           definition: true,
           summary: true,
+          status: true,
           updatedAt: true,
         },
       }),
-      prisma.wikiEntry.count({
-        where: whereClause,
+      prisma.wikiEntry.count({ where: whereClause }),
+      prisma.wikiEntry.groupBy({
+        by: ["status"],
+        where: { workspaceId: authentication.workspaceId },
+        _count: { _all: true },
       }),
     ]);
 
-    // Calculate pagination info
+    const counts = { DRAFT: 0, PUBLISHED: 0, REJECTED: 0 };
+    for (const g of statusCounts) {
+      counts[g.status as keyof typeof counts] = g._count._all;
+    }
+
     const totalPages = Math.ceil(totalCount / limit);
     const hasMore = page < totalPages;
 
@@ -75,6 +86,7 @@ export const loader = createHybridLoaderApiRoute(
       totalCount,
       totalPages,
       hasMore,
+      statusCounts: counts,
     });
   },
 );

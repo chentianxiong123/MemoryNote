@@ -8,6 +8,7 @@ import {
   type StatementAspect,
   type StatementNode,
 } from "@core/types";
+import { logger } from "./logger.service";
 import type {
   KnowledgeCaptureBatch,
   KnowledgeCaptureBatchStatus,
@@ -870,6 +871,19 @@ export async function acceptKnowledgeCaptureItem(itemId: string, userId: string,
     });
 
     await graphProvider.saveEntity(entity);
+
+    // Auto-publish the corresponding Wiki draft, if one exists. The user has
+    // already vouched for the entity, so the draft entry doesn't need a
+    // second review pass.
+    try {
+      const { publishWikiEntryByEntity } = await import("./wikiEntry.server");
+      await publishWikiEntryByEntity({ entityUuid: entity.uuid, workspaceId, prisma });
+    } catch (err) {
+      logger.warn("Failed to auto-publish wiki draft on entity accept", {
+        entityUuid: entity.uuid,
+        error: err,
+      });
+    }
 
     return prisma.knowledgeCaptureItem.update({
       where: { id: item.id },

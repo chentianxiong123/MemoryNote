@@ -7,7 +7,9 @@ const graphProvider = () => ProviderFactory.getGraphProvider();
 
 /**
  * Create a new wiki entry for an entity
- * If an entry already exists for the entity, update it instead
+ * If an entry already exists for the entity, update it instead.
+ * `status` defaults to DRAFT — entries become PUBLISHED only after user review
+ * (or when the corresponding entity is accepted from the Inbox).
  */
 export async function createWikiEntry(params: {
   entityUuid: string;
@@ -18,8 +20,9 @@ export async function createWikiEntry(params: {
   userId: string;
   workspaceId: string;
   prisma: PrismaClient;
+  status?: "DRAFT" | "PUBLISHED";
 }): Promise<WikiEntry> {
-  const { entityUuid, title, definition, summary, content, userId, workspaceId, prisma } = params;
+  const { entityUuid, title, definition, summary, content, userId, workspaceId, prisma, status = "DRAFT" } = params;
 
   // Check if a wiki entry already exists for this entity
   const existingEntry = await prisma.wikiEntry.findUnique({
@@ -32,7 +35,9 @@ export async function createWikiEntry(params: {
   });
 
   if (existingEntry) {
-    // Update existing entry and create a new version
+    // Update existing entry and create a new version. Preserve existing
+    // status — re-extracting an already-PUBLISHED entry must not silently
+    // demote it back to DRAFT.
     logger.info(`Wiki entry already exists for entity ${entityUuid}, updating...`, {
       wikiEntryId: existingEntry.id,
     });
@@ -47,7 +52,7 @@ export async function createWikiEntry(params: {
     });
   }
 
-  // Create new wiki entry
+  // Create new wiki entry (DRAFT by default — must pass user review)
   const wikiEntry = await prisma.wikiEntry.create({
     data: {
       entityUuid,
@@ -55,6 +60,8 @@ export async function createWikiEntry(params: {
       definition,
       summary,
       content,
+      status,
+      reviewedAt: status === "PUBLISHED" ? new Date() : null,
       userId,
       workspaceId,
     },
@@ -289,14 +296,84 @@ export async function getWikiEntriesByWorkspace(params: {
   prisma: PrismaClient;
   limit?: number;
   offset?: number;
+  status?: "DRAFT" | "PUBLISHED" | "REJECTED";
 }): Promise<WikiEntry[]> {
-  const { workspaceId, prisma, limit = 50, offset = 0 } = params;
+  const { workspaceId, prisma, limit = 50, offset = 0, status } = params;
 
   return prisma.wikiEntry.findMany({
-    where: { workspaceId },
+    where: {
+      workspaceId,
+      ...(status ? { status } : {}),
+    },
     orderBy: { updatedAt: "desc" },
     take: limit,
     skip: offset,
+  });
+}
+
+/**
+ * Count entries for each status in the workspace.
+ */
+export async function getWikiEntryStatusCounts(params: {
+  workspaceId: string;
+  prisma: PrismaClient;
+}): Promise<{ DRAFT: number; PUBLISHED: number; REJECTED: number }> {
+  const { workspaceId, prisma } = params;
+  const groups = await prisma.wikiEntry.groupBy({
+    by: ["status"],
+    where: { workspaceId },
+    _count: { _all: true },
+  });
+  const counts = { DRAFT: 0, PUBLISHED: 0, REJECTED: 0 };
+  for (const g of groups) {
+    counts[g.status as keyof typeof counts] = g._count._all;
+  }
+  return counts;
+}
+
+/**
+ * Publish a wiki entry (DRAFT → PUBLISHED). Idempotent.
+ */
+export async function publishWikiEntry(params: {
+  wikiEntryId: string;
+  prisma: PrismaClient;
+}): Promise<WikiEntry> {
+  const { wikiEntryId, prisma } = params;
+  return prisma.wikiEntry.update({
+    where: { id: wikiEntryId },
+    data: { status: "PUBLISHED", reviewedAt: new Date() },
+  });
+}
+
+/**
+ * Publish the draft entry tied to a given entity, if one exists and is DRAFT.
+ * Returns the entry if it was published, null if there is no entry or it's
+ * already in another status. Used by Inbox accept flow.
+ */
+export async function publishWikiEntryByEntity(params: {
+  entityUuid: string;
+  workspaceId: string;
+  prisma: PrismaClient;
+}): Promise<WikiEntry | null> {
+  const { entityUuid, workspaceId, prisma } = params;
+  const entry = await prisma.wikiEntry.findUnique({
+    where: { entityUuid_workspaceId: { entityUuid, workspaceId } },
+  });
+  if (!entry || entry.status !== "DRAFT") return entry ?? null;
+  return publishWikiEntry({ wikiEntryId: entry.id, prisma });
+}
+
+/**
+ * Reject a wiki entry (DRAFT → REJECTED). Keeps the row for audit.
+ */
+export async function rejectWikiEntry(params: {
+  wikiEntryId: string;
+  prisma: PrismaClient;
+}): Promise<WikiEntry> {
+  const { wikiEntryId, prisma } = params;
+  return prisma.wikiEntry.update({
+    where: { id: wikiEntryId },
+    data: { status: "REJECTED", reviewedAt: new Date() },
   });
 }
 

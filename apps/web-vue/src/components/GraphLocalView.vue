@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import Graph from "graphology";
 import Sigma from "sigma";
-import forceAtlas2 from "graphology-layout-forceatlas2";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
+  buildCommunityInfoFromAssignments,
   detectCommunities as detectCommunitiesUtil,
   findSurprisingConnections as findSurprisingConnectionsUtil,
   detectKnowledgeGaps as detectKnowledgeGapsUtil,
@@ -66,6 +66,7 @@ const highlightedNodes = ref<Set<string>>(new Set());
 const dismissedInsights = ref<Set<string>>(new Set());
 const nodeMenu = ref<{ nodeId: string; x: number; y: number } | null>(null);
 const sigmaKey = ref(0);
+const isComputing = ref(false);
 
 // Filter state
 const hiddenTypes = ref<Set<string>>(new Set());
@@ -162,20 +163,34 @@ function mixColor(color1: string, color2: string, ratio: number): string {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
-// Filtered nodes and edges
-const filteredNodes = computed(() => {
-  return props.nodes.filter((n: GraphNode) => {
-    if (hiddenTypes.value.has(n.type)) return false;
-    if (hiddenNodeIds.value.has(n.id)) return false;
-    if (maxLinks.value !== undefined && (linkCounts.value.get(n.id) ?? 0) > maxLinks.value) return false;
-    return true;
-  });
-});
+// Filtered nodes and edges (use all data, filter via Sigma reducers for performance)
+const allNodes = computed(() => props.nodes);
+const allEdges = computed(() => props.edges);
 
-const filteredEdges = computed(() => {
-  const nodeIds = new Set(filteredNodes.value.map((n: GraphNode) => n.id));
-  return props.edges.filter((e: GraphEdge) => nodeIds.has(e.source) && nodeIds.has(e.target));
-});
+// Whether a node is hidden by filters
+function isNodeHidden(nodeId: string, type: string): boolean {
+  if (hiddenTypes.value.has(type)) return true;
+  if (hiddenNodeIds.value.has(nodeId)) return true;
+  if (maxLinks.value !== undefined && (linkCounts.value.get(nodeId) ?? 0) > maxLinks.value) return true;
+  return false;
+}
+
+// Whether an edge is hidden by filters
+function isEdgeHidden(edge: GraphEdge): boolean {
+  const sNode = props.nodes.find((n: GraphNode) => n.id === edge.source);
+  const tNode = props.nodes.find((n: GraphNode) => n.id === edge.target);
+  if (!sNode || !tNode) return true;
+  return isNodeHidden(edge.source, sNode.type) || isNodeHidden(edge.target, tNode.type);
+}
+
+// Stats: visible counts
+const visibleNodeCount = computed(() => allNodes.value.filter((n: GraphNode) => !isNodeHidden(n.id, n.type)).length);
+const visibleEdgeCount = computed(() => allEdges.value.filter((e: GraphEdge) => !isEdgeHidden(e)).length);
+
+// Web Worker helper types
+type WorkerNode = { id: string };
+type WorkerEdge = { id: string; source: string; target: string; weight: number };
+type WorkerResult = { positions: Record<string, { x: number; y: number }>; assignments: Record<string, number> };
 
 function destroyGraph() {
   sigma?.kill();
@@ -183,33 +198,57 @@ function destroyGraph() {
   graph = null;
 }
 
-function mountGraph() {
-  destroyGraph();
-  if (!containerRef.value) return;
-  if (props.nodes.length === 0) return;
+async function runWorkerCompute(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  existingPositions: Record<string, { x: number; y: number }>,
+): Promise<WorkerResult> {
+  const workerUrl = new URL("../workers/graph-worker.ts", import.meta.url);
+  const w = new Worker(workerUrl, { type: "module" });
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      w.terminate();
+      reject(new Error("Worker timeout"));
+    }, 30000);
+    w.onmessage = (e: MessageEvent<WorkerResult & { type?: string }>) => {
+      clearTimeout(timer);
+      resolve(e.data);
+      w.terminate();
+    };
+    w.onerror = (e) => {
+      clearTimeout(timer);
+      w.terminate();
+      reject(new Error(e.message));
+    };
+    w.postMessage({
+      type: "compute",
+      nodes: nodes.map((n) => ({ id: n.id })),
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, weight: e.weight })),
+      existingPositions,
+    } as Record<string, unknown>);
+  });
+}
 
-  detectCommunities();
-  findSurprisingConnections();
-  detectKnowledgeGaps();
-
+function buildSigmaGraph(positions: Record<string, { x: number; y: number }>) {
   const nextGraph = new Graph();
 
-  for (const node of filteredNodes.value) {
-    const cached = positionCache.get(node.id);
+  for (const node of allNodes.value) {
+    const pos = positions[node.id];
     nextGraph.addNode(node.id, {
       label: node.label,
-      x: cached?.x ?? Math.random() * 100,
-      y: cached?.y ?? Math.random() * 100,
+      x: pos?.x ?? Math.random() * 100,
+      y: pos?.y ?? Math.random() * 100,
       size: nodeSize(node.id),
       color: getNodeColor(node.id, node.type),
       nodeType: node.type,
       primary: node.primary,
       community: communityAssignments.value.get(node.id) ?? 0,
+      hidden: isNodeHidden(node.id, node.type),
     });
   }
 
-  const maxWeight = Math.max(...filteredEdges.value.map((e: GraphEdge) => e.weight), 1);
-  for (const edge of filteredEdges.value) {
+  const maxWeight = Math.max(...allEdges.value.map((e: GraphEdge) => e.weight), 1);
+  for (const edge of allEdges.value) {
     if (!nextGraph.hasNode(edge.source) || !nextGraph.hasNode(edge.target)) continue;
     const edgeKey = `${edge.source}->${edge.target}`;
     if (!nextGraph.hasEdge(edgeKey) && !nextGraph.hasEdge(`${edge.target}->${edge.source}`)) {
@@ -220,31 +259,14 @@ function mountGraph() {
         size: 0.5 + normalizedWeight * 3.5,
         color: `rgba(100,116,139,${alpha / 255})`,
         weight: edge.weight,
+        hidden: isEdgeHidden(edge),
       });
     }
   }
 
   graph = nextGraph;
 
-  const dataKey = filteredNodes.value.map((n: GraphNode) => n.id).sort().join(",") + "|" + filteredEdges.value.length;
-  if (dataKey !== lastLayoutDataKey && filteredNodes.value.length > 1) {
-    const settings = forceAtlas2.inferSettings(nextGraph);
-    forceAtlas2.assign(nextGraph, {
-      iterations: 150,
-      settings: {
-        ...settings,
-        gravity: 1,
-        scalingRatio: 2,
-        strongGravityMode: true,
-        barnesHutOptimize: filteredNodes.value.length > 50,
-      },
-    });
-    lastLayoutDataKey = dataKey;
-
-    nextGraph.forEachNode((nodeId: string, attrs: Record<string, unknown>) => {
-      positionCache.set(nodeId, { x: attrs.x as number, y: attrs.y as number });
-    });
-  }
+  if (!containerRef.value) return;
 
   sigma = new Sigma(nextGraph, containerRef.value, {
     renderLabels: true,
@@ -258,6 +280,13 @@ function mountGraph() {
     labelWeight: "600",
     nodeReducer: (node: string, attrs: Record<string, unknown>) => {
       const result = { ...attrs };
+      // Hide filtered-out nodes
+      if (attrs.hidden) {
+        result.color = "transparent";
+        result.label = "";
+        result.size = 0;
+        return result;
+      }
       if (attrs.hovering) {
         result.size = (attrs.size as number ?? 10) * 1.4;
         result.zIndex = 10;
@@ -277,6 +306,12 @@ function mountGraph() {
     },
     edgeReducer: (edge: string, attrs: Record<string, unknown>) => {
       const result = { ...attrs };
+      // Hide edges where either endpoint is hidden
+      if (attrs.hidden) {
+        result.color = "transparent";
+        result.size = 0;
+        return result;
+      }
       if (attrs.dimmed) {
         result.color = "#f1f5f9";
         result.size = 0.3;
@@ -328,7 +363,6 @@ function mountGraph() {
     sigma.refresh();
   });
 
-  // Handle right-click on canvas for node context menu
   sigma.getContainer().addEventListener("contextmenu", (e: MouseEvent) => {
     e.preventDefault();
     const target = e.target as HTMLElement;
@@ -336,6 +370,62 @@ function mountGraph() {
       setNodeMenu({ nodeId: "", x: e.clientX, y: e.clientY });
     }
   });
+}
+
+async function mountGraph() {
+  destroyGraph();
+  if (!containerRef.value) return;
+  if (props.nodes.length === 0) return;
+
+  const fNodes = allNodes.value;
+  const fEdges = allEdges.value;
+  if (fNodes.length === 0) return;
+
+  const dataKey = fNodes.map((n: GraphNode) => n.id).sort().join(",") + "|" + fEdges.length;
+  const shouldRunLayout = dataKey !== lastLayoutDataKey && fNodes.length > 1;
+
+  // Community detection (fast, runs synchronously)
+  detectCommunities();
+
+  // Gather existing positions from cache
+  const cachedPositions: Record<string, { x: number; y: number }> = {};
+  for (const n of fNodes) {
+    const p = positionCache.get(n.id);
+    if (p) cachedPositions[n.id] = p;
+  }
+
+  if (shouldRunLayout) {
+    // Show loading indicator while worker computes
+    isComputing.value = true;
+    try {
+      const result = await runWorkerCompute(fNodes, fEdges, cachedPositions);
+      // Update position cache and community assignments
+      lastLayoutDataKey = dataKey;
+      const wAssignments = new Map(
+        Object.entries(result.assignments).map(([k, v]) => [k, v as number])
+      );
+      communityAssignments.value = wAssignments;
+      communities.value = buildCommunityInfoFromAssignments(wAssignments, props.nodes, props.edges);
+      for (const [id, pos] of Object.entries(result.positions)) {
+        positionCache.set(id, pos);
+      }
+      // Use worker-computed positions
+      buildSigmaGraph(result.positions);
+    } catch (err) {
+      console.warn("[GraphLocalView] Worker failed, using cached positions:", err);
+      lastLayoutDataKey = dataKey;
+      buildSigmaGraph(cachedPositions);
+    } finally {
+      isComputing.value = false;
+    }
+  } else {
+    // Use cached positions
+    buildSigmaGraph(cachedPositions);
+  }
+
+  // Fast insight computation (main thread, non-blocking)
+  findSurprisingConnections();
+  detectKnowledgeGaps();
 }
 
 function setNodeMenu(menu: { nodeId: string; x: number; y: number } | null) {
@@ -354,12 +444,29 @@ function handleNodeRightClick(nodeId: string, x: number, y: number) {
 function hideNode(nodeId: string) {
   hiddenNodeIds.value.add(nodeId);
   setNodeMenu(null);
-  mountGraph();
+  applyDynamicFilters();
 }
 
 function showAllTypes() {
   hiddenTypes.value.clear();
-  mountGraph();
+  applyDynamicFilters();
+}
+
+function applyDynamicFilters() {
+  if (!graph || !sigma) return;
+  graph.forEachNode((nodeId: string) => {
+    const node = props.nodes.find((n: GraphNode) => n.id === nodeId);
+    if (node) {
+      graph!.setNodeAttribute(nodeId, "hidden", isNodeHidden(nodeId, node.type));
+    }
+  });
+  graph.forEachEdge((edgeId: string) => {
+    const edge = props.edges.find((e: GraphEdge) => e.id === edgeId);
+    if (edge) {
+      graph!.setEdgeAttribute(edgeId, "hidden", isEdgeHidden(edge));
+    }
+  });
+  sigma.refresh();
 }
 
 function toggleType(type: string) {
@@ -368,14 +475,14 @@ function toggleType(type: string) {
   } else {
     hiddenTypes.value.add(type);
   }
-  mountGraph();
+  applyDynamicFilters();
 }
 
 function resetFilters() {
   hiddenTypes.value.clear();
   hiddenNodeIds.value.clear();
   maxLinks.value = undefined;
-  mountGraph();
+  applyDynamicFilters();
 }
 
 function highlightInsight(nodeIds: string[]) {
@@ -485,8 +592,8 @@ const visibleSurprisingConns = computed(() =>
     <div v-if="title" class="graph-local-view__head">
       <h3>{{ title }}</h3>
       <div class="graph-local-view__stats">
-        <span class="chip">{{ filteredNodes.length }}/{{ nodes.length }} nodes</span>
-        <span class="chip">{{ filteredEdges.length }}/{{ edges.length }} edges</span>
+        <span class="chip">{{ visibleNodeCount }}/{{ nodes.length }} nodes</span>
+        <span class="chip">{{ visibleEdgeCount }}/{{ edges.length }} edges</span>
       </div>
     </div>
 
@@ -496,6 +603,11 @@ const visibleSurprisingConns = computed(() =>
         class="graph-local-view__canvas"
         @click="setNodeMenu(null)"
       >
+        <!-- Computing overlay -->
+        <div v-if="isComputing" class="computing-overlay">
+          <div class="computing-spinner"></div>
+          <span>Computing layout…</span>
+        </div>
         <!-- Filter Panel -->
         <div v-if="showFilters" class="filter-panel">
           <div class="filter-panel__header">
@@ -527,7 +639,7 @@ const visibleSurprisingConns = computed(() =>
               v-model.number="maxLinks"
               placeholder="Any"
               min="0"
-              @change="mountGraph"
+              @change="applyDynamicFilters"
             />
           </div>
 
@@ -536,7 +648,7 @@ const visibleSurprisingConns = computed(() =>
             <div v-if="hiddenNodeIds.size > 0" class="filter-panel__hidden">
               <div v-for="nodeId in hiddenNodeIds" :key="nodeId" class="filter-panel__hidden-item">
                 <span>{{ nodes.find(n => n.id === nodeId)?.label || nodeId }}</span>
-                <button @click="hiddenNodeIds.delete(nodeId); mountGraph()">Show</button>
+                <button @click="hiddenNodeIds.delete(nodeId); applyDynamicFilters()">Show</button>
               </div>
             </div>
             <span v-else class="filter-panel__empty">None</span>
@@ -1098,5 +1210,33 @@ const visibleSurprisingConns = computed(() =>
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(95, 64, 28, 0.12);
   color: var(--text-soft, #666);
+}
+
+.computing-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 248, 241, 0.8);
+  backdrop-filter: blur(4px);
+  border-radius: 18px;
+  font-size: 0.85rem;
+  color: var(--text-soft, #666);
+  z-index: 50;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.computing-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(95, 64, 28, 0.2);
+  border-top-color: rgba(95, 64, 28, 0.6);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 </style>

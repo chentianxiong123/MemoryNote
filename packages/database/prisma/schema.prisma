@@ -1392,6 +1392,12 @@ model CodingSession {
 // Wiki Entries
 // ---------------------------------------------------------------------------
 
+enum WikiEntryStatus {
+  DRAFT
+  PUBLISHED
+  REJECTED
+}
+
 model WikiEntry {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
@@ -1402,6 +1408,9 @@ model WikiEntry {
   definition String // Brief definition, 1-2 sentences
   summary    String // Summary, 3-5 sentences
   content    String // Detailed explanation in Markdown format
+
+  status     WikiEntryStatus @default(DRAFT)
+  reviewedAt DateTime?
 
   userId      String
   workspaceId String

@@ -1138,6 +1138,7 @@ model Workspace {
   codingSessions          CodingSession[]
   knowledgeCaptureBatches KnowledgeCaptureBatch[]
   knowledgeCaptureItems   KnowledgeCaptureItem[]
+  wikiEntries             WikiEntry[]
 }
 
 enum TaskStatus {
@@ -1385,4 +1386,48 @@ model CodingSession {
   @@index([workspaceId])
   @@index([conversationId])
   @@index([gatewayId])
+}
+
+// ---------------------------------------------------------------------------
+// Wiki Entries
+// ---------------------------------------------------------------------------
+
+model WikiEntry {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entityUuid String // Reference to EntityNode in Neo4j
+  title      String // Entry title, usually the entity name
+  definition String // Brief definition, 1-2 sentences
+  summary    String // Summary, 3-5 sentences
+  content    String // Detailed explanation in Markdown format
+
+  userId      String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  versions WikiEntryVersion[]
+
+  @@index([userId, workspaceId])
+  @@index([entityUuid])
+  @@unique([entityUuid, workspaceId])
+}
+
+model WikiEntryVersion {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  wikiEntryId String
+  wikiEntry   WikiEntry @relation(fields: [wikiEntryId], references: [id], onDelete: Cascade)
+
+  version    Int // Version number, starting from 1
+  title      String
+  definition String
+  summary    String
+  content    String
+
+  sourceEpisodeUuid String? // Episode UUID that triggered this update
+
+  @@index([wikiEntryId, version])
 }

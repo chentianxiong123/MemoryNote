@@ -410,3 +410,36 @@ export interface AdjacentChunks {
   previousChunk?: EpisodicNode;
   nextChunk?: EpisodicNode;
 }
+
+/**
+ * Interface for WikiEntry - a wiki entry associated with an entity
+ * Wiki entries provide detailed documentation and knowledge about entities
+ */
+export interface WikiEntry {
+  id: string;
+  entityUuid: string;
+  title: string;
+  definition: string;
+  summary: string;
+  content: string;
+  userId: string;
+  workspaceId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Interface for WikiEntryVersion - version history of a wiki entry
+ * Tracks changes to wiki entries over time with provenance information
+ */
+export interface WikiEntryVersion {
+  id: string;
+  wikiEntryId: string;
+  version: number;
+  title: string;
+  definition: string;
+  summary: string;
+  content: string;
+  sourceEpisodeUuid?: string;
+  createdAt: Date;
+}

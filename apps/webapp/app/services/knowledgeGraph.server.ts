@@ -14,6 +14,14 @@ import {
 import { logger } from "./logger.service";
 import crypto from "crypto";
 import {
+  createWikiEntry,
+  getWikiEntry,
+} from "./wikiEntry.server";
+import {
+  generateWikiEntryPrompt,
+  WikiEntrySchema,
+} from "./prompts/wiki-entry";
+import {
   extractWorldPrompt,
   ExtractWorldSchema,
 } from "./prompts/extract-world";
@@ -379,6 +387,44 @@ export class KnowledgeGraphService {
       logger.log(
         `Saved ${graphTriples.length} triples + ${savedVoiceAspects.length} voice aspects in ${saveTriplesTime - extractedStatementsTime} ms`,
       );
+
+      // Step 6: Generate Wiki entries for entities
+      if (graphTriples.length > 0) {
+        // Extract unique entities from graph triples
+        const uniqueEntities = new Map<string, EntityNode>();
+        const statements: StatementNode[] = [];
+
+        for (const triple of graphTriples) {
+          statements.push(triple.statement);
+
+          if (!uniqueEntities.has(triple.subject.uuid)) {
+            uniqueEntities.set(triple.subject.uuid, triple.subject);
+          }
+          if (!uniqueEntities.has(triple.predicate.uuid)) {
+            uniqueEntities.set(triple.predicate.uuid, triple.predicate);
+          }
+          if (!uniqueEntities.has(triple.object.uuid)) {
+            uniqueEntities.set(triple.object.uuid, triple.object);
+          }
+        }
+
+        const entities = Array.from(uniqueEntities.values());
+
+        // Generate wiki entries for all entities (async, non-blocking)
+        await this.generateWikiEntriesForEntities({
+          entities,
+          episode,
+          statements,
+          userId: params.userId,
+          workspaceId: params.workspaceId as string,
+          prisma,
+        });
+
+        const wikiTime = Date.now();
+        logger.log(
+          `Generated wiki entries for ${entities.length} entities in ${wikiTime - saveTriplesTime} ms`,
+        );
+      }
 
       const endTime = Date.now();
       const processingTimeMs = endTime - startTime;
@@ -970,6 +1016,187 @@ export class KnowledgeGraphService {
     } catch (error) {
       console.error("Error retrieving ingestion rules:", error);
       return null;
+    }
+  }
+
+  /**
+   * Generate Wiki entries for entities extracted from graph triples.
+   * This method queries related statements and episodes, then uses LLM to generate
+   * structured wiki entries (title, definition, summary, content).
+   */
+  private async generateWikiEntriesForEntities(params: {
+    entities: EntityNode[];
+    episode: EpisodicNode;
+    statements: StatementNode[];
+    userId: string;
+    workspaceId: string;
+    prisma: PrismaClient;
+  }): Promise<void> {
+    const { entities, episode, statements, userId, workspaceId, prisma } = params;
+
+    if (entities.length === 0) {
+      return;
+    }
+
+    logger.log(`Generating wiki entries for ${entities.length} entities...`);
+
+    // Process entities in parallel with a concurrency limit
+    const concurrencyLimit = 3;
+    const entityBatches: EntityNode[][] = [];
+    for (let i = 0; i < entities.length; i += concurrencyLimit) {
+      entityBatches.push(entities.slice(i, i + concurrencyLimit));
+    }
+
+    for (const batch of entityBatches) {
+      await Promise.all(
+        batch.map(async (entity) => {
+          try {
+            await this.generateWikiEntryForEntity({
+              entity,
+              episode,
+              statements,
+              userId,
+              workspaceId,
+              prisma,
+            });
+          } catch (error) {
+            logger.error(`Failed to generate wiki entry for entity ${entity.name}`, {
+              entityUuid: entity.uuid,
+              error,
+            });
+          }
+        }),
+      );
+    }
+
+    logger.log(`Completed wiki entry generation for ${entities.length} entities`);
+  }
+
+  /**
+   * Generate a single wiki entry for an entity
+   */
+  private async generateWikiEntryForEntity(params: {
+    entity: EntityNode;
+    episode: EpisodicNode;
+    statements: StatementNode[];
+    userId: string;
+    workspaceId: string;
+    prisma: PrismaClient;
+  }): Promise<void> {
+    const { entity, episode, statements, userId, workspaceId, prisma } = params;
+
+    // Query related statements from Neo4j for this entity
+    const { getWikiEntryTimeline } = await import("./wikiEntry.server");
+    const relatedStatements = await getWikiEntryTimeline({
+      entityUuid: entity.uuid,
+      userId,
+      workspaceId,
+      prisma,
+    });
+
+    // Also include statements from the current episode
+    const currentStatements = statements
+      .filter((s) => s.userId === userId && s.workspaceId === workspaceId)
+      .map((s) => ({
+        fact: s.fact,
+        aspect: s.aspect,
+        validAt: s.validAt || new Date(),
+      }));
+
+    // Combine and deduplicate statements
+    const allStatements = [
+      ...relatedStatements.map((s) => ({
+        fact: s.fact,
+        aspect: s.aspect,
+        validAt: s.validAt,
+      })),
+      ...currentStatements,
+    ];
+
+    // Query related episodes from vector storage
+    const relatedEpisodes = await this.getRelatedEpisodesForEntity(
+      entity.name,
+      userId,
+      workspaceId,
+    );
+
+    // Include current episode
+    const allEpisodes = [
+      {
+        content: episode.content,
+        source: episode.source || "unknown",
+        createdAt: episode.createdAt,
+      },
+      ...relatedEpisodes,
+    ];
+
+    // Generate wiki entry prompt
+    const messages = generateWikiEntryPrompt({
+      entityName: entity.name,
+      entityType: entity.type,
+      statements: allStatements,
+      episodes: allEpisodes,
+    });
+
+    // Call LLM to generate wiki entry content
+    const { object: wikiContent, usage } = await makeStructuredModelCall(
+      WikiEntrySchema,
+      messages as ModelMessage[],
+      "low",
+      "wiki-entry",
+      undefined,
+      workspaceId,
+      "memory",
+    );
+
+    if (usage) {
+      logger.log(
+        `Wiki entry generation for "${entity.name}": ${usage.totalTokens} tokens`,
+      );
+    }
+
+    // Save or update the wiki entry
+    await createWikiEntry({
+      entityUuid: entity.uuid,
+      title: wikiContent.title,
+      definition: wikiContent.definition,
+      summary: wikiContent.summary,
+      content: wikiContent.content,
+      userId,
+      workspaceId,
+      prisma,
+    });
+
+    logger.log(`Created/updated wiki entry for entity "${entity.name}"`);
+  }
+
+  /**
+   * Get related episodes for an entity by searching with the entity name
+   */
+  private async getRelatedEpisodesForEntity(
+    entityName: string,
+    userId: string,
+    workspaceId: string,
+    limit: number = 3,
+  ): Promise<Array<{ content: string; source: string; createdAt: Date }>> {
+    try {
+      const entityEmbedding = await this.getEmbedding(entityName, workspaceId);
+
+      const relatedEpisodes = await searchEpisodesByEmbedding({
+        embedding: entityEmbedding,
+        userId,
+        limit,
+        minSimilarity: 0.7,
+      });
+
+      return relatedEpisodes.map((ep) => ({
+        content: ep.content || ep.originalContent || "",
+        source: ep.source || "unknown",
+        createdAt: ep.createdAt,
+      }));
+    } catch (error) {
+      logger.error(`Failed to get related episodes for entity ${entityName}`, { error });
+      return [];
     }
   }
 }

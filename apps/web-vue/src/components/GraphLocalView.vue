@@ -2,9 +2,15 @@
 import Graph from "graphology";
 import Sigma from "sigma";
 import forceAtlas2 from "graphology-layout-forceatlas2";
-import louvain from "graphology-communities-louvain";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { CommunityInfo, KnowledgeGap, SurprisingConnection } from "@/lib/graph-utils";
+import {
+  detectCommunities as detectCommunitiesUtil,
+  findSurprisingConnections as findSurprisingConnectionsUtil,
+  detectKnowledgeGaps as detectKnowledgeGapsUtil,
+  type CommunityInfo,
+  type KnowledgeGap,
+  type SurprisingConnection,
+} from "@/lib/graph-utils";
 
 type GraphNode = {
   id: string;
@@ -114,175 +120,19 @@ const linkCounts = computed(() => {
 
 // Detect communities using Louvain
 function detectCommunities() {
-  if (props.nodes.length === 0) {
-    communityAssignments.value = new Map();
-    communities.value = [];
-    return;
-  }
-
-  const g = new Graph({ type: "undirected" as const });
-  for (const node of props.nodes) {
-    g.addNode(node.id);
-  }
-  for (const edge of props.edges) {
-    if (g.hasNode(edge.source) && g.hasNode(edge.target)) {
-      const key = `${edge.source}->${edge.target}`;
-      if (!g.hasEdge(key) && !g.hasEdge(`${edge.target}->${edge.source}`)) {
-        g.addEdgeWithKey(key, edge.source, edge.target, { weight: edge.weight ?? 1 });
-      }
-    }
-  }
-
-  const communityMap: Record<string, number> = louvain(g, { resolution: 1 });
-  communityAssignments.value = new Map(Object.entries(communityMap).map(([k, v]) => [k, v as number]));
-
-  // Group nodes by community
-  const groups = new Map<number, string[]>();
-  for (const [nodeId, commId] of communityAssignments.value) {
-    const list = groups.get(commId) ?? [];
-    list.push(nodeId);
-    groups.set(commId, list);
-  }
-
-  // Build edge lookup for cohesion calculation
-  const edgeSet = new Set<string>();
-  for (const edge of props.edges) {
-    edgeSet.add(`${edge.source}:::${edge.target}`);
-    edgeSet.add(`${edge.target}:::${edge.source}`);
-  }
-
-  // Build label + linkCount lookup
-  const nodeInfo = new Map(
-    props.nodes.map((n: GraphNode) => {
-      const linkCount = props.edges.filter((e: GraphEdge) => e.source === n.id || e.target === n.id).length;
-      return [n.id, { label: n.label, linkCount }];
-    })
-  );
-
-  // Compute per-community info
-  const communitiesList: CommunityInfo[] = [];
-  for (const [commId, memberIds] of groups) {
-    const n = memberIds.length;
-    let intraEdges = 0;
-    for (let i = 0; i < memberIds.length; i++) {
-      for (let j = i + 1; j < memberIds.length; j++) {
-        if (edgeSet.has(`${memberIds[i]}:::${memberIds[j]}`)) {
-          intraEdges++;
-        }
-      }
-    }
-    const possibleEdges = n > 1 ? (n * (n - 1)) / 2 : 1;
-    const cohesion = intraEdges / possibleEdges;
-
-    const sorted = [...memberIds].sort(
-      (a: string, b: string) => (nodeInfo.get(b)?.linkCount ?? 0) - (nodeInfo.get(a)?.linkCount ?? 0)
-    );
-    const topNodes = sorted.slice(0, 5).map((id: string) => nodeInfo.get(id)?.label ?? id);
-
-    communitiesList.push({ id: commId, nodeCount: n, cohesion, topNodes });
-  }
-
-  communitiesList.sort((a: CommunityInfo, b: CommunityInfo) => b.nodeCount - a.nodeCount);
-
-  // Re-number community IDs sequentially
-  const idRemap = new Map<number, number>();
-  communitiesList.forEach((c: CommunityInfo, idx: number) => {
-    idRemap.set(c.id, idx);
-    c.id = idx;
-  });
-  for (const [nodeId, oldId] of communityAssignments.value) {
-    communityAssignments.value.set(nodeId, idRemap.get(oldId) ?? 0);
-  }
-
-  communities.value = communitiesList;
+  const result = detectCommunitiesUtil(props.nodes, props.edges);
+  communityAssignments.value = result.assignments;
+  communities.value = result.communities;
 }
 
 // Find surprising connections
 function findSurprisingConnections() {
-  const nodeMap = new Map(props.nodes.map((n: GraphNode) => [n.id, n]));
-  const degreeMap = new Map(
-    props.nodes.map((n: GraphNode) => {
-      const count = props.edges.filter((e: GraphEdge) => e.source === n.id || e.target === n.id).length;
-      return [n.id, count];
-    })
-  );
-  const maxDegree = Math.max(...Array.from(degreeMap.values()), 1);
-
-  const scored: SurprisingConnection[] = [];
-
-  for (const edge of props.edges) {
-    const source = nodeMap.get(edge.source);
-    const target = nodeMap.get(edge.target);
-    if (!source || !target) continue;
-
-    let score = 0;
-    const reasons: string[] = [];
-
-    // Peripheral-to-hub coupling
-    const sourceDeg = degreeMap.get(source.id) ?? 0;
-    const targetDeg = degreeMap.get(target.id) ?? 0;
-    const minDeg = Math.min(sourceDeg, targetDeg);
-    const maxDeg = Math.max(sourceDeg, targetDeg);
-    if (minDeg <= 2 && maxDeg >= maxDegree * 0.5) {
-      score += 2;
-      reasons.push("peripheral node links to hub");
-    }
-
-    if (edge.weight < 2 && edge.weight > 0) {
-      score += 1;
-      reasons.push("weak but present connection");
-    }
-
-    if (score >= 2 && reasons.length > 0) {
-      const key = [source.id, target.id].sort().join(":::");
-      scored.push({ source, target, score, reasons, key });
-    }
-  }
-
-  scored.sort((a: SurprisingConnection, b: SurprisingConnection) => b.score - a.score);
-  surprisingConnections.value = scored.slice(0, 5);
+  surprisingConnections.value = findSurprisingConnectionsUtil(props.nodes, props.edges, communities.value, 5);
 }
 
 // Detect knowledge gaps
 function detectKnowledgeGaps() {
-  const gaps: KnowledgeGap[] = [];
-  const degreeMap = new Map(
-    props.nodes.map((n: GraphNode) => {
-      const count = props.edges.filter((e: GraphEdge) => e.source === n.id || e.target === n.id).length;
-      return [n.id, count];
-    })
-  );
-
-  // Isolated nodes
-  const isolatedNodes = props.nodes.filter(
-    (n: GraphNode) => (degreeMap.get(n.id) ?? 0) <= 1 && n.type !== "overview" && n.id !== "index"
-  );
-  if (isolatedNodes.length > 0) {
-    const topIsolated = isolatedNodes.slice(0, 5);
-    gaps.push({
-      type: "isolated-node" as const,
-      title: `${isolatedNodes.length} isolated page${isolatedNodes.length > 1 ? "s" : ""}`,
-      description: topIsolated.map((n: GraphNode) => n.label).join(", ") +
-        (isolatedNodes.length > 5 ? ` and ${isolatedNodes.length - 5} more` : ""),
-      nodeIds: isolatedNodes.map((n: GraphNode) => n.id),
-      suggestion: "These pages have few or no connections. Consider adding links to related pages.",
-    });
-  }
-
-  // Sparse communities
-  for (const comm of communities.value) {
-    if (comm.cohesion < 0.15 && comm.nodeCount >= 3) {
-      gaps.push({
-        type: "sparse-community" as const,
-        title: `Sparse cluster: ${comm.topNodes[0] ?? `Community ${comm.id}`}`,
-        description: `${comm.nodeCount} pages with cohesion ${comm.cohesion.toFixed(2)} — internal connections are weak.`,
-        nodeIds: [],
-        suggestion: "This knowledge area lacks internal cross-references.",
-      });
-    }
-  }
-
-  knowledgeGaps.value = gaps.slice(0, 8);
+  knowledgeGaps.value = detectKnowledgeGapsUtil(props.nodes, props.edges, communities.value, 8);
 }
 
 // Compute node size based on link count

@@ -68,6 +68,8 @@ export const loader = createHybridLoaderApiRoute(
           summary: true,
           status: true,
           updatedAt: true,
+          rejectReason: true,
+          reviewNotes: true,
         },
       }),
       prisma.wikiEntry.count({ where: whereClause }),

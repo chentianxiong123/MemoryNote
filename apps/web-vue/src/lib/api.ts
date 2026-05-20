@@ -282,6 +282,8 @@ export interface WikiEntryResponse {
   content: string;
   status: WikiEntryStatus;
   reviewedAt: string | null;
+  rejectReason: RejectReason | null;
+  reviewNotes: string | null;
   userId: string;
   workspaceId: string;
   createdAt: string;

@@ -1141,6 +1141,18 @@ export async function mergeKnowledgeCaptureItem(
       userId,
       workspaceId,
     });
+
+    // Auto-publish the target entity's wiki draft — the user has vouched for
+    // the merge, so the draft doesn't need a second review pass.
+    try {
+      const { publishWikiEntryByEntity } = await import("./wikiEntry.server");
+      await publishWikiEntryByEntity({ entityUuid: target.uuid, workspaceId, prisma });
+    } catch (err) {
+      logger.warn("Failed to auto-publish wiki draft on merge", {
+        entityUuid: target.uuid,
+        error: err,
+      });
+    }
   }
 
   return prisma.knowledgeCaptureItem.update({

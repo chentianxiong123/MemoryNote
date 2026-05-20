@@ -21,6 +21,8 @@ const totalPages = ref(1);
 const totalCount = ref(0);
 const limit = 12;
 const activeStatus = ref<WikiEntryStatus>("PUBLISHED");
+const activeSortBy = ref<"createdAt" | "updatedAt" | "title">("updatedAt");
+const activeSortOrder = ref<"asc" | "desc">("desc");
 const statusCounts = ref<{ DRAFT: number; PUBLISHED: number; REJECTED: number }>({
   DRAFT: 0,
   PUBLISHED: 0,
@@ -50,6 +52,8 @@ async function loadEntries() {
       limit,
       search: searchQuery.value || undefined,
       status: activeStatus.value,
+      sortBy: activeSortBy.value,
+      sortOrder: activeSortOrder.value,
     });
     entries.value = response.entries;
     totalPages.value = response.pagination.totalPages;
@@ -151,8 +155,25 @@ onMounted(() => {
           {{ isLoading ? "搜索中..." : "搜索" }}
         </button>
       </div>
-      <div class="wiki-list__stats">
-        <span class="chip">共 {{ totalCount }} 个词条</span>
+      <div class="wiki-list__controls">
+        <div class="sort-control">
+          <label class="sort-control__label">排序</label>
+          <select v-model="activeSortBy" class="select" @change="void loadEntries()">
+            <option value="updatedAt">更新时间</option>
+            <option value="createdAt">创建时间</option>
+            <option value="title">标题</option>
+          </select>
+          <button
+            class="button button--ghost sort-control__order"
+            :aria-label="activeSortOrder === 'asc' ? '升序' : '降序'"
+            @click="activeSortOrder = activeSortOrder === 'asc' ? 'desc' : 'asc'; void loadEntries()"
+          >
+            {{ activeSortOrder === "asc" ? "↑" : "↓" }}
+          </button>
+        </div>
+        <div class="wiki-list__stats">
+          <span class="chip">共 {{ totalCount }} 个词条</span>
+        </div>
       </div>
     </div>
 
@@ -306,6 +327,31 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.wiki-list__controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-control__label {
+  font-size: 0.82rem;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.sort-control__order {
+  padding: 4px 10px;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .search-box {

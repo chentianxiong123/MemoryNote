@@ -500,10 +500,18 @@ export async function acceptKnowledgeCaptureItem(itemId: string) {
   );
 }
 
-export async function rejectKnowledgeCaptureItem(itemId: string) {
+export type RejectReason = "INACCURATE" | "IRRELEVANT" | "DUPLICATE" | "TRIVIAL" | "OTHER";
+
+export async function rejectKnowledgeCaptureItem(
+  itemId: string,
+  options?: { reason?: RejectReason; notes?: string },
+) {
   return request<{ success: boolean; item: KnowledgeCaptureItemRecord }>(
     `/api/v1/knowledge/inbox/${itemId}/reject`,
-    { method: "POST" },
+    {
+      method: "POST",
+      body: JSON.stringify(options ?? {}),
+    },
   );
 }
 
@@ -528,6 +536,19 @@ export async function acceptKnowledgeCaptureBatch(batchId: string) {
   return request<{ success: boolean; batch: KnowledgeCaptureBatchRecord }>(
     `/api/v1/knowledge/inbox/batches/${batchId}/accept`,
     { method: "POST" },
+  );
+}
+
+export async function rejectKnowledgeCaptureBatch(
+  batchId: string,
+  options?: { reason?: RejectReason; notes?: string },
+) {
+  return request<{ success: boolean; batch: KnowledgeCaptureBatchRecord }>(
+    `/api/v1/knowledge/inbox/batches/${batchId}/reject`,
+    {
+      method: "POST",
+      body: JSON.stringify(options ?? {}),
+    },
   );
 }
 
@@ -575,10 +596,16 @@ export async function publishWikiEntry(entryId: string) {
   );
 }
 
-export async function rejectWikiEntry(entryId: string) {
+export async function rejectWikiEntry(
+  entryId: string,
+  options?: { reason?: RejectReason; notes?: string },
+) {
   return request<{ success: boolean; entry: WikiEntryResponse }>(
     `/api/v1/wiki/entries/${entryId}/reject`,
-    { method: "POST" },
+    {
+      method: "POST",
+      body: JSON.stringify(options ?? {}),
+    },
   );
 }
 

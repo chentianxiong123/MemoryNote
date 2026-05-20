@@ -2,17 +2,20 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { RouterLink } from "vue-router";
 
+import RejectReasonModal from "@/components/RejectReasonModal.vue";
 import {
   acceptKnowledgeCaptureBatch,
   acceptKnowledgeCaptureItem,
   fetchKnowledgeInbox,
   mergeKnowledgeCaptureItem,
+  rejectKnowledgeCaptureBatch,
   rejectKnowledgeCaptureItem,
   searchKnowledgeObjects,
   snoozeKnowledgeCaptureItem,
   type KnowledgeCaptureBatchRecord,
   type KnowledgeCaptureItemRecord,
   type KnowledgeInboxResponse,
+  type RejectReason,
 } from "@/lib/api";
 
 const inbox = ref<KnowledgeInboxResponse | null>(null);
@@ -22,6 +25,8 @@ const busyIds = reactive<Record<string, boolean>>({});
 const mergeOpen = reactive<Record<string, boolean>>({});
 const mergeQuery = reactive<Record<string, string>>({});
 const mergeResults = reactive<Record<string, Array<{ id: string; title: string; type: string; kind: string }>>>({});
+const rejectingItemId = ref<string | null>(null);
+const rejectingBatchId = ref<string | null>(null);
 
 function kindLabel(kind: string) {
   const labels: Record<string, string> = {
@@ -126,10 +131,21 @@ async function acceptItem(item: KnowledgeCaptureItemRecord) {
 }
 
 async function rejectItem(item: KnowledgeCaptureItemRecord) {
-  await withBusy(item.id, async () => {
-    await rejectKnowledgeCaptureItem(item.id);
+  rejectingItemId.value = item.id;
+}
+
+async function confirmRejectItem(payload: { reason: RejectReason; notes: string }) {
+  const id = rejectingItemId.value;
+  if (!id) return;
+  await withBusy(id, async () => {
+    await rejectKnowledgeCaptureItem(id, payload);
+    rejectingItemId.value = null;
     await loadInbox();
   });
+}
+
+function cancelRejectItem() {
+  rejectingItemId.value = null;
 }
 
 async function snoozeItem(item: KnowledgeCaptureItemRecord) {
@@ -144,6 +160,24 @@ async function acceptBatch(batch: KnowledgeCaptureBatchRecord) {
     await acceptKnowledgeCaptureBatch(batch.id);
     await loadInbox();
   });
+}
+
+async function rejectBatch(batch: KnowledgeCaptureBatchRecord) {
+  rejectingBatchId.value = batch.id;
+}
+
+async function confirmRejectBatch(payload: { reason: RejectReason; notes: string }) {
+  const id = rejectingBatchId.value;
+  if (!id) return;
+  await withBusy(id, async () => {
+    await rejectKnowledgeCaptureBatch(id, payload);
+    rejectingBatchId.value = null;
+    await loadInbox();
+  });
+}
+
+function cancelRejectBatch() {
+  rejectingBatchId.value = null;
 }
 
 async function searchMergeTargets(item: KnowledgeCaptureItemRecord) {
@@ -222,9 +256,14 @@ onMounted(() => {
             <p class="batch-card__eyebrow">{{ formatDateTime(batch.createdAt) }}</p>
             <h2>{{ batch.summary }}</h2>
           </div>
-          <button class="button button--ghost" :disabled="busyIds[batch.id]" @click="acceptBatch(batch)">
-            {{ busyIds[batch.id] ? "处理中..." : "整组接受" }}
-          </button>
+          <div class="batch-card__head-actions">
+            <button class="button button--ghost" :disabled="busyIds[batch.id]" @click="acceptBatch(batch)">
+              {{ busyIds[batch.id] ? "处理中..." : "整组接受" }}
+            </button>
+            <button class="button button--ghost button--subtle" :disabled="busyIds[batch.id]" @click="rejectBatch(batch)">
+              整组拒绝
+            </button>
+          </div>
         </header>
 
         <div class="batch-card__counts">
@@ -338,6 +377,22 @@ onMounted(() => {
         </div>
       </article>
     </section>
+
+    <RejectReasonModal
+      :open="rejectingItemId !== null"
+      :pending="rejectingItemId !== null && busyIds[rejectingItemId]"
+      title="拒绝候选条目"
+      @cancel="cancelRejectItem"
+      @confirm="confirmRejectItem"
+    />
+
+    <RejectReasonModal
+      :open="rejectingBatchId !== null"
+      :pending="rejectingBatchId !== null && busyIds[rejectingBatchId]"
+      title="整组拒绝候选"
+      @cancel="cancelRejectBatch"
+      @confirm="confirmRejectBatch"
+    />
   </div>
 </template>
 
@@ -443,6 +498,12 @@ onMounted(() => {
 .batch-card__head,
 .item-card__head {
   align-items: flex-start;
+}
+
+.batch-card__head-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .batch-card__counts,

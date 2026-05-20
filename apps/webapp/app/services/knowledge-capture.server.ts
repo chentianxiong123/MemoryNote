@@ -1015,13 +1015,57 @@ export async function acceptKnowledgeCaptureBatch(batchId: string, userId: strin
   });
 }
 
-export async function rejectKnowledgeCaptureItem(itemId: string, userId: string, workspaceId: string) {
+export async function rejectKnowledgeCaptureBatch(
+  batchId: string,
+  userId: string,
+  workspaceId: string,
+  options?: { reason?: CaptureRejectReason; notes?: string },
+) {
+  const batch = await prisma.knowledgeCaptureBatch.findFirst({
+    where: { id: batchId, userId, workspaceId },
+    include: {
+      items: {
+        where: { status: { in: ["PROPOSED", "SNOOZED"] } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+
+  if (!batch) {
+    throw new Error("Knowledge capture batch not found.");
+  }
+
+  for (const item of batch.items) {
+    await rejectKnowledgeCaptureItem(item.id, userId, workspaceId, options);
+  }
+
+  return prisma.knowledgeCaptureBatch.findUnique({
+    where: { id: batchId },
+    include: { items: true },
+  });
+}
+
+export type CaptureRejectReason =
+  | "INACCURATE"
+  | "IRRELEVANT"
+  | "DUPLICATE"
+  | "TRIVIAL"
+  | "OTHER";
+
+export async function rejectKnowledgeCaptureItem(
+  itemId: string,
+  userId: string,
+  workspaceId: string,
+  options?: { reason?: CaptureRejectReason; notes?: string },
+) {
   await getCaptureItemOrThrow(itemId, userId, workspaceId);
   return prisma.knowledgeCaptureItem.update({
     where: { id: itemId },
     data: {
       status: "REJECTED",
       lastReviewedAt: new Date(),
+      rejectReason: options?.reason ?? null,
+      reviewNotes: options?.notes?.trim() || null,
     },
   });
 }

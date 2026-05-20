@@ -42,6 +42,18 @@ function formatDateTime(value?: string | null) {
   });
 }
 
+function rejectReasonLabel(reason: RejectReason | null): string {
+  if (!reason) return "";
+  const labels: Record<string, string> = {
+    INACCURATE: "不准确",
+    IRRELEVANT: "不相关",
+    DUPLICATE: "重复",
+    TRIVIAL: "琐碎",
+    OTHER: "其他",
+  };
+  return labels[reason] ?? reason;
+}
+
 async function loadEntries() {
   isLoading.value = true;
   error.value = "";
@@ -227,6 +239,10 @@ onMounted(() => {
             <span v-if="entry.status === 'REJECTED'" class="status-pill status-pill--rejected">已拒</span>
           </div>
           <p class="wiki-card__definition">{{ entry.definition || "暂无定义" }}</p>
+          <div v-if="entry.status === 'REJECTED' && entry.rejectReason" class="wiki-card__reject-reason">
+            <span class="wiki-card__reject-label">{{ rejectReasonLabel(entry.rejectReason) }}</span>
+            <p v-if="entry.reviewNotes" class="wiki-card__reject-notes">{{ entry.reviewNotes }}</p>
+          </div>
           <div class="wiki-card__meta">
             <span class="wiki-card__time">{{ formatDateTime(entry.updatedAt) }}</span>
           </div>
@@ -493,6 +509,29 @@ onMounted(() => {
 .status-pill--rejected {
   background: rgba(120, 120, 120, 0.16);
   color: #555;
+}
+
+.wiki-card__reject-reason {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(120, 120, 120, 0.1);
+  border: 1px solid rgba(95, 64, 28, 0.1);
+}
+
+.wiki-card__reject-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.wiki-card__reject-notes {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-soft);
+  line-height: 1.45;
 }
 
 .wiki-card:hover {

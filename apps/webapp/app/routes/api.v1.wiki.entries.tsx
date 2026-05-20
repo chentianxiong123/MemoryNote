@@ -10,6 +10,8 @@ const WikiEntriesSearchParams = z.object({
   limit: z.string().optional(),
   search: z.string().optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "REJECTED"]).optional(),
+  sortBy: z.enum(["createdAt", "updatedAt", "title"]).optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
 });
 
 export const loader = createHybridLoaderApiRoute(
@@ -24,6 +26,8 @@ export const loader = createHybridLoaderApiRoute(
     const limit = parseInt(searchParams.limit || "25");
     const search = searchParams.search;
     const status = searchParams.status;
+    const sortBy = searchParams.sortBy || "updatedAt";
+    const sortOrder = searchParams.sortOrder || "desc";
 
     if (!authentication.workspaceId) {
       throw new Response("Workspace not found", { status: 404 });
@@ -47,10 +51,13 @@ export const loader = createHybridLoaderApiRoute(
       ];
     }
 
+    const orderBy: any = {};
+    orderBy[sortBy] = sortOrder;
+
     const [entries, totalCount, statusCounts] = await Promise.all([
       prisma.wikiEntry.findMany({
         where: whereClause,
-        orderBy: { updatedAt: "desc" },
+        orderBy,
         take: limit,
         skip: offset,
         select: {

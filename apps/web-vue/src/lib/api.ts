@@ -579,12 +579,16 @@ export async function fetchWikiEntries(params?: {
   limit?: number;
   search?: string;
   status?: WikiEntryStatus;
+  sortBy?: "createdAt" | "updatedAt" | "title";
+  sortOrder?: "asc" | "desc";
 }): Promise<WikiEntryListResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.search) query.set("search", params.search);
   if (params?.status) query.set("status", params.status);
+  if (params?.sortBy) query.set("sortBy", params.sortBy);
+  if (params?.sortOrder) query.set("sortOrder", params.sortOrder);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return request<WikiEntryListResponse>(`/api/v1/wiki/entries${suffix}`);
 }

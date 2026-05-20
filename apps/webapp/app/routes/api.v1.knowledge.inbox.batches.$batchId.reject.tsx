@@ -2,10 +2,10 @@ import { json } from "@remix-run/node";
 import { z } from "zod";
 
 import { createHybridActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
-import { rejectKnowledgeCaptureItem } from "~/services/knowledge-capture.server";
+import { rejectKnowledgeCaptureBatch } from "~/services/knowledge-capture.server";
 
 const ParamsSchema = z.object({
-  itemId: z.string(),
+  batchId: z.string(),
 });
 
 const BodySchema = z
@@ -24,14 +24,14 @@ const { action, loader } = createHybridActionApiRoute(
     method: "POST",
   },
   async ({ params, body, authentication }) => {
-    const item = await rejectKnowledgeCaptureItem(
-      params.itemId,
+    const batch = await rejectKnowledgeCaptureBatch(
+      params.batchId,
       authentication.userId,
       authentication.workspaceId as string,
       { reason: body?.reason, notes: body?.notes },
     );
 
-    return json({ success: true, item });
+    return json({ success: true, batch });
   },
 );
 

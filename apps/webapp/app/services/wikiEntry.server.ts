@@ -364,16 +364,24 @@ export async function publishWikiEntryByEntity(params: {
 }
 
 /**
- * Reject a wiki entry (DRAFT → REJECTED). Keeps the row for audit.
+ * Reject a wiki entry (DRAFT → REJECTED). Keeps the row for audit, optionally
+ * with a reason classification + free-text notes for prompt-tuning later.
  */
 export async function rejectWikiEntry(params: {
   wikiEntryId: string;
   prisma: PrismaClient;
+  reason?: "INACCURATE" | "IRRELEVANT" | "DUPLICATE" | "TRIVIAL" | "OTHER";
+  notes?: string;
 }): Promise<WikiEntry> {
-  const { wikiEntryId, prisma } = params;
+  const { wikiEntryId, prisma, reason, notes } = params;
   return prisma.wikiEntry.update({
     where: { id: wikiEntryId },
-    data: { status: "REJECTED", reviewedAt: new Date() },
+    data: {
+      status: "REJECTED",
+      reviewedAt: new Date(),
+      rejectReason: reason ?? null,
+      reviewNotes: notes?.trim() || null,
+    },
   });
 }
 

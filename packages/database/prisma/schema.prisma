@@ -169,6 +169,14 @@ enum KnowledgeCaptureItemStatus {
   MERGED
 }
 
+enum RejectReason {
+  INACCURATE
+  IRRELEVANT
+  DUPLICATE
+  TRIVIAL
+  OTHER
+}
+
 model KnowledgeCaptureBatch {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
@@ -218,6 +226,9 @@ model KnowledgeCaptureItem {
 
   acceptedGraphUuid String?
   mergeTargetUuid   String?
+
+  rejectReason RejectReason?
+  reviewNotes  String?
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1411,6 +1422,9 @@ model WikiEntry {
 
   status     WikiEntryStatus @default(DRAFT)
   reviewedAt DateTime?
+
+  rejectReason RejectReason?
+  reviewNotes  String?
 
   userId      String
   workspaceId String

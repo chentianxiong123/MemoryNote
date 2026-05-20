@@ -2,10 +2,12 @@
 import { onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 
+import RejectReasonModal from "@/components/RejectReasonModal.vue";
 import {
   fetchWikiEntries,
   publishWikiEntry,
   rejectWikiEntry,
+  type RejectReason,
   type WikiEntryResponse,
   type WikiEntryStatus,
 } from "@/lib/api";
@@ -25,6 +27,7 @@ const statusCounts = ref<{ DRAFT: number; PUBLISHED: number; REJECTED: number }>
   REJECTED: 0,
 });
 const pendingActionId = ref<string | null>(null);
+const rejectingEntryId = ref<string | null>(null);
 
 function formatDateTime(value?: string | null) {
   if (!value) return "未记录";
@@ -91,15 +94,26 @@ async function handlePublish(entryId: string) {
 }
 
 async function handleReject(entryId: string) {
-  pendingActionId.value = entryId;
+  rejectingEntryId.value = entryId;
+}
+
+async function confirmReject(payload: { reason: RejectReason; notes: string }) {
+  if (!rejectingEntryId.value) return;
+  pendingActionId.value = rejectingEntryId.value;
+  const targetId = rejectingEntryId.value;
   try {
-    await rejectWikiEntry(entryId);
+    await rejectWikiEntry(targetId, payload);
+    rejectingEntryId.value = null;
     await loadEntries();
   } catch (err) {
     error.value = err instanceof Error ? err.message : "拒绝词条失败。";
   } finally {
     pendingActionId.value = null;
   }
+}
+
+function cancelReject() {
+  rejectingEntryId.value = null;
 }
 
 watch(searchQuery, () => {
@@ -234,6 +248,14 @@ onMounted(() => {
         下一页
       </button>
     </div>
+
+    <RejectReasonModal
+      :open="rejectingEntryId !== null"
+      :pending="pendingActionId !== null"
+      title="拒绝词条草稿"
+      @cancel="cancelReject"
+      @confirm="confirmReject"
+    />
   </div>
 </template>
 

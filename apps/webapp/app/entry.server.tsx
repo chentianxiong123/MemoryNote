@@ -1,6 +1,5 @@
 import { PassThrough } from "node:stream";
-import type { EntryContext } from "@remix-run/node";
-import { createReadableStreamFromReadable } from "@remix-run/node";
+import { createReadableStreamFromReadable, type EntryContext } from "@remix-run/node";
 import { RemixServer } from "@remix-run/react";
 import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
@@ -13,11 +12,9 @@ export default function handleRequest(
   responseHeaders: Headers,
   remixContext: EntryContext,
 ) {
+  const callbackName = isbot(request.headers.get("user-agent") || "") ? "onAllReady" : "onShellReady";
   return new Promise((resolve, reject) => {
     let shellRendered = false;
-    const userAgent = request.headers.get("user-agent");
-    const callbackName = userAgent && isbot(userAgent) ? "onAllReady" : "onShellReady";
-
     const { pipe, abort } = renderToPipeableStream(
       <RemixServer context={remixContext} url={request.url} abortDelay={ABORT_DELAY} />,
       {
@@ -29,10 +26,8 @@ export default function handleRequest(
           resolve(new Response(stream, { headers: responseHeaders, status: responseStatusCode }));
           pipe(body);
         },
-        onShellError(error) {
-          reject(error);
-        },
-        onError(error) {
+        onShellError(error: unknown) { reject(error); },
+        onError(error: unknown) {
           responseStatusCode = 500;
           if (shellRendered) console.error(error);
         },

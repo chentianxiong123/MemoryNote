@@ -29,7 +29,13 @@ async function init() {
 
   const build: any = viteDevServer
     ? () => viteDevServer.ssrLoadModule("virtual:remix/server-build")
-    : await import("./build/server/index.js");
+    : async () => {
+        try {
+          return await import("./build/server/index.js");
+        } catch {
+          return { entry: { module: {} }, default: {} };
+        }
+      };
 
   const module = viteDevServer
     ? (await build()).entry.module

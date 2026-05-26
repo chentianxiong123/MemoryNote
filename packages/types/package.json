@@ -2,8 +2,13 @@
   "name": "@core/types",
   "private": true,
   "version": "0.0.1",
+  "type": "module",
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "dependencies": {
     "@prisma/client": "5.4.1",
     "class-transformer": "0.5.1",

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Provider abstraction layer for CORE - supports multiple graph, vector, and model providers",
+  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {

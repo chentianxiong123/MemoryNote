@@ -27,6 +27,8 @@ const mergeQuery = reactive<Record<string, string>>({});
 const mergeResults = reactive<Record<string, Array<{ id: string; title: string; type: string; kind: string }>>>({});
 const rejectingItemId = ref<string | null>(null);
 const rejectingBatchId = ref<string | null>(null);
+const filterText = ref("");
+const filterKind = ref<string | null>(null);
 
 function kindLabel(kind: string) {
   const labels: Record<string, string> = {
@@ -204,6 +206,26 @@ async function mergeInto(item: KnowledgeCaptureItemRecord, targetId: string) {
 
 const batches = computed(() => inbox.value?.batches ?? []);
 
+const filteredBatches = computed(() => {
+  const text = filterText.value.trim().toLowerCase();
+  const kind = filterKind.value;
+  if (!text && !kind) return batches.value;
+
+  return batches.value
+    .map((batch) => {
+      const items = (batch.items ?? []).filter((item) => {
+        if (kind && item.kind !== kind) return false;
+        if (text) {
+          const matchText = `${item.title} ${payloadText(item, "fact")} ${payloadText(item, "name")}`.toLowerCase();
+          if (!matchText.includes(text)) return false;
+        }
+        return true;
+      });
+      return { ...batch, items };
+    })
+    .filter((batch) => batch.items.length > 0);
+});
+
 onMounted(() => {
   void loadInbox();
 });
@@ -245,12 +267,35 @@ onMounted(() => {
       </article>
     </section>
 
-    <div v-if="batches.length === 0" class="knowledge-inbox__empty">
+    <div v-if="batches.length === 0 && !filterText && !filterKind" class="knowledge-inbox__empty">
       还没有新的候选记忆。继续对话后，这里会自动出现 AI 提炼出的 recap 和候选项。
     </div>
 
+    <div v-if="batches.length > 0" class="inbox-filters">
+      <input
+        v-model="filterText"
+        class="input inbox-filters__search"
+        type="text"
+        placeholder="搜索候选项..."
+      />
+      <div class="inbox-filters__kinds">
+        <button
+          class="inbox-filters__kind"
+          :class="{ 'inbox-filters__kind--active': filterKind === null }"
+          @click="filterKind = null"
+        >全部</button>
+        <button
+          v-for="kind in ['entity', 'relation', 'event', 'decision']"
+          :key="kind"
+          class="inbox-filters__kind"
+          :class="{ 'inbox-filters__kind--active': filterKind === kind }"
+          @click="filterKind = filterKind === kind ? null : kind"
+        >{{ kindLabel(kind) }}</button>
+      </div>
+    </div>
+
     <section v-else class="batch-list">
-      <article v-for="batch in batches" :key="batch.id" class="batch-card">
+      <article v-for="batch in filteredBatches" :key="batch.id" class="batch-card">
         <header class="batch-card__head">
           <div>
             <p class="batch-card__eyebrow">{{ formatDateTime(batch.createdAt) }}</p>
@@ -472,6 +517,44 @@ onMounted(() => {
 .knowledge-inbox__empty,
 .knowledge-inbox__error {
   color: var(--text-soft);
+}
+
+.inbox-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inbox-filters__search {
+  max-width: 360px;
+}
+
+.inbox-filters__kinds {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.inbox-filters__kind {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(95, 64, 28, 0.14);
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: 120ms ease;
+}
+
+.inbox-filters__kind:hover {
+  background: rgba(95, 64, 28, 0.06);
+}
+
+.inbox-filters__kind--active {
+  background: rgba(201, 99, 61, 0.14);
+  color: var(--text);
+  font-weight: 600;
+  border-color: rgba(201, 99, 61, 0.3);
 }
 
 .batch-list,

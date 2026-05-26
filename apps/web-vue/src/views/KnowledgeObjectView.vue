@@ -25,6 +25,7 @@ const graphDepth = ref(1);
 const selectedNodeId = ref<string | null>(null);
 const selectedEdgeId = ref<string | null>(null);
 const colorMode = ref<"type" | "community">("type");
+const wikiContentExpanded = ref(false);
 
 const objectId = computed(() => route.params.objectId as string);
 
@@ -37,6 +38,27 @@ function formatDateTime(value?: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function renderMarkdown(content: string): string {
+  if (!content) return "";
+  let html = content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+  html = html.replace(/^\- (.*$)/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  html = html.replace(/^\d+\. (.*$)/gm, '<li>$1</li>');
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+  html = `<p>${html}</p>`;
+  return html;
 }
 
 function evidenceSourceLabel(item: KnowledgeCaptureItemRecord) {
@@ -166,12 +188,21 @@ onMounted(() => {
     <article v-if="wikiEntry && !isLoadingWiki" class="wiki-entry-card">
       <div class="wiki-entry-card__header">
         <p class="panel-card__eyebrow">Wiki 词条</p>
-        <RouterLink
-          class="button button--ghost button--small"
-          :to="`/home/wiki/${encodeURIComponent(wikiEntry.entityUuid)}`"
-        >
-          查看完整词条
-        </RouterLink>
+        <div class="wiki-entry-card__actions">
+          <button
+            v-if="wikiEntry.content"
+            class="button button--ghost button--small"
+            @click="wikiContentExpanded = !wikiContentExpanded"
+          >
+            {{ wikiContentExpanded ? "收起内容" : "展开全文" }}
+          </button>
+          <RouterLink
+            class="button button--ghost button--small"
+            :to="`/home/wiki/${encodeURIComponent(wikiEntry.entityUuid)}`"
+          >
+            查看完整词条
+          </RouterLink>
+        </div>
       </div>
       <h2 class="wiki-entry-card__title">{{ wikiEntry.title }}</h2>
       <p v-if="wikiEntry.definition" class="wiki-entry-card__definition">
@@ -180,6 +211,7 @@ onMounted(() => {
       <p v-if="wikiEntry.summary" class="wiki-entry-card__summary">
         {{ wikiEntry.summary }}
       </p>
+      <div v-if="wikiContentExpanded && wikiEntry.content" class="wiki-entry-card__content markdown-body" v-html="renderMarkdown(wikiEntry.content)"></div>
     </article>
 
     <template v-if="detail && graph">
@@ -452,6 +484,11 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
+.wiki-entry-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
 .wiki-entry-card__title {
   margin: 0 0 12px;
   font-family: Georgia, "Times New Roman", serif;
@@ -474,6 +511,37 @@ onMounted(() => {
   color: var(--text-soft);
   line-height: 1.6;
 }
+
+.wiki-entry-card__content {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(95, 64, 28, 0.12);
+  line-height: 1.7;
+}
+
+.wiki-entry-card__content :deep(h1),
+.wiki-entry-card__content :deep(h2),
+.wiki-entry-card__content :deep(h3) {
+  font-family: Georgia, "Times New Roman", serif;
+  margin: 16px 0 8px;
+}
+
+.wiki-entry-card__content :deep(h1) { font-size: 1.4rem; }
+.wiki-entry-card__content :deep(h2) { font-size: 1.2rem; }
+.wiki-entry-card__content :deep(h3) { font-size: 1.05rem; }
+
+.wiki-entry-card__content :deep(p) { margin: 8px 0; }
+.wiki-entry-card__content :deep(ul),
+.wiki-entry-card__content :deep(ol) { margin: 8px 0; padding-left: 20px; }
+.wiki-entry-card__content :deep(li) { margin: 4px 0; }
+.wiki-entry-card__content :deep(code) {
+  background: rgba(95, 64, 28, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.wiki-entry-card__content :deep(strong) { font-weight: 700; }
+.wiki-entry-card__content :deep(em) { font-style: italic; }
 
 .button--small {
   padding: 6px 12px;

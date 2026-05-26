@@ -3,14 +3,11 @@ import compression from "compression";
 import express from "express";
 import morgan from "morgan";
 import { createServer } from "http";
-
-// import { handleMCPRequest, handleSessionRequest } from "~/services/mcp.server";
-// import { authenticateHybridRequest } from "~/services/routeBuilders/apiBuilder.server";
+import { fileURLToPath, URL } from "node:url";
 
 let viteDevServer: any;
 let remixHandler;
 
-// Helper to get origin from request host or fallback to APP_ORIGIN
 function getOrigin(req: express.Request): string {
   const host = req.hostname;
   if (host?.includes("memorynote") || host?.includes("getcore.me")) {
@@ -20,26 +17,33 @@ function getOrigin(req: express.Request): string {
 }
 
 async function init() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await import("vite");
-    viteDevServer = await vite.createServer({
-      server: { middlewareMode: true },
-    });
-  }
+  const vite = await import("vite");
+  const { vitePlugin: remixPlugin } = await import("@remix-run/dev");
 
-  const build: any = viteDevServer
-    ? () => viteDevServer.ssrLoadModule("virtual:remix/server-build")
-    : async () => {
-        try {
-          return await import("./build/server/index.js");
-        } catch {
-          return { entry: { module: {} }, default: {} };
-        }
-      };
+  viteDevServer = await vite.createServer({
+    plugins: [
+      remixPlugin({
+        future: {
+          v3_fetcherPersist: true,
+          v3_relativeSplatPath: true,
+          v3_throwAbortReason: true,
+        },
+      }),
+    ],
+    resolve: {
+      alias: {
+        "~": fileURLToPath(new URL("./app", import.meta.url)),
+      },
+    },
+    ssr: {
+      noExternal: ["isbot", "@remix-run/react", "@remix-run/server-runtime"],
+    },
+    server: { middlewareMode: true },
+  });
 
-  const module = viteDevServer
-    ? (await build()).entry.module
-    : build.entry?.module;
+  const build: any = () => viteDevServer.ssrLoadModule("virtual:remix/server-build");
+
+  const module = (await build()).entry.module;
   const hasMcpHandlers =
     typeof module?.authenticateHybridRequest === "function" &&
     typeof module?.handleSessionRequest === "function" &&

@@ -26,34 +26,12 @@ services:
         reservations:
           memory: 256M
 
-  redis:
-    container_name: memorynote-redis
-    image: redis:7
-    restart: unless-stopped
-    ports:
-      - "6380:6379"
-    volumes:
-      - memorynote_redis_data:/data
-    networks:
-      - memorynote-dev
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-        reservations:
-          memory: 128M
-
   neo4j:
     container_name: memorynote-neo4j
-    image: redplanethq/neo4j:0.1.0
+    image: neo4j:5
     restart: unless-stopped
     environment:
       - NEO4J_AUTH=neo4j/docker1234
-      - NEO4J_dbms_security_procedures_unrestricted=gds.*,apoc.*
-      - NEO4J_dbms_security_procedures_allowlist=gds.*,apoc.*
-      - NEO4J_apoc_export_file_enabled=true
-      - NEO4J_apoc_import_file_enabled=true
-      - NEO4J_apoc_import_file_use_neo4j_config=true
       - NEO4J_server_memory_heap_initial__size=128M
       - NEO4J_server_memory_heap_max__size=256M
       - NEO4J_server_memory_pagecache_size=128M
@@ -73,7 +51,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 512M
         reservations:
           memory: 256M
 
@@ -84,5 +62,4 @@ networks:
 
 volumes:
   memorynote_postgres_data:
-  memorynote_redis_data:
   memorynote_neo4j_data:

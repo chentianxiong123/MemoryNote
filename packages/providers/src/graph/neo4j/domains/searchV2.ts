@@ -38,10 +38,10 @@ export function createSearchV2Methods(core: Neo4jCore) {
                 (s.validAt >= $startTime ${params.temporalEnd ? "AND s.validAt <= $endTime" : ""})
                 OR
                 (s.aspect = 'Event' AND s.attributes IS NOT NULL
-                AND apoc.convert.fromJsonMap(s.attributes).event_date IS NOT NULL
-                AND apoc.convert.fromJsonMap(s.attributes).event_date <> ''
-                AND datetime(apoc.convert.fromJsonMap(s.attributes).event_date) >= datetime($startTime)
-                ${params.temporalEnd ? "AND datetime(apoc.convert.fromJsonMap(s.attributes).event_date) <= datetime($endTime)" : ""})
+                AND s.attributes.event_date IS NOT NULL
+                AND s.attributes.event_date <> ''
+                AND datetime(s.attributes.event_date) >= datetime($startTime)
+                ${params.temporalEnd ? "AND datetime(s.attributes.event_date) <= datetime($endTime)" : ""})
                 )`
                     : ""
                 }
@@ -140,10 +140,10 @@ export function createSearchV2Methods(core: Neo4jCore) {
                 OR
                 (s.aspect = 'Event'
                 AND s.attributes IS NOT NULL
-                AND apoc.convert.fromJsonMap(s.attributes).event_date IS NOT NULL
-                AND apoc.convert.fromJsonMap(s.attributes).event_date <> ''
-                AND datetime(apoc.convert.fromJsonMap(s.attributes).event_date) >= datetime($startTime)
-                ${params.endTime ? "AND datetime(apoc.convert.fromJsonMap(s.attributes).event_date) <= datetime($endTime)" : ""})
+                AND s.attributes.event_date IS NOT NULL
+                AND s.attributes.event_date <> ''
+                AND datetime(s.attributes.event_date) >= datetime($startTime)
+                ${params.endTime ? "AND datetime(s.attributes.event_date) <= datetime($endTime)" : ""})
                 )
                 ${params.labelIds.length > 0 ? "AND ANY(lid IN e.labelIds WHERE lid IN $labelIds)" : ""}
                 ${params.aspects.length > 0 ? "AND s.aspect IN $aspects" : ""}

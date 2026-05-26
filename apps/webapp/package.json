@@ -33,9 +33,15 @@
     "@opentelemetry/api": "1.9.0",
     "@prisma/client": "*",
     "@redplanethq/ai": "1.2.1",
+    "@remix-run/css-bundle": "^2",
     "@remix-run/express": "2.17.4",
     "@remix-run/node": "2.17.4",
+    "@remix-run/react": "^2.17.4",
+    "@remix-run/serve": "^2",
     "@remix-run/server-runtime": "2.17.4",
+    "@sentry/remix": "^7",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "ai": "6.0.72",
     "axios": "^1.10.0",
     "cheerio": "^1.1.2",
@@ -51,6 +57,7 @@
     "gpt-tokenizer": "^3.4.0",
     "graphology": "^0.26.0",
     "gray-matter": "4.0.3",
+    "isbot": "^5.1.40",
     "marked": "^17.0.4",
     "mastra": "^1.6.0",
     "morgan": "^1.10.0",
@@ -60,6 +67,8 @@
     "openai": "^6.21.0",
     "p-queue": "^9.1.0",
     "prettier": "^3.8.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "remix-typedjson": "0.4.1",
     "remix-utils": "^9.0.1",
     "resumable-stream": "2.2.8",
@@ -85,7 +94,8 @@
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-turbo": "^2.0.4",
     "tsx": "4.20.6",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "vite": "^6.3.5"
   },
   "engines": {
     "node": ">=20.0.0"

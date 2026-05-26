@@ -2,9 +2,13 @@ import compression from "compression";
 import express from "express";
 import morgan from "morgan";
 import { createServer } from "http";
+import { ProviderFactory } from "@core/providers";
 import { mountApiRoutes } from "./app/routeLoader.js";
 
 async function init() {
+  // Initialize ProviderFactory (Neo4j, pgvector, model providers)
+  ProviderFactory.initializeFromEnv();
+
   const app = express();
   app.set("trust proxy", true);
   app.use(compression());

@@ -8,7 +8,6 @@ import {
   type StatementAspect,
   type StatementNode,
 } from "@core/types";
-import { logger } from "./logger.service";
 import type {
   KnowledgeCaptureBatch,
   KnowledgeCaptureBatchStatus,
@@ -872,19 +871,6 @@ export async function acceptKnowledgeCaptureItem(itemId: string, userId: string,
 
     await graphProvider.saveEntity(entity);
 
-    // Auto-publish the corresponding Wiki draft, if one exists. The user has
-    // already vouched for the entity, so the draft entry doesn't need a
-    // second review pass.
-    try {
-      const { publishWikiEntryByEntity } = await import("./wikiEntry.server");
-      await publishWikiEntryByEntity({ entityUuid: entity.uuid, workspaceId, prisma });
-    } catch (err) {
-      logger.warn("Failed to auto-publish wiki draft on entity accept", {
-        entityUuid: entity.uuid,
-        error: err,
-      });
-    }
-
     return prisma.knowledgeCaptureItem.update({
       where: { id: item.id },
       data: {
@@ -1015,6 +1001,31 @@ export async function acceptKnowledgeCaptureBatch(batchId: string, userId: strin
   });
 }
 
+export async function rejectKnowledgeCaptureItem(
+  itemId: string,
+  userId: string,
+  workspaceId: string,
+  options?: { reason?: CaptureRejectReason; notes?: string },
+) {
+  await getCaptureItemOrThrow(itemId, userId, workspaceId);
+  return prisma.knowledgeCaptureItem.update({
+    where: { id: itemId },
+    data: {
+      status: "REJECTED",
+      lastReviewedAt: new Date(),
+      rejectReason: options?.reason ?? null,
+      reviewNotes: options?.notes?.trim() || null,
+    },
+  });
+}
+
+export type CaptureRejectReason =
+  | "INACCURATE"
+  | "IRRELEVANT"
+  | "DUPLICATE"
+  | "TRIVIAL"
+  | "OTHER";
+
 export async function rejectKnowledgeCaptureBatch(
   batchId: string,
   userId: string,
@@ -1042,31 +1053,6 @@ export async function rejectKnowledgeCaptureBatch(
   return prisma.knowledgeCaptureBatch.findUnique({
     where: { id: batchId },
     include: { items: true },
-  });
-}
-
-export type CaptureRejectReason =
-  | "INACCURATE"
-  | "IRRELEVANT"
-  | "DUPLICATE"
-  | "TRIVIAL"
-  | "OTHER";
-
-export async function rejectKnowledgeCaptureItem(
-  itemId: string,
-  userId: string,
-  workspaceId: string,
-  options?: { reason?: CaptureRejectReason; notes?: string },
-) {
-  await getCaptureItemOrThrow(itemId, userId, workspaceId);
-  return prisma.knowledgeCaptureItem.update({
-    where: { id: itemId },
-    data: {
-      status: "REJECTED",
-      lastReviewedAt: new Date(),
-      rejectReason: options?.reason ?? null,
-      reviewNotes: options?.notes?.trim() || null,
-    },
   });
 }
 
@@ -1141,18 +1127,6 @@ export async function mergeKnowledgeCaptureItem(
       userId,
       workspaceId,
     });
-
-    // Auto-publish the target entity's wiki draft — the user has vouched for
-    // the merge, so the draft doesn't need a second review pass.
-    try {
-      const { publishWikiEntryByEntity } = await import("./wikiEntry.server");
-      await publishWikiEntryByEntity({ entityUuid: target.uuid, workspaceId, prisma });
-    } catch (err) {
-      logger.warn("Failed to auto-publish wiki draft on merge", {
-        entityUuid: target.uuid,
-        error: err,
-      });
-    }
   }
 
   return prisma.knowledgeCaptureItem.update({

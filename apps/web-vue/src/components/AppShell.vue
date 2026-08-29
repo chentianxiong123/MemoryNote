@@ -9,16 +9,20 @@ const session = useSessionStore();
 
 const sections = [
   { label: "对话", to: "/home/conversation", description: "主工作区：AI 对话与会话历史" },
-  { label: "文档记忆", to: "/home/memory/documents", description: "已存储的记忆文档" },
-  { label: "知识工作台", to: "/home/memory/graph", description: "复盘、确认候选记忆与查看局部关系" },
-  { label: "标签", to: "/home/memory/labels", description: "记忆标签与分类" },
-  { label: "模型设置", to: "/settings/workspace/models", description: "工作区模型路由" },
+  { label: "知识工作台", to: "/home/memory/graph", description: "知识图谱可视化、力导向布局、社区检测" },
+  { label: "学习收件箱", to: "/home/memory/graph/inbox", description: "待确认候选记忆、批量处理" },
+  { label: "文档记忆", to: "/home/memory/documents", description: "已存储的记忆文档、导入文件" },
+  { label: "维基", to: "/home/wiki", description: "结构化知识库、版本历史" },
+  { label: "标签", to: "/home/memory/labels", description: "记忆标签与分类管理" },
+  { label: "模型设置", to: "/settings/workspace/models", description: "工作区模型路由、API Key" },
 ];
 
 const title = computed(() => {
+  if (route.path.startsWith("/home/memory/graph/inbox")) return "学习收件箱";
   if (route.path.startsWith("/home/memory/graph")) return "知识工作台";
+  if (route.path.startsWith("/home/memory/documents")) return "文档记忆";
+  if (route.path.startsWith("/home/wiki")) return "维基";
   if (route.path.startsWith("/home/memory/labels")) return "记忆标签";
-  if (route.path.startsWith("/home/memory/documents")) return "记忆文档";
   if (route.path.startsWith("/settings")) return "模型设置";
   return "对话";
 });

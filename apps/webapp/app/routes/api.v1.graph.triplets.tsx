@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { json } from "@remix-run/node";
+import { json } from "~/lib/remix-compat";
 import {
   EntityTypes,
   EpisodeType,

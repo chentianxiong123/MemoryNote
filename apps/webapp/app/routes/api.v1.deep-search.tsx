@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { json } from "@remix-run/node";
+import { json } from "~/lib/remix-compat";
 import { createActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { trackFeatureUsage } from "~/services/telemetry.server";
 

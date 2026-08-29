@@ -1,15 +1,10 @@
+/**
+ * WhatsApp utility stub.
+ */
+
 export function formatDailyWhatsAppTitle(
   titleOrDate: string | Date,
-  timezone: string = "UTC",
+  _timezone: string = "UTC",
 ): string {
-  if (titleOrDate instanceof Date) {
-    return titleOrDate.toLocaleDateString("en-US", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  }
-
-  return titleOrDate;
+  return typeof titleOrDate === "string" ? titleOrDate : titleOrDate.toString();
 }

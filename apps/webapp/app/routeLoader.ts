@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Router } from "express";
 
-const ROUTES_DIR = path.resolve(import.meta.dirname, "routes");
+const ROUTES_DIR = path.resolve("/mnt/shared/MemoryNote/apps/webapp/app/routes");
 
 interface RemixModule {
   loader?: (args: { request: Request; params: Record<string, string> }) => Response | Promise<Response>;

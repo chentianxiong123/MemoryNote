@@ -1,14 +1,14 @@
 services:
   postgres:
     container_name: memorynote-postgres
-    image: pgvector/pgvector:pg18-trixie
+    image: pgvector/pgvector:pg16  # 复用已有镜像，不用拉 pg18
     restart: unless-stopped
     environment:
       - POSTGRES_USER=docker
       - POSTGRES_PASSWORD=docker
       - POSTGRES_DB=memorynote
     ports:
-      - "5432:5432"
+      - "5433:5432"  # 映射到 5433，避免和 mybilibili 的 5432 冲突
     volumes:
       - memorynote_postgres_data:/var/lib/postgresql
     networks:

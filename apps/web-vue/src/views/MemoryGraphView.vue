@@ -1,15 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
+import GraphLocalView from "@/components/GraphLocalView.vue";
 
 import {
+  fetchGraph,
   fetchKnowledgeHome,
+  type GraphResponse,
   type KnowledgeHomeResponse,
 } from "@/lib/api";
 
 const home = ref<KnowledgeHomeResponse | null>(null);
+const graphData = ref<GraphResponse | null>(null);
 const error = ref("");
 const isLoading = ref(false);
+const graphColorMode = ref<"type" | "community">("type");
+const showTrend = ref(true);
+const showRecent = ref(true);
 
 function kindLabel(kind: string) {
   const labels: Record<string, string> = {
@@ -20,10 +27,6 @@ function kindLabel(kind: string) {
     statement: "陈述",
   };
   return labels[kind] || kind;
-}
-
-function typeLabel(type: string) {
-  return type || "Concept";
 }
 
 function objectHref(item: { graphObjectId?: string | null }) {
@@ -43,19 +46,52 @@ function formatDateTime(value?: string | null) {
   });
 }
 
-async function loadHome() {
-  isLoading.value = true;
-  error.value = "";
+const graphNodes = computed(() => {
+  if (!graphData.value?.data?.triplets) return [];
+  const nodeMap = new Map<string, { id: string; label: string; type: string; primary: boolean }>();
 
-  try {
-    home.value = await fetchKnowledgeHome();
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : "加载知识工作台失败。";
-    home.value = null;
-  } finally {
-    isLoading.value = false;
+  for (const triplet of graphData.value.data.triplets) {
+    if (!nodeMap.has(triplet.sourceNode.uuid)) {
+      const type =
+        (triplet.sourceNode.labels[0] as string | undefined) ||
+        (triplet.sourceNode.attributes.type as string | undefined) ||
+        "Concept";
+      nodeMap.set(triplet.sourceNode.uuid, {
+        id: triplet.sourceNode.uuid,
+        label: triplet.sourceNode.name,
+        type,
+        primary: true,
+      });
+    }
+
+    if (!nodeMap.has(triplet.targetNode.uuid)) {
+      const type =
+        (triplet.targetNode.labels[0] as string | undefined) ||
+        (triplet.targetNode.attributes.type as string | undefined) ||
+        "Concept";
+      nodeMap.set(triplet.targetNode.uuid, {
+        id: triplet.targetNode.uuid,
+        label: triplet.targetNode.name,
+        type,
+        primary: true,
+      });
+    }
   }
-}
+
+  return Array.from(nodeMap.values());
+});
+
+const graphEdges = computed(() => {
+  if (!graphData.value?.data?.triplets) return [];
+  return graphData.value.data.triplets.map((triplet) => ({
+    id: triplet.edge.uuid,
+    source: triplet.sourceNode.uuid,
+    target: triplet.targetNode.uuid,
+    label: triplet.edge.type,
+    weight: 1,
+    aspect: null,
+  }));
+});
 
 const trendBars = computed(() => {
   const points = home.value?.learningTrend ?? [];
@@ -74,6 +110,26 @@ const trendBars = computed(() => {
 
 const recentNarrative = computed(() => (home.value?.recentGrowth ?? []).slice(0, 3));
 
+async function loadHome() {
+  isLoading.value = true;
+  error.value = "";
+
+  try {
+    const [homeData, graph] = await Promise.all([
+      fetchKnowledgeHome(),
+      fetchGraph(120),
+    ]);
+    home.value = homeData;
+    graphData.value = graph;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "加载知识工作台失败。";
+    home.value = null;
+    graphData.value = null;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 onMounted(() => {
   void loadHome();
 });
@@ -83,7 +139,7 @@ onMounted(() => {
   <div class="knowledge-home">
     <header class="knowledge-home__header">
       <div>
-        <p class="knowledge-home__eyebrow">AI-driven Personal 知识工作台</p>
+        <p class="knowledge-home__eyebrow">个人知识沉淀系统</p>
         <h1>知识工作台</h1>
         <p class="knowledge-home__intro">
           先看学习增长和待确认知识，不直接把整张图铺出来。图只在对象详情里承担解释作用。
@@ -110,7 +166,7 @@ onMounted(() => {
         </article>
 
         <article class="hero-card">
-          <span class="hero-card__label">最近增长</span>
+          <span class="hero-card__label">最近成长</span>
           <strong>{{ home.recentGrowth.length }}</strong>
           <p>最近被确认进入长期知识层的对象和关系</p>
         </article>
@@ -122,127 +178,24 @@ onMounted(() => {
         </article>
       </section>
 
-      <section class="knowledge-home__grid">
-        <article class="panel-card">
-          <div class="panel-card__head">
-            <p class="panel-card__eyebrow">最近成长</p>
-            <RouterLink class="panel-card__link" to="/home/memory/graph/inbox">全部候选</RouterLink>
-          </div>
-          <div class="story-list">
-            <RouterLink
-              v-for="item in home.recentGrowth"
-              :key="item.id"
-              :to="objectHref(item)"
-              class="story-item"
-            >
-              <div class="story-item__meta">
-                <strong>{{ item.title }}</strong>
-                <span>{{ kindLabel(item.kind) }} · {{ formatDateTime(item.updatedAt) }}</span>
-              </div>
-              <span class="story-item__badge">{{ item.confidence?.toFixed(2) ?? "--" }}</span>
-            </RouterLink>
-          </div>
-        </article>
-
-        <article class="panel-card">
-          <div class="panel-card__head">
-            <p class="panel-card__eyebrow">最近回顾</p>
-            <RouterLink class="panel-card__link" to="/home/memory/graph/inbox">进入收件箱</RouterLink>
-          </div>
-          <div class="story-list">
-            <article
-              v-for="batch in home.recentBatches"
-              :key="batch.id"
-              class="story-item story-item--plain"
-            >
-              <div class="story-item__meta">
-                <strong>{{ batch.summary }}</strong>
-                <span>{{ formatDateTime(batch.createdAt) }}</span>
-              </div>
-              <span class="story-item__badge">{{ batch.counts.proposed }} 待处理</span>
-            </article>
-          </div>
-        </article>
-
-        <article class="panel-card">
-          <div class="panel-card__head">
-            <p class="panel-card__eyebrow">活跃项目</p>
-          </div>
-          <div class="chip-grid">
-            <RouterLink
-              v-for="project in home.activeProjects"
-              :key="project.id"
-              :to="`/home/memory/graph/object/${encodeURIComponent(project.id)}`"
-              class="chip-card"
-            >
-              <strong>{{ project.title }}</strong>
-              <span>{{ project.weight }} 条连接</span>
-            </RouterLink>
-          </div>
-        </article>
-
-        <article class="panel-card">
-          <div class="panel-card__head">
-            <p class="panel-card__eyebrow">活跃主题</p>
-          </div>
-          <div class="chip-grid">
-            <RouterLink
-              v-for="topic in home.activeTopics"
-              :key="topic.id"
-              :to="`/home/memory/graph/object/${encodeURIComponent(topic.id)}`"
-              class="chip-card"
-            >
-              <strong>{{ topic.title }}</strong>
-              <span>{{ typeLabel(topic.type) }} · {{ topic.weight }}</span>
-            </RouterLink>
-          </div>
-        </article>
-
-        <article class="panel-card">
-          <div class="panel-card__head">
-            <p class="panel-card__eyebrow">最近决策</p>
-          </div>
-          <div class="story-list">
-            <RouterLink
-              v-for="item in home.recentDecisions"
-              :key="item.id"
-              :to="objectHref(item)"
-              class="story-item"
-            >
-              <div class="story-item__meta">
-                <strong>{{ item.title }}</strong>
-                <span>{{ formatDateTime(item.updatedAt) }}</span>
-              </div>
-            </RouterLink>
-          </div>
-        </article>
-
-        <article class="panel-card">
-          <div class="panel-card__head">
-            <p class="panel-card__eyebrow">最近事件</p>
-          </div>
-          <div class="story-list">
-            <RouterLink
-              v-for="item in home.recentEvents"
-              :key="item.id"
-              :to="objectHref(item)"
-              class="story-item"
-            >
-              <div class="story-item__meta">
-                <strong>{{ item.title }}</strong>
-                <span>{{ formatDateTime(item.updatedAt) }}</span>
-              </div>
-            </RouterLink>
-          </div>
-        </article>
+      <section class="knowledge-home__graph">
+        <GraphLocalView
+          title="知识图谱"
+          :nodes="graphNodes"
+          :edges="graphEdges"
+          :color-mode="graphColorMode"
+        />
       </section>
 
-      <section class="knowledge-home__bottom">
+      <section class="knowledge-home__details">
         <article class="panel-card panel-card--trend">
           <div class="panel-card__head">
             <p class="panel-card__eyebrow">学习趋势</p>
+            <button class="panel-card__toggle" @click="showTrend = !showTrend">
+              {{ showTrend ? "收起" : "展开" }}
+            </button>
           </div>
-          <div class="trend-chart">
+          <div v-show="showTrend" class="trend-chart">
             <div v-for="bar in trendBars" :key="bar.date" class="trend-chart__item">
               <div class="trend-chart__bars">
                 <span class="trend-chart__bar trend-chart__bar--accepted" :style="{ height: `${bar.acceptedHeight}px` }"></span>
@@ -256,8 +209,11 @@ onMounted(() => {
         <article class="panel-card">
           <div class="panel-card__head">
             <p class="panel-card__eyebrow">最近叙事</p>
+            <button class="panel-card__toggle" @click="showRecent = !showRecent">
+              {{ showRecent ? "收起" : "展开" }}
+            </button>
           </div>
-          <div class="story-list">
+          <div v-show="showRecent" class="story-list">
             <article
               v-for="item in recentNarrative"
               :key="item.id"
@@ -289,6 +245,12 @@ onMounted(() => {
     radial-gradient(circle at top left, rgba(201, 99, 61, 0.12), transparent 24rem),
     radial-gradient(circle at bottom right, rgba(77, 106, 181, 0.08), transparent 28rem),
     linear-gradient(180deg, rgba(255, 252, 248, 0.98), rgba(244, 237, 228, 0.96));
+  animation: fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .knowledge-home__header,
@@ -305,6 +267,12 @@ onMounted(() => {
   justify-content: space-between;
   gap: 18px;
   padding: 18px 20px;
+  animation: slideDown 0.5s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .knowledge-home__header h1 {
@@ -345,10 +313,17 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+  animation: fadeIn 0.7s ease 0.1s both;
 }
 
 .hero-card {
   padding: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 90px rgba(89, 50, 19, 0.12);
 }
 
 .hero-card--accent {
@@ -369,16 +344,21 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.knowledge-home__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+.knowledge-home__graph {
+  min-height: 70vh;
+  border-radius: 20px;
+  border: 1px solid rgba(95, 64, 28, 0.14);
+  background: rgba(255, 250, 244, 0.84);
+  box-shadow: 0 24px 80px rgba(89, 50, 19, 0.08);
+  overflow: hidden;
+  animation: fadeIn 0.8s ease 0.2s both;
 }
 
-.knowledge-home__bottom {
+.knowledge-home__details {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 14px;
+  animation: fadeIn 0.9s ease 0.3s both;
 }
 
 .panel-card {
@@ -396,6 +376,21 @@ onMounted(() => {
 .panel-card__link {
   text-decoration: none;
   font-size: 0.88rem;
+}
+
+.panel-card__toggle {
+  background: none;
+  border: 1px solid rgba(95, 64, 28, 0.12);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.panel-card__toggle:hover {
+  background: rgba(95, 64, 28, 0.08);
 }
 
 .story-list,
@@ -416,6 +411,11 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.82);
   text-decoration: none;
   color: inherit;
+  transition: transform 0.15s ease;
+}
+
+.story-item:hover {
+  transform: translateX(4px);
 }
 
 .story-item--plain {
@@ -477,6 +477,7 @@ onMounted(() => {
 .trend-chart__bar {
   width: 12px;
   border-radius: 999px 999px 4px 4px;
+  transition: height 0.4s ease;
 }
 
 .trend-chart__bar--accepted {
@@ -489,8 +490,7 @@ onMounted(() => {
 
 @media (max-width: 1180px) {
   .knowledge-home__hero,
-  .knowledge-home__grid,
-  .knowledge-home__bottom {
+  .knowledge-home__details {
     grid-template-columns: 1fr;
   }
 }

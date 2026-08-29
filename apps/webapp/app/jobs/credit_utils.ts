@@ -1,3 +1,8 @@
+/**
+ * Credit utilities - Stub implementation
+ * Original billing system removed, replaced with no-op stubs.
+ */
+
 export function estimateCreditsFromTokens(tokens: number): number {
   return Math.ceil(tokens / 1000);
 }
@@ -30,9 +35,7 @@ export async function refundCredits(
 }
 
 export async function deductCredits(
-  workspaceId: string,
   userId: string,
-  reason: string,
   credits: number,
 ): Promise<{ success: boolean }> {
   return { success: true };
@@ -41,9 +44,7 @@ export async function deductCredits(
 export async function reconcileCredits(
   workspaceId: string,
   userId: string,
-  reason: string,
-  reservedCredits: number,
-  actualCredits: number,
+  reservationId: string,
 ): Promise<{ success: boolean }> {
   return { success: true };
 }

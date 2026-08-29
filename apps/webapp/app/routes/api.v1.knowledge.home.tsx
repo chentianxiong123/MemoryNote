@@ -1,4 +1,4 @@
-import { json } from "@remix-run/node";
+import { json } from "~/lib/remix-compat";
 
 import { createHybridLoaderApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { getKnowledgeHomeData } from "~/services/knowledge-capture.server";

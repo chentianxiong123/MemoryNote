@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createHybridActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
-import { json } from "@remix-run/node";
+import { json } from "~/lib/remix-compat";
 import { trackFeatureUsage } from "~/services/telemetry.server";
 import { searchMemoryWithAgent } from "~/services/agent/memory";
 

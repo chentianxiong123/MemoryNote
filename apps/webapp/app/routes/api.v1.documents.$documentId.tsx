@@ -1,4 +1,4 @@
-import { json } from "@remix-run/node";
+import { json } from "~/lib/remix-compat";
 import { z } from "zod";
 import { deleteSession } from "~/services/ingestionLogs.server";
 import {

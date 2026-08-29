@@ -1,6 +1,5 @@
-import { redirect } from "@remix-run/node";
+import { redirect } from "~/lib/remix-compat";
 import { getUserById, findOrCreateMagicLinkUser } from "~/models/user.server";
-import { sessionStorage } from "./sessionStorage.server";
 import { getImpersonationId } from "./impersonation.server";
 import { type Request as ERequest } from "express";
 import { prisma } from "~/db.server";

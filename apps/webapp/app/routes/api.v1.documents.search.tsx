@@ -1,4 +1,4 @@
-import { json } from "@remix-run/node";
+import { json } from "~/lib/remix-compat";
 import { z } from "zod";
 import { createHybridLoaderApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { searchDocuments, searchDocumentSessionIds } from "~/services/document.server";

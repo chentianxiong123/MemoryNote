@@ -176,7 +176,7 @@ textarea {
 }
 
 .shell__content--graph {
-  padding: 0;
+  padding: 26px;
   min-height: 100vh;
 }
 

@@ -3,19 +3,19 @@ import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
 import {
-  fetchWikiEntry,
-  fetchWikiEntryTimeline,
-  fetchWikiEntryVersions,
-  type WikiEntryResponse,
-  type WikiEntryVersionResponse,
-  type WikiTimelineItem,
+  fetch维基Entry,
+  fetch维基Entry时间线,
+  fetch维基EntryVersions,
+  type 维基EntryResponse,
+  type 维基EntryVersionResponse,
+  type 维基时间线Item,
 } from "@/lib/api";
 
 const route = useRoute();
 
-const entry = ref<WikiEntryResponse | null>(null);
-const timeline = ref<WikiTimelineItem[]>([]);
-const versions = ref<WikiEntryVersionResponse[]>([]);
+const entry = ref<维基EntryResponse | null>(null);
+const timeline = ref<维基时间线Item[]>([]);
+const versions = ref<维基EntryVersionResponse[]>([]);
 const error = ref("");
 const isLoading = ref(false);
 const expandedVersions = ref<Set<string>>(new Set());
@@ -69,9 +69,9 @@ async function loadEntry() {
 
   try {
     const [entryResponse, timelineResponse, versionsResponse] = await Promise.all([
-      fetchWikiEntry(entityUuid.value),
-      fetchWikiEntryTimeline(entityUuid.value),
-      fetchWikiEntryVersions(entityUuid.value),
+      fetch维基Entry(entityUuid.value),
+      fetch维基Entry时间线(entityUuid.value),
+      fetch维基EntryVersions(entityUuid.value),
     ]);
     entry.value = entryResponse;
     timeline.value = timelineResponse;
@@ -104,7 +104,7 @@ onMounted(() => {
       <div class="wiki-entry__title">
         <RouterLink class="wiki-entry__back" to="/home/wiki">返回列表</RouterLink>
         <div>
-          <p class="wiki-entry__eyebrow">Wiki Entry</p>
+          <p class="wiki-entry__eyebrow">维基词条</p>
           <h1>{{ entry?.title ?? "词条详情" }}</h1>
           <p class="wiki-entry__definition">{{ entry?.definition ?? "正在加载词条定义..." }}</p>
         </div>
@@ -149,14 +149,14 @@ onMounted(() => {
       <section class="wiki-entry__grid">
         <article class="panel-card panel-card--main">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Summary</p>
+            <p class="panel-card__eyebrow">摘要</p>
           </div>
           <p class="panel-card__copy">{{ entry.summary || "暂无摘要" }}</p>
         </article>
 
         <article class="panel-card panel-card--wide">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Content</p>
+            <p class="panel-card__eyebrow">内容</p>
           </div>
           <div
             v-if="entry.content"
@@ -168,7 +168,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Timeline</p>
+            <p class="panel-card__eyebrow">时间线</p>
           </div>
           <div v-if="timeline.length > 0" class="timeline-list">
             <article v-for="event in timeline" :key="event.uuid" class="timeline-item">
@@ -182,7 +182,7 @@ onMounted(() => {
 
         <article class="panel-card panel-card--wide">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Version History</p>
+            <p class="panel-card__eyebrow">版本历史</p>
             <span class="chip">{{ versions.length }} 个版本</span>
           </div>
           <div v-if="versions.length > 0" class="version-list">

@@ -83,7 +83,7 @@ onMounted(() => {
   <div class="knowledge-home">
     <header class="knowledge-home__header">
       <div>
-        <p class="knowledge-home__eyebrow">AI-driven Personal Knowledge Workbench</p>
+        <p class="knowledge-home__eyebrow">AI-driven Personal 知识工作台</p>
         <h1>知识工作台</h1>
         <p class="knowledge-home__intro">
           先看学习增长和待确认知识，不直接把整张图铺出来。图只在对象详情里承担解释作用。
@@ -125,7 +125,7 @@ onMounted(() => {
       <section class="knowledge-home__grid">
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Recent Growth</p>
+            <p class="panel-card__eyebrow">最近成长</p>
             <RouterLink class="panel-card__link" to="/home/memory/graph/inbox">全部候选</RouterLink>
           </div>
           <div class="story-list">
@@ -146,7 +146,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Recent Recaps</p>
+            <p class="panel-card__eyebrow">最近回顾</p>
             <RouterLink class="panel-card__link" to="/home/memory/graph/inbox">进入收件箱</RouterLink>
           </div>
           <div class="story-list">
@@ -166,7 +166,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Active Projects</p>
+            <p class="panel-card__eyebrow">活跃项目</p>
           </div>
           <div class="chip-grid">
             <RouterLink
@@ -183,7 +183,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Active Topics</p>
+            <p class="panel-card__eyebrow">活跃主题</p>
           </div>
           <div class="chip-grid">
             <RouterLink
@@ -200,7 +200,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Recent Decisions</p>
+            <p class="panel-card__eyebrow">最近决策</p>
           </div>
           <div class="story-list">
             <RouterLink
@@ -219,7 +219,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Recent Events</p>
+            <p class="panel-card__eyebrow">最近事件</p>
           </div>
           <div class="story-list">
             <RouterLink
@@ -240,7 +240,7 @@ onMounted(() => {
       <section class="knowledge-home__bottom">
         <article class="panel-card panel-card--trend">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Learning Trend</p>
+            <p class="panel-card__eyebrow">学习趋势</p>
           </div>
           <div class="trend-chart">
             <div v-for="bar in trendBars" :key="bar.date" class="trend-chart__item">
@@ -255,7 +255,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Recent Narrative</p>
+            <p class="panel-card__eyebrow">最近叙事</p>
           </div>
           <div class="story-list">
             <article

@@ -62,7 +62,7 @@ function payloadText(item: KnowledgeCaptureItemRecord, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
-function payloadAliases(item: KnowledgeCaptureItemRecord) {
+function payload别名(item: KnowledgeCaptureItemRecord) {
   const value = item.payload.aliases;
   return Array.isArray(value)
     ? value.map((alias) => String(alias).trim()).filter(Boolean).slice(0, 8)
@@ -235,7 +235,7 @@ onMounted(() => {
   <div class="knowledge-inbox">
     <header class="knowledge-inbox__header">
       <div>
-        <p class="knowledge-inbox__eyebrow">Learning Inbox</p>
+        <p class="knowledge-inbox__eyebrow">学习收件箱</p>
         <h1>学习收件箱</h1>
         <p class="knowledge-inbox__intro">
           AI 先提议，你再确认哪些对象、关系、事件、决策应该进入长期知识层。
@@ -344,8 +344,8 @@ onMounted(() => {
               <p>{{ payloadText(item, "definitionDraft") }}</p>
             </div>
 
-            <div v-if="payloadAliases(item).length > 0" class="chip-list item-card__aliases">
-              <span v-for="alias in payloadAliases(item)" :key="alias" class="chip">
+            <div v-if="payload别名(item).length > 0" class="chip-list item-card__aliases">
+              <span v-for="alias in payload别名(item)" :key="alias" class="chip">
                 {{ alias }}
               </span>
             </div>

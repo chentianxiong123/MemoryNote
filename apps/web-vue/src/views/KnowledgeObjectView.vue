@@ -6,26 +6,26 @@ import GraphLocalView from "@/components/GraphLocalView.vue";
 import {
   fetchKnowledgeObject,
   fetchKnowledgeObjectGraph,
-  fetchWikiEntry,
+  fetch维基Entry,
   type KnowledgeCaptureItemRecord,
   type KnowledgeObjectDetailResponse,
   type KnowledgeObjectGraphResponse,
-  type WikiEntryResponse,
+  type 维基EntryResponse,
 } from "@/lib/api";
 
 const route = useRoute();
 
 const detail = ref<KnowledgeObjectDetailResponse | null>(null);
 const graph = ref<KnowledgeObjectGraphResponse | null>(null);
-const wikiEntry = ref<WikiEntryResponse | null>(null);
+const wikiEntry = ref<维基EntryResponse | null>(null);
 const error = ref("");
 const isLoading = ref(false);
-const isLoadingWiki = ref(false);
+const isLoading维基 = ref(false);
 const graphDepth = ref(1);
 const selectedNodeId = ref<string | null>(null);
 const selectedEdgeId = ref<string | null>(null);
 const colorMode = ref<"type" | "community">("type");
-const wikiContentExpanded = ref(false);
+const wiki内容Expanded = ref(false);
 
 const objectId = computed(() => route.params.objectId as string);
 
@@ -111,20 +111,20 @@ async function loadObject() {
     isLoading.value = false;
   }
 
-  loadWikiEntry();
+  load维基Entry();
 }
 
-async function loadWikiEntry() {
+async function load维基Entry() {
   if (!detail.value?.object.uuid) return;
-  isLoadingWiki.value = true;
+  isLoading维基.value = true;
 
   try {
-    const response = await fetchWikiEntry(detail.value.object.uuid);
+    const response = await fetch维基Entry(detail.value.object.uuid);
     wikiEntry.value = response;
   } catch {
     wikiEntry.value = null;
   } finally {
-    isLoadingWiki.value = false;
+    isLoading维基.value = false;
   }
 }
 
@@ -138,7 +138,7 @@ const selectedStatement = computed(() => {
   return detail.value?.object.statements.find((statement) => statement.uuid === selectedEdgeId.value) ?? null;
 });
 
-const selectedEvidence = computed(() => {
+const selected证据 = computed(() => {
   const nodeId = selectedNodeId.value;
   if (!nodeId) return null;
   return detail.value?.object.evidence.find((item) => item.graphObjectId?.endsWith(nodeId)) ?? null;
@@ -163,7 +163,7 @@ onMounted(() => {
       <div class="knowledge-object__title">
         <RouterLink class="knowledge-object__back" to="/home/memory/graph">返回工作台</RouterLink>
         <div>
-          <p class="knowledge-object__eyebrow">Object Detail</p>
+          <p class="knowledge-object__eyebrow">对象详情</p>
           <h1>{{ detail?.object.title ?? "知识对象" }}</h1>
           <p class="knowledge-object__intro">{{ detail?.object.summary ?? "正在加载对象摘要..." }}</p>
         </div>
@@ -185,16 +185,16 @@ onMounted(() => {
 
     <p v-if="error" class="knowledge-object__error">{{ error }}</p>
 
-    <article v-if="wikiEntry && !isLoadingWiki" class="wiki-entry-card">
+    <article v-if="wikiEntry && !isLoading维基" class="wiki-entry-card">
       <div class="wiki-entry-card__header">
-        <p class="panel-card__eyebrow">Wiki 词条</p>
+        <p class="panel-card__eyebrow">维基 词条</p>
         <div class="wiki-entry-card__actions">
           <button
             v-if="wikiEntry.content"
             class="button button--ghost button--small"
-            @click="wikiContentExpanded = !wikiContentExpanded"
+            @click="wiki内容Expanded = !wiki内容Expanded"
           >
-            {{ wikiContentExpanded ? "收起内容" : "展开全文" }}
+            {{ wiki内容Expanded ? "收起内容" : "展开全文" }}
           </button>
           <RouterLink
             class="button button--ghost button--small"
@@ -211,7 +211,7 @@ onMounted(() => {
       <p v-if="wikiEntry.summary" class="wiki-entry-card__summary">
         {{ wikiEntry.summary }}
       </p>
-      <div v-if="wikiContentExpanded && wikiEntry.content" class="wiki-entry-card__content markdown-body" v-html="renderMarkdown(wikiEntry.content)"></div>
+      <div v-if="wiki内容Expanded && wikiEntry.content" class="wiki-entry-card__content markdown-body" v-html="renderMarkdown(wikiEntry.content)"></div>
     </article>
 
     <template v-if="detail && graph">
@@ -237,7 +237,7 @@ onMounted(() => {
       <section class="knowledge-object__grid">
         <article class="panel-card panel-card--main">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Local Graph</p>
+            <p class="panel-card__eyebrow">本地图谱</p>
             <div class="panel-card__actions">
               <span class="chip">depth {{ graph.meta.depth }}</span>
               <button
@@ -266,7 +266,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Attributes</p>
+            <p class="panel-card__eyebrow">属性</p>
           </div>
           <div class="attribute-list">
             <div class="attribute-item">
@@ -288,7 +288,7 @@ onMounted(() => {
           </div>
 
           <div v-if="detail.object.relatedProjects.length > 0" class="related-block">
-            <p class="panel-card__eyebrow">Related Projects</p>
+            <p class="panel-card__eyebrow">相关项目</p>
             <div class="chip-list">
               <span v-for="project in detail.object.relatedProjects" :key="project.uuid" class="chip">
                 {{ project.name }}
@@ -297,7 +297,7 @@ onMounted(() => {
           </div>
 
           <div v-if="detail.object.aliases.length > 0" class="related-block">
-            <p class="panel-card__eyebrow">Aliases</p>
+            <p class="panel-card__eyebrow">别名</p>
             <div class="chip-list">
               <span v-for="alias in detail.object.aliases" :key="alias" class="chip">
                 {{ alias }}
@@ -306,7 +306,7 @@ onMounted(() => {
           </div>
 
           <div v-if="detail.object.relatedTerms.length > 0" class="related-block">
-            <p class="panel-card__eyebrow">Related Terms</p>
+            <p class="panel-card__eyebrow">相关术语</p>
             <div class="chip-list">
               <RouterLink
                 v-for="term in detail.object.relatedTerms"
@@ -322,7 +322,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Story</p>
+            <p class="panel-card__eyebrow">故事</p>
           </div>
           <template v-if="selectedStatement">
             <h3 class="panel-card__title">{{ selectedStatement.title }}</h3>
@@ -334,10 +334,10 @@ onMounted(() => {
               <span class="chip">{{ formatDateTime(selectedStatement.validAt) }}</span>
             </div>
           </template>
-          <template v-else-if="selectedEvidence">
-            <h3 class="panel-card__title">{{ selectedEvidence.title }}</h3>
+          <template v-else-if="selected证据">
+            <h3 class="panel-card__title">{{ selected证据.title }}</h3>
             <p class="panel-card__copy">
-              {{ evidenceText(selectedEvidence) }}
+              {{ evidenceText(selected证据) }}
             </p>
           </template>
           <template v-else>
@@ -347,7 +347,7 @@ onMounted(() => {
 
         <article class="panel-card">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Timeline</p>
+            <p class="panel-card__eyebrow">时间线</p>
           </div>
           <div class="timeline-list">
             <article v-for="event in detail.object.timeline" :key="event.id" class="timeline-item">
@@ -359,7 +359,7 @@ onMounted(() => {
 
         <article class="panel-card panel-card--wide">
           <div class="panel-card__head">
-            <p class="panel-card__eyebrow">Evidence</p>
+            <p class="panel-card__eyebrow">证据</p>
           </div>
           <div class="evidence-list">
             <article v-for="item in detail.object.evidence" :key="item.id" class="evidence-item">

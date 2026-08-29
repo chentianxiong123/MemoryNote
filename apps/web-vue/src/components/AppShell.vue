@@ -72,7 +72,7 @@ watch(
           <h2 class="shell__headline">{{ title }}</h2>
         </div>
         <div class="shell__meta">
-          <span class="chip">{{ session.user?.name ?? "MemoryNote 用户" }}</span>
+          <span class="chip">{{ session.user?.name ?? "用户" }}</span>
           <span class="chip chip--accent">{{ session.user?.email ?? "加载中..." }}</span>
         </div>
       </header>

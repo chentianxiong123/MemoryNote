@@ -4,15 +4,15 @@ import { RouterLink } from "vue-router";
 
 import RejectReasonModal from "@/components/RejectReasonModal.vue";
 import {
-  fetchWikiEntries,
-  publishWikiEntry,
-  rejectWikiEntry,
+  fetch维基Entries,
+  publish维基Entry,
+  reject维基Entry,
   type RejectReason,
-  type WikiEntryResponse,
-  type WikiEntryStatus,
+  type 维基EntryResponse,
+  type 维基EntryStatus,
 } from "@/lib/api";
 
-const entries = ref<WikiEntryResponse[]>([]);
+const entries = ref<维基EntryResponse[]>([]);
 const isLoading = ref(false);
 const error = ref("");
 const searchQuery = ref("");
@@ -20,7 +20,7 @@ const currentPage = ref(1);
 const totalPages = ref(1);
 const totalCount = ref(0);
 const limit = 12;
-const activeStatus = ref<WikiEntryStatus>("PUBLISHED");
+const activeStatus = ref<维基EntryStatus>("PUBLISHED");
 const activeSortBy = ref<"createdAt" | "updatedAt" | "title">("updatedAt");
 const activeSortOrder = ref<"asc" | "desc">("desc");
 const statusCounts = ref<{ DRAFT: number; PUBLISHED: number; REJECTED: number }>({
@@ -59,7 +59,7 @@ async function loadEntries() {
   error.value = "";
 
   try {
-    const response = await fetchWikiEntries({
+    const response = await fetch维基Entries({
       page: currentPage.value,
       limit,
       search: searchQuery.value || undefined,
@@ -90,7 +90,7 @@ function goToPage(page: number) {
   void loadEntries();
 }
 
-function selectStatus(status: WikiEntryStatus) {
+function selectStatus(status: 维基EntryStatus) {
   if (activeStatus.value === status) return;
   activeStatus.value = status;
   currentPage.value = 1;
@@ -100,7 +100,7 @@ function selectStatus(status: WikiEntryStatus) {
 async function handlePublish(entryId: string) {
   pendingActionId.value = entryId;
   try {
-    await publishWikiEntry(entryId);
+    await publish维基Entry(entryId);
     await loadEntries();
   } catch (err) {
     error.value = err instanceof Error ? err.message : "发布词条失败。";
@@ -118,7 +118,7 @@ async function confirmReject(payload: { reason: RejectReason; notes: string }) {
   pendingActionId.value = rejectingEntryId.value;
   const targetId = rejectingEntryId.value;
   try {
-    await rejectWikiEntry(targetId, payload);
+    await reject维基Entry(targetId, payload);
     rejectingEntryId.value = null;
     await loadEntries();
   } catch (err) {
@@ -148,7 +148,7 @@ onMounted(() => {
   <div class="wiki-list">
     <header class="wiki-list__header">
       <div class="wiki-list__title">
-        <p class="wiki-list__eyebrow">Wiki</p>
+        <p class="wiki-list__eyebrow">维基</p>
         <h1>词条库</h1>
         <p class="wiki-list__intro">浏览和搜索知识图谱中的所有词条</p>
       </div>

@@ -1,4 +1,4 @@
-import { json, type ActionFunctionArgs } from "@remix-run/node";
+import { json, type ActionFunctionArgs } from "~/lib/remix-compat";
 import { requireUser } from "~/services/session.server";
 import { deleteSession } from "~/services/ingestionLogs.server";
 import { deleteDocument } from "~/services/document.server";

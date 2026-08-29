@@ -11,7 +11,7 @@ import { processEpisodePreprocessing } from "~/jobs/ingest/preprocess-episode.lo
 import { processEpisodeIngestion, type IngestEpisodePayload } from "~/jobs/ingest/ingest-episode.logic";
 import { processGraphResolution } from "~/jobs/ingest/graph-resolution.logic";
 
-export type QueueProvider = "trigger" | "bullmq";
+export type QueueProvider = "detached";
 
 function runDetached(taskName: string, task: () => Promise<void>) {
   void task().catch((error) => {
@@ -128,4 +128,4 @@ export async function enqueueActivityCase(
   return { id: `activity-${payload.activityId}` };
 }
 
-export const isTriggerDeployment = () => false;
+export const isDetachedDeployment = () => false;

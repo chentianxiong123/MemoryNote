@@ -3,15 +3,15 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": [ "^build" ],
-      "inputs": [ "$TURBO_DEFAULT$", ".env*" ],
-      "outputs": [ "dist/**", "public/build/**", "build/**", "app/styles/tailwind.css", ".cache" ]
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", "public/build/**", "build/**"]
     },
     "lint": {
-      "dependsOn": [ "^lint" ]
+      "dependsOn": ["^lint"]
     },
     "check-types": {
-      "dependsOn": [ "^check-types" ]
+      "dependsOn": ["^check-types"]
     },
     "dev": {
       "cache": false,
@@ -35,69 +35,42 @@
       "cache": false
     },
     "generate": {
-      "dependsOn": [ "^generate" ]
-    },
-    "trigger:dev": {
-      "interactive": true,
-      "cache": false
-    },
-    "trigger:deploy": {
-      "interactive": true,
-      "cache": false
+      "dependsOn": ["^generate"]
     }
   },
-  "globalDependencies": [ ".env" ],
+  "globalDependencies": [".env"],
   "globalEnv": [
     "NODE_ENV",
     "REMIX_APP_PORT",
-    "CI",
     "DATABASE_URL",
     "DIRECT_URL",
-    "SESSION_SECRET",
     "APP_ORIGIN",
     "LOGIN_ORIGIN",
-    "API_BASE_URL",
-    "POSTHOG_PROJECT_KEY",
-    "AUTH_GOOGLE_CLIENT_ID",
-    "AUTH_GOOGLE_CLIENT_SECRET",
     "APP_ENV",
-    "APP_LOG_LEVEL",
-    "ENCRYPTION_KEY",
-    "REDIS_HOST",
-    "REDIS_PORT",
-    "REDIS_TLS_DISABLED",
+    "POSTGRES_DB",
     "NEO4J_URI",
     "NEO4J_USERNAME",
     "NEO4J_PASSWORD",
     "OPENAI_API_KEY",
-    "MAGIC_LINK_SECRET",
-    "ENABLE_EMAIL_LOGIN",
+    "OPENAI_BASE_URL",
+    "OPENAI_API_MODE",
     "MODEL",
-    "OLLAMA_URL",
-    "TRIGGER_PROJECT_ID",
-    "TRIGGER_API_URL",
-    "TRIGGER_SECRET_KEY",
     "EMBEDDING_MODEL",
-    "MODEL",
+    "EMBEDDING_MODEL_SIZE",
+    "EMBEDDING_API_KEY",
+    "OLLAMA_URL",
+    "CHAT_PROVIDER",
+    "EMBEDDINGS_PROVIDER",
+    "RERANK_PROVIDER",
     "COHERE_API_KEY",
-    "RESEND_API_KEY",
-    "FROM_EMAIL",
-    "REPLY_TO_EMAIL",
-    "EMAIL_TRANSPORT",
+    "RERANK_API_KEY",
+    "RERANK_BASE_URL",
+    "RERANK_MODEL",
+    "GRAPH_PROVIDER",
+    "VECTOR_PROVIDER",
+    "MODEL_PROVIDER",
     "AWS_REGION",
     "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-    "STRIPE_PUBLISHABLE_KEY",
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-    "PRO_PLAN_STRIPE_PRICE_ID",
-    "MAX_PLAN_STRIPE_PRICE_ID",
-    "FREE_PLAN_CREDITS",
-    "PRO_PLAN_CREDITS",
-    "PRO_OVERAGE_PRICE",
-    "MAX_PLAN_CREDITS",
-    "MAX_OVERAGE_PRICE",
-    "TELEMETRY_ENABLED",
-    "TELEMETRY_ANONYMOUS"
+    "AWS_SECRET_ACCESS_KEY"
   ]
 }

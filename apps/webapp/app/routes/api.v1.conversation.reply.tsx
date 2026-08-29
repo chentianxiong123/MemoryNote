@@ -1,4 +1,4 @@
-import { json } from "@remix-run/node";
+import { json } from "~/lib/remix-compat";
 import { UserTypeEnum } from "@core/types";
 import { z } from "zod";
 import { type ModelMessage } from "ai";

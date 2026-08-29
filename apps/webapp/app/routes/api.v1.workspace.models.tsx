@@ -1,4 +1,4 @@
-import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "@remix-run/node";
+import { json, type ActionFunctionArgs, type LoaderFunctionArgs } from "~/lib/remix-compat";
 import { Prisma } from "@prisma/client";
 
 import { requireUser } from "~/services/session.server";

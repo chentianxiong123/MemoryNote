@@ -1,4 +1,5 @@
-import DiffMatchPatch from 'diff-match-patch';
+import { diff_match_patch } from '../lib/diff-match-patch-stub';
+const DiffMatchPatch = diff_match_patch;
 
 export interface DiffStats {
   additions: number;

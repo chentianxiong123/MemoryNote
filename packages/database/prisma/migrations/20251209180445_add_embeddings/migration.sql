@@ -1,4 +1,4 @@
-CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA core;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- CreateTable
 CREATE TABLE "statement_embeddings" (

@@ -6,6 +6,7 @@ import KnowledgeObjectView from "@/views/KnowledgeObjectView.vue";
 import MemoryDocumentsView from "@/views/MemoryDocumentsView.vue";
 import MemoryGraphView from "@/views/MemoryGraphView.vue";
 import MemoryLabelsView from "@/views/MemoryLabelsView.vue";
+import HomeDashboardView from "@/views/HomeDashboardView.vue";
 import SettingsModelsView from "@/views/SettingsModelsView.vue";
 import WikiEntryView from "@/views/WikiEntryView.vue";
 import WikiListView from "@/views/WikiListView.vue";
@@ -13,17 +14,17 @@ import WikiListView from "@/views/WikiListView.vue";
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/", redirect: "/home/conversation" },
+    { path: "/", redirect: "/home" },
     { path: "/conversation", redirect: "/home/conversation" },
     { path: "/conversation/:conversationId", redirect: (to) => `/home/conversation/${to.params.conversationId}` },
     { path: "/memory/documents", redirect: "/home/memory/documents" },
     { path: "/memory/graph", redirect: "/home/memory/graph" },
     { path: "/memory/labels", redirect: "/home/memory/labels" },
     { path: "/settings/models", redirect: "/settings/workspace/models" },
-    { path: "/home", redirect: "/home/conversation" },
-    { path: "/home/daily", redirect: "/home/conversation" },
-    { path: "/home/conversation", component: ConversationView },
-    { path: "/home/conversation/:conversationId", component: ConversationView, props: true },
+    { path: "/home", component: HomeDashboardView },
+    { path: "/home/daily", redirect: "/home" },
+    { path: "/home/conversation", component: ConversationCreateView },
+    { path: "/home/conversation/:conversationId", component: ConversationCreateView, props: true },
     { path: "/home/memory/documents", component: MemoryDocumentsView },
     { path: "/home/memory/graph", component: MemoryGraphView },
     { path: "/home/memory/graph/inbox", component: KnowledgeInboxView },

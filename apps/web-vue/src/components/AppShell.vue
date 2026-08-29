@@ -29,6 +29,19 @@ const title = computed(() => {
 
 const isGraphRoute = computed(() => route.path.startsWith("/home/memory/graph"));
 
+function isNavActive(itemTo: string) {
+  if (itemTo === "/home/memory/graph/inbox") {
+    return route.path === "/home/memory/graph/inbox";
+  }
+  if (itemTo === "/home/memory/graph") {
+    return (
+      route.path === "/home/memory/graph" ||
+      route.path.startsWith("/home/memory/graph/object")
+    );
+  }
+  return route.path.startsWith(itemTo);
+}
+
 watch(
   title,
   (value) => {
@@ -55,7 +68,7 @@ watch(
           :key="item.to"
           :to="item.to"
           class="nav__item"
-          :class="{ 'nav__item--active': route.path.startsWith(item.to) }"
+          :class="{ 'nav__item--active': isNavActive(item.to) }"
         >
           <span class="nav__label">{{ item.label }}</span>
           <span class="nav__description">{{ item.description }}</span>

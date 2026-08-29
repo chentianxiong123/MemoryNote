@@ -36,11 +36,11 @@ watch(
 
 <template>
   <div class="shell" :class="{ 'shell--graph': isGraphRoute }">
-    <aside v-if="!isGraphRoute" class="shell__sidebar">
+    <aside class="shell__sidebar">
       <div class="brand">
         <div class="brand__badge">MN</div>
         <div>
-          <p class="brand__eyebrow">Vue 重构版</p>
+          <p class="brand__eyebrow">知识沉淀系统</p>
           <h1 class="brand__title">MemoryNote</h1>
         </div>
       </div>
@@ -66,9 +66,9 @@ watch(
     </aside>
 
     <main class="shell__content" :class="{ 'shell__content--graph': isGraphRoute }">
-      <header v-if="!isGraphRoute" class="shell__header">
+      <header class="shell__header">
         <div>
-          <p class="shell__eyebrow">个人知识工作台</p>
+          <p class="shell__eyebrow">个人知识沉淀系统</p>
           <h2 class="shell__headline">{{ title }}</h2>
         </div>
         <div class="shell__meta">

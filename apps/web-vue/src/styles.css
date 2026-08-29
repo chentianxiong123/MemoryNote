@@ -48,7 +48,8 @@ textarea {
 }
 
 .shell--graph {
-  display: block;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
 }
 
 .shell__sidebar {

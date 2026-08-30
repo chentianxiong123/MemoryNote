@@ -35,6 +35,10 @@ const isGraphRoute = computed(() => route.path.startsWith("/home/memory/graph"))
 const isCollapsed = ref(false);
 
 function isNavActive(itemTo: string) {
+  // /home 只在精确匹配时高亮，避免在其他 /home/* 路由下一直选中
+  if (itemTo === "/home") {
+    return route.path === "/home";
+  }
   if (itemTo === "/home/memory/graph/inbox") {
     return route.path === "/home/memory/graph/inbox";
   }
@@ -90,10 +94,7 @@ watch(
         </RouterLink>
       </nav>
 
-      <div class="sidebar-card">
-        <p class="sidebar-card__label">当前用户</p>
-        <p class="sidebar-card__value">{{ session.user?.name ?? "未登录" }}</p>
-        <p class="sidebar-card__hint">{{ session.user?.email ?? "" }}</p>
+      <div class="sidebar-card sidebar-card--bottom">
         <button @click="handleLogout" class="logout-btn">退出登录</button>
       </div>
     </aside>
@@ -239,5 +240,10 @@ watch(
 
 .logout-btn:hover {
   background: #c0392b;
+}
+
+.sidebar-card--bottom {
+  margin-top: auto;
+  padding: 12px;
 }
 </style>

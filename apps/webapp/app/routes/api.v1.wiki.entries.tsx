@@ -35,9 +35,7 @@ export const loader = createHybridLoaderApiRoute(
 
     const offset = (page - 1) * limit;
 
-    const whereClause: any = {
-      workspaceId: "personal",
-    };
+    const whereClause: any = {};
 
     if (status) {
       whereClause.status = status;
@@ -75,7 +73,6 @@ export const loader = createHybridLoaderApiRoute(
       prisma.wikiEntry.count({ where: whereClause }),
       prisma.wikiEntry.groupBy({
         by: ["status"],
-        where: { workspaceId: "personal" },
         _count: { _all: true },
       }),
     ]);

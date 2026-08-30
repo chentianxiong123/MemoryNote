@@ -95,29 +95,20 @@ watch(
       </nav>
 
       <div class="sidebar-card sidebar-card--bottom">
+        <button class="sidebar-toggle" @click="isCollapsed = !isCollapsed" title="折叠/展开侧边栏">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y1="6" v-if="!isCollapsed"/>
+            <line x1="3" y1="12" x2="21" y1="12" v-if="!isCollapsed"/>
+            <line x1="3" y1="18" x2="21" y1="18" v-if="!isCollapsed"/>
+            <polyline points="15 9 21 12 15 15" v-if="isCollapsed"/>
+            <polyline points="9 9 3 12 9 15" v-if="!isCollapsed"/>
+          </svg>
+        </button>
         <button @click="handleLogout" class="logout-btn">退出登录</button>
       </div>
     </aside>
 
     <main class="shell__content" :class="{ 'shell__content--graph': isGraphRoute, 'shell__content--collapsed': isCollapsed }">
-      <header class="shell__header">
-        <div class="shell__header-left">
-          <button class="sidebar-toggle" @click="isCollapsed = !isCollapsed" title="折叠/展开侧边栏">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="3" y1="6" x2="21" y2="6" v-if="!isCollapsed"/>
-              <line x1="3" y1="12" x2="21" y2="12" v-if="!isCollapsed"/>
-              <line x1="3" y1="18" x2="21" y2="18" v-if="!isCollapsed"/>
-              <polyline points="15 9 21 12 15 15" v-if="isCollapsed"/>
-              <polyline points="9 9 3 12 9 15" v-if="!isCollapsed"/>
-            </svg>
-          </button>
-          <div>
-            <p class="shell__eyebrow">个人知识沉淀系统</p>
-            <h2 class="shell__headline">{{ title }}</h2>
-          </div>
-        </div>
-      </header>
-
       <section class="shell__panel" :class="{ 'shell__panel--graph': isGraphRoute }">
         <RouterView />
       </section>
@@ -146,12 +137,6 @@ watch(
   background: rgba(201, 99, 61, 0.1);
   color: var(--accent);
   border-color: rgba(201, 99, 61, 0.3);
-}
-
-.shell__header-left {
-  display: flex;
-  align-items: center;
-  gap: 0;
 }
 
 .shell {

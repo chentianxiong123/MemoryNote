@@ -83,6 +83,7 @@ watch(
           :to="item.to"
           class="nav__item"
           :class="{ 'nav__item--active': isNavActive(item.to) }"
+          :title="item.description"
         >
           <span class="nav__label">{{ item.label }}</span>
           <span class="nav__description">{{ item.description }}</span>
@@ -179,6 +180,49 @@ watch(
 .shell--collapsed .sidebar-card {
   opacity: 0;
   pointer-events: none;
+}
+
+/* 导航项：默认只显示标签，描述浮动显示 */
+.nav__item {
+  position: relative;
+}
+
+.nav__description {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-6px);
+  background: var(--text);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 100;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.nav__description::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-right-color: var(--text);
+}
+
+.nav__item:hover .nav__description {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* 侧边栏折叠时，描述也浮动显示 */
+.shell--collapsed .nav__description {
+  display: none;
 }
 
 .logout-btn {

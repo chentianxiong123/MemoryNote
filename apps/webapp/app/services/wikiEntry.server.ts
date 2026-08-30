@@ -22,14 +22,14 @@ export async function createWikiEntry(params: {
   prisma: PrismaClient;
   status?: "DRAFT" | "PUBLISHED";
 }): Promise<WikiEntry> {
-  const { entityUuid, title, definition, summary, content, userId, workspaceId, prisma, status = "DRAFT" } = params;
+  const { entityUuid, title, definition, summary, content,prisma, status = "DRAFT" } = params;
 
   // Check if a wiki entry already exists for this entity
   const existingEntry = await prisma.wikiEntry.findUnique({
     where: {
       entityUuid_workspaceId: {
         entityUuid,
-        workspaceId,
+
       },
     },
   });
@@ -62,8 +62,7 @@ export async function createWikiEntry(params: {
       content,
       status,
       reviewedAt: status === "PUBLISHED" ? new Date() : null,
-      userId,
-      workspaceId,
+
     },
   });
 
@@ -149,13 +148,13 @@ export async function getWikiEntry(params: {
   workspaceId: string;
   prisma: PrismaClient;
 }): Promise<WikiEntry | null> {
-  const { entityUuid, workspaceId, prisma } = params;
+  const { entityUuid,prisma } = params;
 
   const wikiEntry = await prisma.wikiEntry.findUnique({
     where: {
       entityUuid_workspaceId: {
         entityUuid,
-        workspaceId,
+
       },
     },
   });
@@ -198,7 +197,7 @@ export async function getWikiEntryTimeline(params: {
     source: string;
   }>
 > {
-  const { entityUuid, userId, workspaceId } = params;
+  const { entityUuid } = params;
 
   // Query Neo4j for all statements involving this entity (as subject, predicate, or object)
   const query = `
@@ -235,8 +234,7 @@ export async function getWikiEntryTimeline(params: {
   try {
     const results = await graphProvider().runQuery(query, {
       entityUuid,
-      userId,
-      workspaceId,
+
     });
 
     return results.map((record: Record<string, any>) => ({
@@ -298,11 +296,11 @@ export async function getWikiEntriesByWorkspace(params: {
   offset?: number;
   status?: "DRAFT" | "PUBLISHED" | "REJECTED";
 }): Promise<WikiEntry[]> {
-  const { workspaceId, prisma, limit = 50, offset = 0, status } = params;
+  const {prisma, limit = 50, offset = 0, status } = params;
 
   return prisma.wikiEntry.findMany({
     where: {
-      workspaceId,
+
       ...(status ? { status } : {}),
     },
     orderBy: { updatedAt: "desc" },
@@ -318,10 +316,10 @@ export async function getWikiEntryStatusCounts(params: {
   workspaceId: string;
   prisma: PrismaClient;
 }): Promise<{ DRAFT: number; PUBLISHED: number; REJECTED: number }> {
-  const { workspaceId, prisma } = params;
+  const {prisma } = params;
   const groups = await prisma.wikiEntry.groupBy({
     by: ["status"],
-    where: { workspaceId },
+    where: {},
     _count: { _all: true },
   });
   const counts = { DRAFT: 0, PUBLISHED: 0, REJECTED: 0 };
@@ -355,9 +353,9 @@ export async function publishWikiEntryByEntity(params: {
   workspaceId: string;
   prisma: PrismaClient;
 }): Promise<WikiEntry | null> {
-  const { entityUuid, workspaceId, prisma } = params;
+  const { entityUuid,prisma } = params;
   const entry = await prisma.wikiEntry.findUnique({
-    where: { entityUuid_workspaceId: { entityUuid, workspaceId } },
+    where: { entityUuid_workspaceId: { entityUuid } },
   });
   if (!entry || entry.status !== "DRAFT") return entry ?? null;
   return publishWikiEntry({ wikiEntryId: entry.id, prisma });
@@ -394,11 +392,11 @@ export async function searchWikiEntries(params: {
   prisma: PrismaClient;
   limit?: number;
 }): Promise<WikiEntry[]> {
-  const { query, workspaceId, prisma, limit = 20 } = params;
+  const { query,prisma, limit = 20 } = params;
 
   return prisma.wikiEntry.findMany({
     where: {
-      workspaceId,
+
       OR: [
         { title: { contains: query, mode: "insensitive" } },
         { definition: { contains: query, mode: "insensitive" } },

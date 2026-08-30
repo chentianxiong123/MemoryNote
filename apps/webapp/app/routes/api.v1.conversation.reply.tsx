@@ -122,17 +122,17 @@ const { loader, action } = createHybridActionApiRoute(
     corsStrategy: "all",
   },
   async ({ body, authentication }) => {
-    const workspaceId = authentication.workspaceId as string;
+    const workspaceId = "personal" as string;
     const conversation = await getConversationAndHistory(
       body.id,
-      authentication.userId,
+      "personal",
     );
 
     if (!conversation) {
       return json({ error: "Conversation not found" }, { status: 404 });
     }
 
-    const user = await getUserById(authentication.userId);
+    const user = await getUserById("personal");
     const userMetadata = (user?.metadata ?? {}) as Record<string, unknown>;
     const timezone =
       typeof userMetadata.timezone === "string" ? userMetadata.timezone : "UTC";
@@ -160,12 +160,12 @@ const { loader, action } = createHybridActionApiRoute(
 
     const updatedConversation = await getConversationAndHistory(
       body.id,
-      authentication.userId,
+      "personal",
     );
 
     const memoryResults = await searchMemoryWithAgent(
       body.message,
-      authentication.userId,
+      "personal",
       workspaceId,
       body.source,
       { limit: 8 },
@@ -239,7 +239,7 @@ You are operating in Vue migration mode.
         conversationId: body.id,
         incomingUserText: body.message,
         incognito: conversation.incognito,
-        userId: authentication.userId,
+        userId: "personal",
         workspaceId,
       });
     } catch (error) {
@@ -256,7 +256,7 @@ You are operating in Vue migration mode.
         conversationId: body.id,
         incomingUserText: body.message,
         incognito: conversation.incognito,
-        userId: authentication.userId,
+        userId: "personal",
         workspaceId,
       });
     }
@@ -265,7 +265,7 @@ You are operating in Vue migration mode.
       ? await generateKnowledgeCaptureBatch({
           conversationId: body.id,
           sessionId: body.id,
-          userId: authentication.userId,
+          userId: "personal",
           workspaceId,
           userName: user?.displayName ?? user?.name ?? null,
           userMessage: body.message,
@@ -275,7 +275,7 @@ You are operating in Vue migration mode.
 
     const refreshedConversation = await getConversationAndHistory(
       body.id,
-      authentication.userId,
+      "personal",
     );
 
     return json({

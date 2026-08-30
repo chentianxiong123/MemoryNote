@@ -77,7 +77,7 @@ const { action, loader } = createHybridActionApiRoute(
   },
   async ({ body, authentication }) => {
     const now = new Date();
-    const workspaceId = authentication.workspaceId as string | undefined;
+    const workspaceId = "personal" as string | undefined;
     const fact = body.fact?.trim() || `${body.subject} ${body.predicate} ${body.object}`;
 
     const episode: EpisodicNode = {
@@ -91,7 +91,7 @@ const { action, loader } = createHybridActionApiRoute(
       createdAt: now,
       validAt: now,
       labelIds: [],
-      userId: authentication.userId,
+      userId: "personal",
       workspaceId,
       sessionId: `manual-${now.getTime()}`,
       queueId: `manual-${crypto.randomUUID()}`,
@@ -105,19 +105,19 @@ const { action, loader } = createHybridActionApiRoute(
       ensureEntity({
         name: body.subject,
         type: body.subjectType ?? "Concept",
-        userId: authentication.userId,
+        userId: "personal",
         workspaceId,
       }),
       ensureEntity({
         name: body.predicate,
         type: "Predicate",
-        userId: authentication.userId,
+        userId: "personal",
         workspaceId,
       }),
       ensureEntity({
         name: body.object,
         type: body.objectType ?? "Concept",
-        userId: authentication.userId,
+        userId: "personal",
         workspaceId,
       }),
     ]);
@@ -132,7 +132,7 @@ const { action, loader } = createHybridActionApiRoute(
       attributes: {
         sourceMode: "manual-triplet",
       },
-      userId: authentication.userId,
+      userId: "personal",
       workspaceId,
       aspect: body.aspect ?? "Knowledge",
       provenanceCount: 1,

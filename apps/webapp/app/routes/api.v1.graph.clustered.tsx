@@ -52,7 +52,7 @@ const loader = createHybridLoaderApiRoute(
     try {
       const labelService = new LabelService();
       const graphProvider = ProviderFactory.getGraphProvider();
-      const workspaceId = authentication.workspaceId ?? null;
+      const workspaceId = "personal" ?? null;
       const limit = searchParams?.limit ?? 140;
       const queryLimit = limit + 1;
 
@@ -108,10 +108,10 @@ const loader = createHybridLoaderApiRoute(
 
       const [records, clusters] = await Promise.all([
         graphProvider.runQuery(query, {
-          userId: authentication.userId,
+          userId: "personal",
           workspaceId,
         }) as Promise<GraphRecord[]>,
-        labelService.getWorkspaceLabels(authentication.workspaceId as string),
+        labelService.getWorkspaceLabels("personal" as string),
       ]);
 
       const hasMore = records.length > limit;

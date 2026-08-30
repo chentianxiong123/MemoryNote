@@ -14,13 +14,13 @@ const loader = createHybridLoaderApiRoute(
     corsStrategy: "all",
   },
   async ({ authentication, searchParams }) => {
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       return json({ error: "No workspace found" }, { status: 404 });
     }
 
     const result = await getConversationsList(
-      authentication.workspaceId,
-      authentication.userId,
+      "personal",
+      "personal",
       searchParams ?? {},
     );
 

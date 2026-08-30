@@ -26,8 +26,8 @@ const { action, loader } = createHybridActionApiRoute(
   async ({ params, body, authentication }) => {
     const batch = await rejectKnowledgeCaptureBatch(
       params.batchId,
-      authentication.userId,
-      authentication.workspaceId as string,
+      "personal",
+      "personal" as string,
       { reason: body?.reason, notes: body?.notes },
     );
 

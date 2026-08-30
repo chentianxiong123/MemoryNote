@@ -13,7 +13,7 @@ const { action, loader } = createHybridActionApiRoute(
     method: "DELETE",
   },
   async ({ body, authentication }) => {
-    await deleteConversationsBySource(authentication.userId, body.source);
+    await deleteConversationsBySource("personal", body.source);
     return json({ ok: true });
   },
 );

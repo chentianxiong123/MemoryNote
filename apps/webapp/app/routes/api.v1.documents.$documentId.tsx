@@ -40,7 +40,7 @@ const loader = createHybridLoaderApiRoute(
 
     const document = await getDocument(
       params.documentId,
-      authentication.workspaceId as string,
+      "personal" as string,
     );
 
     // Don't expose skill documents through this endpoint
@@ -64,7 +64,7 @@ const { action } = createHybridActionApiRoute(
   async ({ params, authentication, request }) => {
     const document = await getDocument(
       params.documentId,
-      authentication.workspaceId as string,
+      "personal" as string,
     );
 
     if (!document) {
@@ -110,7 +110,7 @@ const { action } = createHybridActionApiRoute(
         // Update the ingestion queue with new labels
         const updatedQueue = await updateDocument(
           params.documentId,
-          authentication.workspaceId as string,
+          "personal" as string,
           {
             labelIds: labels,
             title,
@@ -154,8 +154,8 @@ const { action } = createHybridActionApiRoute(
       const response = await updateDocumentContent(
         document as Document,
         content,
-        authentication.userId,
-        authentication.workspaceId as string,
+        "personal",
+        "personal" as string,
       );
 
       return json(response);
@@ -167,10 +167,10 @@ const { action } = createHybridActionApiRoute(
         // If deleteSession param is true and log has a sessionId, delete entire session
         const result = await deleteSession(
           document.sessionId as string,
-          authentication.userId,
+          "personal",
         );
 
-        await deleteDocument(document.id as string, authentication.workspaceId as string);
+        await deleteDocument(document.id as string, "personal" as string);
         return json({
           success: true,
           message: "Session deleted successfully",

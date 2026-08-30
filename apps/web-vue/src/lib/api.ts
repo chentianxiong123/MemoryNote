@@ -1,14 +1,3 @@
-export interface ApiMe {
-  id: string;
-  name: string | null;
-  email: string | null;
-  workspaceId: string | null;
-  phoneNumber: string | null;
-  timezone: string | null;
-  persona?: string | null;
-  metadata?: Record<string, unknown> | null;
-}
-
 export interface ConversationSummary {
   id: string;
   title: string | null;
@@ -415,10 +404,6 @@ function toMessagePayload(text: string) {
     role: "user",
     parts: [{ type: "text", text }],
   };
-}
-
-export async function fetchMe() {
-  return request<ApiMe>("/api/v1/me");
 }
 
 export async function fetchConversations(search = "") {

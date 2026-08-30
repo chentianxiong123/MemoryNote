@@ -17,14 +17,14 @@ export const loader = createHybridLoaderApiRoute(
     findResource: async () => 1,
   },
   async ({ params, authentication }) => {
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       throw new Response("Workspace not found", { status: 404 });
     }
 
     const timeline = await getWikiEntryTimeline({
       entityUuid: params.entityUuid,
-      userId: authentication.userId,
-      workspaceId: authentication.workspaceId,
+      userId: "personal",
+      workspaceId: "personal",
       prisma,
     });
 

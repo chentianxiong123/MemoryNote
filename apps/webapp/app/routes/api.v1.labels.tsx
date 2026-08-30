@@ -15,7 +15,7 @@ const loader = createHybridLoaderApiRoute(
     const labelService = new LabelService();
 
     const labels = await labelService.getWorkspaceLabels(
-      authentication.workspaceId as string,
+      "personal" as string,
       searchParams?.search,
     );
 

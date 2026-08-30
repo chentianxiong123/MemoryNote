@@ -17,13 +17,13 @@ const { action, loader } = createHybridActionApiRoute(
     method: "POST",
   },
   async ({ params, authentication }) => {
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       throw new Response("Workspace not found", { status: 404 });
     }
     const existing = await prisma.wikiEntry.findUnique({
       where: { id: params.entryId },
     });
-    if (!existing || existing.workspaceId !== authentication.workspaceId) {
+    if (!existing || existing.workspaceId !== "personal") {
       throw new Response("Wiki entry not found", { status: 404 });
     }
     const entry = await publishWikiEntry({ wikiEntryId: params.entryId, prisma });

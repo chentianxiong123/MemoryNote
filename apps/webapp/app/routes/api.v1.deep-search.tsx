@@ -33,7 +33,7 @@ const { action, loader } = createActionApiRoute(
   },
   async ({ body, authentication }) => {
     // Track deep search
-    trackFeatureUsage("deep_search_performed", authentication.userId).catch(
+    trackFeatureUsage("deep_search_performed", "personal").catch(
       console.error,
     );
 
@@ -41,8 +41,8 @@ const { action, loader } = createActionApiRoute(
       // First, search for relevant information
       const results = await searchMemoryWithAgent(
         body.content,
-        authentication.userId,
-        authentication.workspaceId!,
+        "personal",
+        "personal"!,
         body.metadata?.source || "api",
         {
           limit: 10,

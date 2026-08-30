@@ -115,7 +115,6 @@ export class KnowledgeGraphService {
           validAt: new Date(params.referenceTime),
           labelIds: params.labelIds || [],
           userId: params.userId,
-          workspaceId: params.workspaceId,
           sessionId: params.sessionId,
           queueId: params.queueId,
           type: params.type,
@@ -143,7 +142,7 @@ export class KnowledgeGraphService {
 
         // Get current version session context (earlier chunks already ingested)
         previousEpisodes = await getRecentEpisodes(
-          params.userId,
+          params.workspaceId,
           DEFAULT_EPISODE_WINDOW,
           params.sessionId,
           [episode.uuid],
@@ -169,7 +168,6 @@ export class KnowledgeGraphService {
           // Generate embedding for changes
           const changesEmbedding = await this.getEmbedding(
             queryText,
-            params.workspaceId,
           );
 
           // Search previous version episodes by semantic similarity
@@ -205,7 +203,7 @@ export class KnowledgeGraphService {
       } else {
         // For conversations: get recent messages in same session
         previousEpisodes = await getRecentEpisodes(
-          params.userId,
+          params.workspaceId,
           DEFAULT_EPISODE_WINDOW,
           params.sessionId,
           [episode.uuid],
@@ -227,7 +225,6 @@ export class KnowledgeGraphService {
       const normalizedEpisodeBody = await this.normalizeEpisodeBody(
         params.episodeBody,
         params.source,
-        params.userId,
         params.workspaceId as string,
         prisma,
         tokenMetrics,
@@ -268,8 +265,6 @@ export class KnowledgeGraphService {
         episode.uuid,
         normalizedEpisodeBody,
         episodeEmbedding,
-        params.userId,
-        params.workspaceId as string,
         params.queueId,
         params.labelIds || [],
         params.sessionId,
@@ -308,7 +303,6 @@ export class KnowledgeGraphService {
             aspect: va.aspect,
             episodeUuid: episode.uuid,
             userId: params.userId,
-            workspaceId: params.workspaceId as string,
           })),
         );
         logger.log(
@@ -735,8 +729,6 @@ export class KnowledgeGraphService {
   private async normalizeEpisodeBody(
     episodeBody: string,
     source: string,
-    userId: string,
-    workspaceId: string,
     prisma: PrismaClient,
     tokenMetrics: {
       high: { input: number; output: number; total: number; cached: number };
@@ -754,13 +746,12 @@ export class KnowledgeGraphService {
       .join("\n");
 
     // Get related memories
-    const relatedMemories = await this.getRelatedMemories(episodeBody, userId, workspaceId);
+    const relatedMemories = await this.getRelatedMemories(episodeBody, workspaceId);
 
     // Fetch ingestion rules for this source
     const ingestionRules = await this.getIngestionRulesForSource(
       source,
-      userId,
-      workspaceId,
+
       prisma,
     );
 
@@ -800,7 +791,7 @@ export class KnowledgeGraphService {
       "medium",
       "normalization",
       undefined,
-      workspaceId,
+
     );
     let normalizedEpisodeBody = "";
     const outputMatch = responseText.match(/<output>([\s\S]*?)<\/output>/);
@@ -847,8 +838,6 @@ export class KnowledgeGraphService {
    */
   private async getRelatedMemories(
     episodeContent: string,
-    userId: string,
-    workspaceId: string,
     options: {
       episodeLimit?: number;
       factLimit?: number;
@@ -864,13 +853,12 @@ export class KnowledgeGraphService {
       // Get embedding for the current episode content
       const contentEmbedding = await this.getEmbedding(
         episodeContent,
-        workspaceId,
+
       );
 
       // Retrieve semantically similar episodes (excluding very recent ones that are already in context)
       const relatedEpisodes = await searchEpisodesByEmbedding({
         embedding: contentEmbedding,
-        userId,
         limit: episodeLimit,
         minSimilarity,
       });
@@ -878,7 +866,6 @@ export class KnowledgeGraphService {
       // Retrieve semantically similar facts/statements
       const relatedFacts = await searchStatementsByEmbedding({
         embedding: contentEmbedding,
-        userId,
         limit: factLimit,
         minSimilarity,
       });
@@ -913,8 +900,6 @@ export class KnowledgeGraphService {
    */
   private async getIngestionRulesForSource(
     source: string,
-    userId: string,
-    workspaceId: string,
     prisma: PrismaClient,
   ): Promise<string | null> {
     try {
@@ -929,7 +914,7 @@ export class KnowledgeGraphService {
           integrationDefinition: {
             slug: source,
           },
-          workspaceId,
+
           isActive: true,
           deleted: null,
         },
@@ -943,7 +928,7 @@ export class KnowledgeGraphService {
       const rules = await prisma.ingestionRule.findMany({
         where: {
           source: integrationAccount.id,
-          workspaceId,
+
           isActive: true,
           deleted: null,
         },

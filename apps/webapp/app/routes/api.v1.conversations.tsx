@@ -18,11 +18,7 @@ const loader = createHybridLoaderApiRoute(
       return json({ error: "No workspace found" }, { status: 404 });
     }
 
-    const result = await getConversationsList(
-      "personal",
-      "personal",
-      searchParams ?? {},
-    );
+    const result = await getConversationsList(searchParams ?? {});
 
     return json(result);
   },

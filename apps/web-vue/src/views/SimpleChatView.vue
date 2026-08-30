@@ -100,6 +100,13 @@ async function sendMessage() {
   error.value = "";
   message.value = "";
 
+  // 确保 sessionId 不为 null
+  if (!sessionId) {
+    error.value = "请先选择或创建对话";
+    isSending.value = false;
+    return;
+  }
+
   try {
     const reply = await sendReply(sessionId, text);
     // 更新会话

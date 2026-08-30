@@ -180,13 +180,6 @@ textarea {
   min-height: 100vh;
 }
 
-.shell__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-}
-
 .shell__headline {
   font-size: 2rem;
 }

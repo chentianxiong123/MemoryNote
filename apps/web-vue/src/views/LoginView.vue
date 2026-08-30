@@ -9,6 +9,18 @@
       
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
+          <label>用户名</label>
+          <input 
+            v-model="username" 
+            type="text" 
+            placeholder="请输入用户名"
+            required
+            autocomplete="username"
+            autofocus
+            class="text-input"
+          />
+        </div>
+        <div class="form-group">
           <label>访问密码</label>
           <input 
             v-model="password" 
@@ -16,7 +28,6 @@
             placeholder="输入密码"
             required
             autocomplete="current-password"
-            autofocus
             class="password-input"
           />
         </div>
@@ -28,9 +39,7 @@
         </button>
       </form>
       
-      <div class="login-hint">
-        <p>默认密码：8888</p>
-      </div>
+        <p class="login-hint-text">默认密码：<code>8888</code></p>
     </div>
   </div>
 </template>
@@ -40,6 +49,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
+const username = ref("");
 const password = ref("");
 const error = ref("");
 const isLoading = ref(false);
@@ -51,9 +61,11 @@ async function handleLogin() {
   try {
     // 简单密码验证（个人系统）
     if (password.value === "8888") {
+      const uname = username.value.trim() || "用户";
       localStorage.setItem("user_token", "local");
-      localStorage.setItem("user_name", "用户");
-      localStorage.setItem("user_email", "local");
+      localStorage.setItem("user_name", uname);
+      localStorage.setItem("user_email", `${uname.toLowerCase()}@local`);
+      localStorage.setItem("user_password", password.value);
       router.push("/home");
     } else {
       error.value = "密码错误";
@@ -154,6 +166,21 @@ async function handleLogin() {
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
 }
 
+.text-input {
+  padding: 14px 20px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 16px;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
 .error-msg {
   color: #e74c3c;
   font-size: 14px;
@@ -193,25 +220,12 @@ async function handleLogin() {
 
 .login-hint {
   margin-top: 24px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 10px;
-  text-align: center;
-  border: 1px solid #e9ecef;
 }
 
-.login-hint p {
+.login-hint-text {
   margin: 0;
   font-size: 13px;
   color: #666;
-}
-
-.login-hint code {
-  padding: 2px 8px;
-  background: #fff;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #667eea;
-  border: 1px solid #e0e0e0;
+  text-align: center;
 }
 </style>

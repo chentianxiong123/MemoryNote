@@ -35,8 +35,8 @@ const { action, loader } = createHybridActionApiRoute(
   async ({ body, authentication }) => {
     const results = await searchService.search(
       body.query,
-      authentication.userId,
-      authentication.workspaceId!,
+      "personal",
+      "personal"!,
       {
         startTime: body.startTime ? new Date(body.startTime) : undefined,
         endTime: body.endTime ? new Date(body.endTime) : undefined,
@@ -54,7 +54,7 @@ const { action, loader } = createHybridActionApiRoute(
     );
 
     // Track search
-    trackFeatureUsage("search_performed", authentication.userId).catch(
+    trackFeatureUsage("search_performed", "personal").catch(
       console.error,
     );
 

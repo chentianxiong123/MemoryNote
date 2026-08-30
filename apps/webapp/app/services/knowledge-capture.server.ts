@@ -602,7 +602,6 @@ async function resolveEntity(
   const existing = await graphProvider.findExactEntityMatch({
     entityName: params.name,
     userId: params.userId,
-    workspaceId: params.workspaceId,
   });
 
   const existingAttributes = existing?.attributes ?? {};
@@ -644,20 +643,16 @@ async function resolveEntity(
     attributes: mergedAttributes,
     createdAt: existing?.createdAt ?? new Date(),
     userId: params.userId,
-    workspaceId: params.workspaceId,
   };
 }
 
 async function resolvePredicate(
   graphProvider: ReturnType<typeof ProviderFactory.getGraphProvider>,
   predicate: string,
-  userId: string,
-  workspaceId: string,
 ): Promise<EntityNode> {
   const matches = await graphProvider.findExactPredicateMatches({
     predicateName: predicate,
-    userId,
-    workspaceId,
+
   });
 
   const existing = matches[0];
@@ -670,8 +665,7 @@ async function resolvePredicate(
       sourceMode: "knowledge-capture",
     },
     createdAt: existing?.createdAt ?? new Date(),
-    userId,
-    workspaceId,
+
   };
 }
 
@@ -762,7 +756,6 @@ export async function generateKnowledgeCaptureBatch(params: {
       firstSeenAt,
       lastSeenAt,
       userId: params.userId,
-      workspaceId: params.workspaceId,
     })),
     ...normalizedCapture.statements.map((statement) => ({
       kind: itemKindForAspect(statement.aspect as StatementAspect | null | undefined),
@@ -793,7 +786,6 @@ export async function generateKnowledgeCaptureBatch(params: {
       firstSeenAt,
       lastSeenAt,
       userId: params.userId,
-      workspaceId: params.workspaceId,
     })),
   ];
 
@@ -802,7 +794,6 @@ export async function generateKnowledgeCaptureBatch(params: {
       conversationId: params.conversationId,
       sessionId: params.sessionId,
       userId: params.userId,
-      workspaceId: params.workspaceId,
       summary,
       status: "PROPOSED",
       sourceEpisodeUuids: [],
@@ -824,8 +815,7 @@ async function getCaptureItemOrThrow(itemId: string, userId: string, workspaceId
   const item = await prisma.knowledgeCaptureItem.findFirst({
     where: {
       id: itemId,
-      userId,
-      workspaceId,
+
     },
     include: {
       batch: true,
@@ -840,7 +830,7 @@ async function getCaptureItemOrThrow(itemId: string, userId: string, workspaceId
 }
 
 export async function acceptKnowledgeCaptureItem(itemId: string, userId: string, workspaceId: string) {
-  const item = await getCaptureItemOrThrow(itemId, userId, workspaceId);
+  const item = await getCaptureItemOrThrow(itemId, workspaceId);
   const payload = CaptureItemPayloadSchema.parse(item.payload);
   const evidence = (item.evidence ?? {}) as CaptureEvidence;
   const graphProvider = ProviderFactory.getGraphProvider();
@@ -865,8 +855,7 @@ export async function acceptKnowledgeCaptureItem(itemId: string, userId: string,
       lastSeenAt,
       confidence: item.confidence,
       importance: item.importance,
-      userId,
-      workspaceId,
+
     });
 
     await graphProvider.saveEntity(entity);
@@ -897,8 +886,7 @@ export async function acceptKnowledgeCaptureItem(itemId: string, userId: string,
     lastSeenAt,
     confidence: item.confidence,
     importance: item.importance,
-    userId,
-    workspaceId,
+
   });
   const object = await resolveEntity(graphProvider, {
     name: targetName,
@@ -907,10 +895,9 @@ export async function acceptKnowledgeCaptureItem(itemId: string, userId: string,
     lastSeenAt,
     confidence: item.confidence,
     importance: item.importance,
-    userId,
-    workspaceId,
+
   });
-  const predicate = await resolvePredicate(graphProvider, predicateName, userId, workspaceId);
+  const predicate = await resolvePredicate(graphProvider, predicateName, workspaceId);
 
   await graphProvider.saveEntity(subject);
   await graphProvider.saveEntity(object);
@@ -944,8 +931,7 @@ export async function acceptKnowledgeCaptureItem(itemId: string, userId: string,
       eventDate: payload.eventDate ?? null,
       evidence,
     },
-    userId,
-    workspaceId,
+
     aspect: (payload.aspect as StatementAspect | null | undefined) ?? null,
     provenanceCount: 1,
   };
@@ -956,8 +942,7 @@ export async function acceptKnowledgeCaptureItem(itemId: string, userId: string,
     predicate,
     object,
     episodeUuid,
-    userId,
-    workspaceId,
+
   });
 
   return prisma.knowledgeCaptureItem.update({
@@ -974,8 +959,7 @@ export async function acceptKnowledgeCaptureBatch(batchId: string, userId: strin
   const batch = await prisma.knowledgeCaptureBatch.findFirst({
     where: {
       id: batchId,
-      userId,
-      workspaceId,
+
     },
     include: {
       items: {
@@ -992,7 +976,7 @@ export async function acceptKnowledgeCaptureBatch(batchId: string, userId: strin
   }
 
   for (const item of batch.items) {
-    await acceptKnowledgeCaptureItem(item.id, userId, workspaceId);
+    await acceptKnowledgeCaptureItem(item.id, workspaceId);
   }
 
   return prisma.knowledgeCaptureBatch.findUnique({
@@ -1003,11 +987,9 @@ export async function acceptKnowledgeCaptureBatch(batchId: string, userId: strin
 
 export async function rejectKnowledgeCaptureItem(
   itemId: string,
-  userId: string,
-  workspaceId: string,
   options?: { reason?: CaptureRejectReason; notes?: string },
 ) {
-  await getCaptureItemOrThrow(itemId, userId, workspaceId);
+  await getCaptureItemOrThrow(itemId, workspaceId);
   return prisma.knowledgeCaptureItem.update({
     where: { id: itemId },
     data: {
@@ -1028,12 +1010,10 @@ export type CaptureRejectReason =
 
 export async function rejectKnowledgeCaptureBatch(
   batchId: string,
-  userId: string,
-  workspaceId: string,
   options?: { reason?: CaptureRejectReason; notes?: string },
 ) {
   const batch = await prisma.knowledgeCaptureBatch.findFirst({
-    where: { id: batchId, userId, workspaceId },
+    where: { id: batchId },
     include: {
       items: {
         where: { status: { in: ["PROPOSED", "SNOOZED"] } },
@@ -1047,7 +1027,7 @@ export async function rejectKnowledgeCaptureBatch(
   }
 
   for (const item of batch.items) {
-    await rejectKnowledgeCaptureItem(item.id, userId, workspaceId, options);
+    await rejectKnowledgeCaptureItem(item.id,options);
   }
 
   return prisma.knowledgeCaptureBatch.findUnique({
@@ -1057,7 +1037,7 @@ export async function rejectKnowledgeCaptureBatch(
 }
 
 export async function snoozeKnowledgeCaptureItem(itemId: string, userId: string, workspaceId: string) {
-  await getCaptureItemOrThrow(itemId, userId, workspaceId);
+  await getCaptureItemOrThrow(itemId, workspaceId);
   return prisma.knowledgeCaptureItem.update({
     where: { id: itemId },
     data: {
@@ -1070,15 +1050,13 @@ export async function snoozeKnowledgeCaptureItem(itemId: string, userId: string,
 export async function mergeKnowledgeCaptureItem(
   itemId: string,
   body: z.infer<typeof MergeCaptureItemBodySchema>,
-  userId: string,
-  workspaceId: string,
 ) {
-  const item = await getCaptureItemOrThrow(itemId, userId, workspaceId);
+  const item = await getCaptureItemOrThrow(itemId, workspaceId);
   const payload = CaptureItemPayloadSchema.parse(item.payload);
   const graphProvider = ProviderFactory.getGraphProvider();
 
   if (item.kind === "ENTITY") {
-    const target = await graphProvider.getEntity(body.targetUuid, userId, workspaceId);
+    const target = await graphProvider.getEntity(body.targetUuid, workspaceId);
     if (!target) {
       throw new Error("Merge target entity not found.");
     }
@@ -1124,8 +1102,7 @@ export async function mergeKnowledgeCaptureItem(
     await graphProvider.saveEntity({
       ...target,
       attributes: mergedAttributes,
-      userId,
-      workspaceId,
+
     });
   }
 
@@ -1199,8 +1176,7 @@ function summarizeCaptureItem(item: KnowledgeCaptureItem) {
 export async function getKnowledgeInboxData(userId: string, workspaceId: string) {
   const batches = await prisma.knowledgeCaptureBatch.findMany({
     where: {
-      userId,
-      workspaceId,
+
     },
     include: {
       items: {
@@ -1213,16 +1189,14 @@ export async function getKnowledgeInboxData(userId: string, workspaceId: string)
 
   const proposedCount = await prisma.knowledgeCaptureItem.count({
     where: {
-      userId,
-      workspaceId,
+
       status: "PROPOSED",
     },
   });
 
   const snoozedCount = await prisma.knowledgeCaptureItem.count({
     where: {
-      userId,
-      workspaceId,
+
       status: "SNOOZED",
     },
   });
@@ -1246,15 +1220,13 @@ export async function getKnowledgeHomeData(userId: string, workspaceId: string) 
     await Promise.all([
       prisma.knowledgeCaptureItem.count({
         where: {
-          userId,
-          workspaceId,
+
           status: { in: ["PROPOSED", "SNOOZED"] },
         },
       }),
       prisma.knowledgeCaptureItem.findMany({
         where: {
-          userId,
-          workspaceId,
+
           status: { in: ["ACCEPTED", "MERGED"] },
         },
         orderBy: { updatedAt: "desc" },
@@ -1262,8 +1234,7 @@ export async function getKnowledgeHomeData(userId: string, workspaceId: string) 
       }),
       prisma.knowledgeCaptureBatch.findMany({
         where: {
-          userId,
-          workspaceId,
+
         },
         include: {
           items: true,
@@ -1273,8 +1244,7 @@ export async function getKnowledgeHomeData(userId: string, workspaceId: string) 
       }),
       prisma.knowledgeCaptureItem.findMany({
         where: {
-          userId,
-          workspaceId,
+
           createdAt: {
             gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
           },
@@ -1283,8 +1253,7 @@ export async function getKnowledgeHomeData(userId: string, workspaceId: string) 
       }),
       prisma.knowledgeCaptureItem.findMany({
         where: {
-          userId,
-          workspaceId,
+
           kind: "EVENT",
           status: "ACCEPTED",
         },
@@ -1293,8 +1262,7 @@ export async function getKnowledgeHomeData(userId: string, workspaceId: string) 
       }),
       prisma.knowledgeCaptureItem.findMany({
         where: {
-          userId,
-          workspaceId,
+
           kind: "DECISION",
           status: "ACCEPTED",
         },
@@ -1308,25 +1276,25 @@ export async function getKnowledgeHomeData(userId: string, workspaceId: string) 
   const [projectRows, topicRows] = await Promise.all([
     graphProvider.runQuery(
       `
-        MATCH (e:Entity {userId: $userId, workspaceId: $workspaceId})
+        MATCH (e:Entity {userId: $ workspaceId: $)
         WHERE e.type = 'Project'
-        OPTIONAL MATCH (statement:Statement {userId: $userId, workspaceId: $workspaceId})-[:HAS_SUBJECT|HAS_OBJECT]->(e)
+        OPTIONAL MATCH (statement:Statement {userId: $ workspaceId: $)-[:HAS_SUBJECT|HAS_OBJECT]->(e)
         RETURN e.uuid as uuid, e.name as name, e.type as type, e.attributes as attributes, count(statement) as weight
         ORDER BY weight DESC, name ASC
         LIMIT 8
       `,
-      { userId, workspaceId },
+      { userId },
     ) as Promise<Array<{ get: (key: string) => unknown }>>,
     graphProvider.runQuery(
       `
-        MATCH (e:Entity {userId: $userId, workspaceId: $workspaceId})
+        MATCH (e:Entity {userId: $ workspaceId: $)
         WHERE e.type IN ['Concept', 'Technology', 'Standard', 'Product']
-        OPTIONAL MATCH (statement:Statement {userId: $userId, workspaceId: $workspaceId})-[:HAS_SUBJECT|HAS_OBJECT]->(e)
+        OPTIONAL MATCH (statement:Statement {userId: $ workspaceId: $)-[:HAS_SUBJECT|HAS_OBJECT]->(e)
         RETURN e.uuid as uuid, e.name as name, e.type as type, e.attributes as attributes, count(statement) as weight
         ORDER BY weight DESC, name ASC
         LIMIT 10
       `,
-      { userId, workspaceId },
+      { userId },
     ) as Promise<Array<{ get: (key: string) => unknown }>>,
   ]);
 
@@ -1395,7 +1363,7 @@ function parseKnowledgeObjectId(objectId: string) {
 
 async function buildEntityObjectDetail(uuid: string, userId: string, workspaceId: string) {
   const graphProvider = ProviderFactory.getGraphProvider();
-  const entity = await graphProvider.getEntity(uuid, userId, workspaceId);
+  const entity = await graphProvider.getEntity(uuid, workspaceId);
   if (!entity) {
     throw new Error("Knowledge object not found.");
   }
@@ -1439,7 +1407,7 @@ async function buildEntityObjectDetail(uuid: string, userId: string, workspaceId
       ORDER BY coalesce(statement.validAt, statement.createdAt) DESC
       LIMIT 30
     `,
-    { uuid, userId, workspaceId },
+    { uuid },
   )) as Array<{ get: (key: string) => unknown }>;
 
   const relatedStatements = relatedRecords.map((record) => ({
@@ -1472,8 +1440,7 @@ async function buildEntityObjectDetail(uuid: string, userId: string, workspaceId
 
   const evidenceItems = await prisma.knowledgeCaptureItem.findMany({
     where: {
-      userId,
-      workspaceId,
+
       OR: [
         { acceptedGraphUuid: uuid },
         { mergeTargetUuid: uuid },
@@ -1591,7 +1558,7 @@ async function buildStatementObjectDetail(uuid: string, userId: string, workspac
         collect(DISTINCT episode.uuid)[0..6] AS episodeUuids
       LIMIT 1
     `,
-    { uuid, userId, workspaceId },
+    { uuid },
   )) as Array<{ get: (key: string) => unknown }>;
 
   const record = records[0];
@@ -1606,8 +1573,7 @@ async function buildStatementObjectDetail(uuid: string, userId: string, workspac
 
   const evidenceItems = await prisma.knowledgeCaptureItem.findMany({
     where: {
-      userId,
-      workspaceId,
+
       acceptedGraphUuid: uuid,
     },
     orderBy: { updatedAt: "desc" },
@@ -1710,15 +1676,13 @@ async function buildStatementObjectDetail(uuid: string, userId: string, workspac
 export async function getKnowledgeObjectDetail(objectId: string, userId: string, workspaceId: string) {
   const parsed = parseKnowledgeObjectId(objectId);
   if (parsed.kind === "entity") {
-    return buildEntityObjectDetail(parsed.uuid, userId, workspaceId);
+    return buildEntityObjectDetail(parsed.uuid, workspaceId);
   }
-  return buildStatementObjectDetail(parsed.uuid, userId, workspaceId);
+  return buildStatementObjectDetail(parsed.uuid, workspaceId);
 }
 
 export async function getKnowledgeObjectGraph(
   objectId: string,
-  userId: string,
-  workspaceId: string,
   depth = 1,
   limit = 40,
 ) {
@@ -1726,7 +1690,7 @@ export async function getKnowledgeObjectGraph(
   const graphProvider = ProviderFactory.getGraphProvider();
 
   if (parsed.kind === "statement") {
-    const detail = await buildStatementObjectDetail(parsed.uuid, userId, workspaceId);
+    const detail = await buildStatementObjectDetail(parsed.uuid, workspaceId);
     const statement = detail.object.statements[0];
     return {
       centerId: statement.id,
@@ -1761,7 +1725,7 @@ export async function getKnowledgeObjectGraph(
     };
   }
 
-  const entityDetail = await buildEntityObjectDetail(parsed.uuid, userId, workspaceId);
+  const entityDetail = await buildEntityObjectDetail(parsed.uuid, workspaceId);
   const seedIds = new Set<string>([parsed.uuid]);
   for (const statement of entityDetail.object.statements) {
     seedIds.add(statement.source.uuid);
@@ -1797,8 +1761,7 @@ export async function getKnowledgeObjectGraph(
       LIMIT ${Math.min(80, limit * 2)}
     `,
     {
-      userId,
-      workspaceId,
+
       queryIds,
     },
   )) as Array<{ get: (key: string) => unknown }>;
@@ -1870,13 +1833,12 @@ export async function searchKnowledgeObjects(query: string, userId: string, work
       ORDER BY entity.name ASC
       LIMIT 12
     `,
-    { userId, workspaceId, term },
+    {term },
   )) as Array<{ get: (key: string) => unknown }>;
 
   const statementItems = await prisma.knowledgeCaptureItem.findMany({
     where: {
-      userId,
-      workspaceId,
+
       status: "ACCEPTED",
       kind: { in: ["EVENT", "DECISION"] },
       title: {

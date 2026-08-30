@@ -24,8 +24,8 @@ const { loader, action } = createHybridActionApiRoute(
   },
   async ({ body, authentication }) => {
     const result = await createConversation(
-      authentication.workspaceId as string,
-      authentication.userId,
+      "personal" as string,
+      "personal",
       {
         message: body.message,
         title: body.title,
@@ -43,8 +43,8 @@ const { loader, action } = createHybridActionApiRoute(
           source: "daily",
           scratchpadPageId: body.pageId,
         },
-        authentication.userId,
-        authentication.workspaceId as string,
+        "personal",
+        "personal" as string,
       ).catch((err) => console.error("[daily] Agent processing failed", err));
     }
 

@@ -9,12 +9,12 @@ const loader = createHybridLoaderApiRoute(
     corsStrategy: "all",
   },
   async ({ authentication }) => {
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       return json({ error: "No workspace found" }, { status: 404 });
     }
 
     const workspace = await prisma.workspace.findFirst({
-      where: { id: authentication.workspaceId },
+      where: { id: "personal" },
       select: { id: true, name: true, metadata: true },
     });
 

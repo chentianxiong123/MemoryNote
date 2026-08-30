@@ -24,8 +24,8 @@ const loader = createHybridLoaderApiRoute(
   async ({ params, searchParams, authentication }) => {
     const graph = await getKnowledgeObjectGraph(
       params.objectId,
-      authentication.userId,
-      authentication.workspaceId as string,
+      "personal",
+      "personal" as string,
       searchParams?.depth ?? 1,
       searchParams?.limit ?? 40,
     );

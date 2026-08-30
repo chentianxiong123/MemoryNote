@@ -29,7 +29,7 @@ const loader = createHybridLoaderApiRoute(
   async ({ params, authentication }) => {
     const document = await getDocumentForSession(
       params.documentId,
-      authentication.workspaceId as string,
+      "personal" as string,
     );
 
     const pendingIngestions = await getPendingIngestionsForSession(

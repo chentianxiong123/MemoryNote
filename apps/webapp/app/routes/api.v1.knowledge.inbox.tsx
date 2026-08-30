@@ -11,8 +11,8 @@ const loader = createHybridLoaderApiRoute(
   },
   async ({ authentication }) => {
     const data = await getKnowledgeInboxData(
-      authentication.userId,
-      authentication.workspaceId as string,
+      "personal",
+      "personal" as string,
     );
 
     return json(data);

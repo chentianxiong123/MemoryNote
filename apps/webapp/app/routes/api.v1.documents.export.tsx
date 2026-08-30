@@ -9,7 +9,7 @@ export const loader = createHybridLoaderApiRoute(
     findResource: async () => 1,
   },
   async ({ authentication }) => {
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       return new Response(JSON.stringify({ error: "Workspace not found" }), {
         status: 404,
       });
@@ -17,7 +17,7 @@ export const loader = createHybridLoaderApiRoute(
 
     const documents = await prisma.document.findMany({
       where: {
-        workspaceId: authentication.workspaceId,
+        workspaceId: "personal",
         deleted: null,
         type: { not: "skill" },
       },

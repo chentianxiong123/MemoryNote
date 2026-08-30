@@ -33,14 +33,14 @@ export const loader = createHybridLoaderApiRoute(
     const label = searchParams.label;
     const cursor = searchParams.cursor; // Cursor is a createdAt timestamp
 
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       throw new Response("Workspace not found", { status: 404 });
     }
 
     // Get all unique sources from integration accounts
     const integrationAccounts = await prisma.integrationAccount.findMany({
       where: {
-        workspaceId: authentication.workspaceId,
+        workspaceId: "personal",
       },
       select: {
         integrationDefinition: {
@@ -57,7 +57,7 @@ export const loader = createHybridLoaderApiRoute(
     const uniqueDataSources = await prisma.$queryRaw<Array<{ source: string }>>`
       SELECT DISTINCT source
       FROM "Document"
-      WHERE "workspaceId" = ${authentication.workspaceId}
+      WHERE "workspaceId" = ${"personal"}
       AND source IS NOT NULL
     `;
 
@@ -88,7 +88,7 @@ export const loader = createHybridLoaderApiRoute(
 
     // Build where clause for filtering
     const whereClause: any = {
-      workspaceId: authentication.workspaceId,
+      workspaceId: "personal",
     };
 
     if (sessionId) {
@@ -165,7 +165,7 @@ export const loader = createHybridLoaderApiRoute(
             prisma.ingestionQueue.findMany({
               where: {
                 sessionId: { in: documentIds },
-                workspaceId: authentication.workspaceId,
+                workspaceId: "personal",
               },
               select: {
                 id: true,
@@ -185,7 +185,7 @@ export const loader = createHybridLoaderApiRoute(
               by: ["sessionId"],
               where: {
                 sessionId: { in: documentIds },
-                workspaceId: authentication.workspaceId,
+                workspaceId: "personal",
               },
               _count: {
                 id: true,

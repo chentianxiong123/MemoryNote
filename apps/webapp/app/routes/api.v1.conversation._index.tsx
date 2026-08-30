@@ -75,7 +75,7 @@ const { loader, action } = createHybridActionApiRoute(
   async ({ body, authentication, request }) => {
     const conversation = await getConversationAndHistory(
       body.id,
-      authentication.userId,
+      "personal",
     );
     const isAssistantApproval = body.needsApproval;
     const conversationHistory = conversation?.ConversationHistory ?? [];
@@ -161,7 +161,7 @@ const { loader, action } = createHybridActionApiRoute(
       }
 
       const selection = await selectModelMessages({
-        workspaceId: (authentication.workspaceId as string) ?? "",
+        workspaceId: ("personal" as string) ?? "",
         conversationId: body.id,
         history: historyForSelection,
         currentMessage,
@@ -184,7 +184,7 @@ const { loader, action } = createHybridActionApiRoute(
     const useEmptyMessages =
       conversationHistory.length === 0 && !isTaskConversation;
 
-    const workspaceId = authentication.workspaceId as string;
+    const workspaceId = "personal" as string;
     const modelString = body.modelId ?? getDefaultChatModelId();
 
     const { modelConfig, isBYOK } = await resolveModelConfig(
@@ -201,7 +201,7 @@ const { loader, action } = createHybridActionApiRoute(
       gatewayAgents,
       isBackgroundExecution,
     } = await buildAgentContext({
-      userId: authentication.userId,
+      userId: "personal",
       workspaceId,
       source: body.source as any,
       finalMessages: useEmptyMessages ? [] : finalMessages,
@@ -244,7 +244,7 @@ const { loader, action } = createHybridActionApiRoute(
       conversationId: body.id,
       incomingUserText,
       incognito: conversation?.incognito,
-      userId: authentication.userId,
+      userId: "personal",
       workspaceId: workspaceId || "",
       isBYOK,
     };

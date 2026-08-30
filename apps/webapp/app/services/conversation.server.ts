@@ -34,8 +34,6 @@ export type CreateConversationDto = z.infer<typeof CreateConversationSchema>;
 
 // Create a new conversation
 export async function createConversation(
-  workspaceId: string,
-  userId: string,
   conversationData: CreateConversationDto,
 ) {
   const { title, conversationId, source, asyncJobId, incognito, ...otherData } =
@@ -61,8 +59,7 @@ export async function createConversation(
       },
     });
 
-    // Track conversation message
-    trackFeatureUsage("conversation_message_sent", userId).catch(console.error);
+    // Track conversation message;
 
     return {
       conversationId: conversationHistory.conversation.id,
@@ -73,8 +70,6 @@ export async function createConversation(
   // Create a new conversation and its first message
   const conversation = await prisma.conversation.create({
     data: {
-      workspaceId,
-      userId,
       source: source || "core",
       asyncJobId: asyncJobId || null,
       incognito: incognito ?? false,
@@ -99,8 +94,7 @@ export async function createConversation(
 
   const conversationHistory = conversation.ConversationHistory[0];
 
-  // Track new conversation creation
-  trackFeatureUsage("conversation_created", userId).catch(console.error);
+  // Track new conversation creation;
 
   return {
     conversationId: conversation.id,
@@ -111,7 +105,7 @@ export async function createConversation(
 // Get a conversation by ID
 export async function getConversation(conversationId: string, userId: string) {
   return prisma.conversation.findUnique({
-    where: { id: conversationId, userId },
+    where: { id: conversationId },
   });
 }
 
@@ -126,11 +120,10 @@ export async function deleteConversation(conversationId: string) {
 }
 
 export async function deleteConversationsBySource(
-  userId: string,
   source: string,
 ) {
   return prisma.conversation.updateMany({
-    where: { userId, source, deleted: null },
+    where: { source, deleted: null },
     data: { deleted: new Date().toISOString() },
   });
 }
@@ -156,7 +149,7 @@ export async function updateConversationStatus(
 // Mark all conversations as read for a user
 export async function readAllConversations(userId: string) {
   return prisma.conversation.updateMany({
-    where: { userId, unread: true, deleted: null },
+    where: { unread: true, deleted: null },
     data: { unread: false },
   });
 }
@@ -182,12 +175,10 @@ export async function clearActiveStreamId(
 
 export const getConversationAndHistory = async (
   conversationId: string,
-  userId: string,
 ) => {
   const conversation = await prisma.conversation.findFirst({
     where: {
       id: conversationId,
-      userId,
       deleted: null,
     },
     include: {
@@ -203,12 +194,9 @@ export const getConversationAndHistory = async (
 };
 
 export const getOnboardingConversation = async (
-  userId: string,
-  workspaceId: string,
 ) => {
   let conversation = await prisma.conversation.findFirst({
     where: {
-      userId,
       source: "onboarding-1",
     },
     include: {
@@ -223,8 +211,7 @@ export const getOnboardingConversation = async (
   if (!conversation) {
     conversation = await prisma.conversation.create({
       data: {
-        userId,
-        workspaceId,
+
         source: "onboarding",
         title: "Onboarding",
       },
@@ -242,23 +229,17 @@ export const getOnboardingConversation = async (
 };
 
 export async function createEmptyConversation(
-  workspaceId: string,
-  userId: string,
   title: string,
   asyncJobId?: string,
 ) {
   const conversation = await prisma.conversation.create({
     data: {
-      workspaceId,
-      userId,
       source: "task",
       title: title.substring(0, 100),
       asyncJobId: asyncJobId ?? null,
     },
     include: { ConversationHistory: true },
-  });
-
-  trackFeatureUsage("conversation_created", userId).catch(console.error);
+  });;
 
   return conversation;
 }
@@ -362,20 +343,16 @@ export async function markToolCallApprovalRequested(
 }
 
 export async function getConversationSources(
-  workspaceId: string,
-  userId: string,
 ): Promise<{ source: string; count: number }[]> {
   const rows = await prisma.conversation.groupBy({
     by: ["source"],
-    where: { workspaceId, userId, deleted: null, NOT: { source: "task" } },
+    where: { deleted: null, NOT: { source: "task" } },
     _count: { source: true },
   });
   return rows.map((r) => ({ source: r.source, count: r._count.source }));
 }
 
 export async function getConversationsList(
-  workspaceId: string,
-  userId: string,
   params: GetConversationsListDto,
 ) {
   const page = parseInt(params.page);
@@ -383,8 +360,6 @@ export async function getConversationsList(
   const skip = (page - 1) * limit;
 
   const where = {
-    workspaceId,
-    userId,
     deleted: null,
     ...(params.source && {
       source: params.source,
@@ -456,7 +431,6 @@ export async function getConversationsList(
  * proactive messages within this 24-hour window.
  */
 export async function isWithinWhatsApp24hWindow(
-  workspaceId: string,
 ): Promise<boolean> {
   try {
     const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -464,7 +438,7 @@ export async function isWithinWhatsApp24hWindow(
     const recentUserMessage = await prisma.conversationHistory.findFirst({
       where: {
         conversation: {
-          workspaceId,
+
           source: "whatsapp",
         },
         userType: "User",
@@ -476,7 +450,7 @@ export async function isWithinWhatsApp24hWindow(
 
     const isWithin = recentUserMessage !== null;
     logger.info(
-      `WhatsApp 24h window check for workspace ${workspaceId}: ${isWithin}`,
+      `WhatsApp 24h window check:{isWithin}`,
       {
         lastUserMessage: recentUserMessage?.createdAt,
         cutoffTime,
@@ -515,10 +489,9 @@ function extractTextFromParts(parts: unknown): string {
 
 export async function getTaskRuns(
   taskId: string,
-  workspaceId: string,
 ): Promise<TaskRun[]> {
   const conversations = await prisma.conversation.findMany({
-    where: { asyncJobId: taskId, deleted: null, workspaceId },
+    where: { asyncJobId: taskId, deleted: null },
     orderBy: { createdAt: "desc" },
     include: {
       ConversationHistory: {

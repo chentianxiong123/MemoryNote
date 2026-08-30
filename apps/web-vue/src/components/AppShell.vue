@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
-import { RouterLink, RouterView, useRoute } from "vue-router";
+import { computed, watch, onMounted } from "vue";
+import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import { useSessionStore } from "@/stores/session";
 
 const route = useRoute();
+const router = useRouter();
 const session = useSessionStore();
 
 const sections = [
+  { label: "首页", to: "/home", description: "仪表盘、统计概览、快速入口" },
   { label: "对话", to: "/home/conversation", description: "主工作区：AI 对话与会话历史" },
   { label: "知识工作台", to: "/home/memory/graph", description: "知识图谱可视化、力导向布局、社区检测" },
   { label: "学习收件箱", to: "/home/memory/graph/inbox", description: "待确认候选记忆、批量处理" },
@@ -24,6 +26,7 @@ const title = computed(() => {
   if (route.path.startsWith("/home/wiki")) return "维基";
   if (route.path.startsWith("/home/memory/labels")) return "记忆标签";
   if (route.path.startsWith("/settings")) return "模型设置";
+  if (route.path === "/home" || route.path.startsWith("/home/daily")) return "首页";
   return "对话";
 });
 
@@ -41,6 +44,15 @@ function isNavActive(itemTo: string) {
   }
   return route.path.startsWith(itemTo);
 }
+
+function handleLogout() {
+  session.logout();
+  router.push("/login");
+}
+
+onMounted(() => {
+  session.hydrate();
+});
 
 watch(
   title,
@@ -76,9 +88,10 @@ watch(
       </nav>
 
       <div class="sidebar-card">
-        <p class="sidebar-card__label">当前工作区</p>
-        <p class="sidebar-card__value">{{ session.user?.workspaceId ?? "加载中..." }}</p>
-        <p class="sidebar-card__hint">知识工作台是对话后的整理层，不替代主对话界面。</p>
+        <p class="sidebar-card__label">当前用户</p>
+        <p class="sidebar-card__value">{{ session.user?.name ?? "未登录" }}</p>
+        <p class="sidebar-card__hint">{{ session.user?.email ?? "" }}</p>
+        <button @click="handleLogout" class="logout-btn">退出登录</button>
       </div>
     </aside>
 
@@ -90,7 +103,7 @@ watch(
         </div>
         <div class="shell__meta">
           <span class="chip">{{ session.user?.name ?? "用户" }}</span>
-          <span class="chip chip--accent">{{ session.user?.email ?? "加载中..." }}</span>
+          <span class="chip chip--accent">{{ session.user?.email ?? "" }}</span>
         </div>
       </header>
 
@@ -100,3 +113,21 @@ watch(
     </main>
   </div>
 </template>
+
+<style scoped>
+.logout-btn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.logout-btn:hover {
+  background: #c0392b;
+}
+</style>

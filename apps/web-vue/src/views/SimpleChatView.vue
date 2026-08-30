@@ -42,8 +42,39 @@ async function loadSessions() {
     if (sessions.value.length > 0 && !activeSessionId.value) {
       activeSessionId.value = sessions.value[0].id;
     }
+    if (activeSessionId.value) {
+      await loadSessionDetail(activeSessionId.value);
+    }
   } catch (err) {
     console.error("加载会话失败:", err);
+  }
+}
+
+async function loadSessionDetail(sessionId: string) {
+  try {
+    const res = await fetch(`/api/v1/conversation/${sessionId}`, {
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    const messages: Message[] = (data.ConversationHistory ?? []).map((h: any) => ({
+      id: h.id,
+      role: h.role === "assistant" ? "assistant" : "user",
+      content:
+        h.parts?.find((p: any) => p.type === "text")?.text || h.message || "",
+      createdAt: h.createdAt,
+    }));
+    const session = sessions.value.find((s) => s.id === sessionId);
+    if (session) session.messages = messages;
+  } catch (err) {
+    console.error("加载会话详情失败:", err);
+  }
+}
+
+function selectSession(sessionId: string) {
+  activeSessionId.value = sessionId;
+  const session = sessions.value.find((s) => s.id === sessionId);
+  if (session && session.messages.length === 0) {
+    void loadSessionDetail(sessionId);
   }
 }
 
@@ -109,7 +140,7 @@ async function sendMessage() {
 
   try {
     const reply = await sendReply(sessionId, text);
-    // 更新会话
+    await loadSessionDetail(sessionId);
     await loadSessions();
   } catch (err) {
     error.value = err instanceof Error ? err.message : "发送失败";

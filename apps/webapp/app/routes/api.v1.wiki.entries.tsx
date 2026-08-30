@@ -87,11 +87,13 @@ export const loader = createHybridLoaderApiRoute(
 
     return json({
       entries,
-      page,
-      limit,
-      totalCount,
-      totalPages,
-      hasMore,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages,
+        hasMore,
+      },
       statusCounts: counts,
     });
   },

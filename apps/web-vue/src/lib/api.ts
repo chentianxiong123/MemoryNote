@@ -462,6 +462,26 @@ export async function fetchLabels(search = "") {
   return request<LabelRecord[]>(`/api/v1/labels${suffix}`);
 }
 
+export async function createLabel(params: {
+  name: string;
+  description?: string;
+  color?: string;
+}) {
+  return request<LabelRecord>("/api/v1/labels", {
+    method: "POST",
+    body: JSON.stringify({
+      color: "#3b82f6",
+      ...params,
+    }),
+  });
+}
+
+export async function deleteLabel(labelId: string) {
+  return request<{ success: boolean }>(`/api/v1/labels/${labelId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchGraph(limit?: number) {
   const query = new URLSearchParams();
   if (typeof limit === "number" && Number.isFinite(limit)) {

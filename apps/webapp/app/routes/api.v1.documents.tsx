@@ -37,44 +37,16 @@ export const loader = createHybridLoaderApiRoute(
       throw new Response("Workspace not found", { status: 404 });
     }
 
-    // Get all unique sources from integration accounts
-    const integrationAccounts = await prisma.integrationAccount.findMany({
-      where: {
-        workspaceId: "personal",
-      },
-      select: {
-        integrationDefinition: {
-          select: {
-            name: true,
-            slug: true,
-          },
-        },
-      },
-      distinct: ["integrationDefinitionId"],
-    });
-
     // Get unique sources from document data field using raw SQL
     const uniqueDataSources = await prisma.$queryRaw<Array<{ source: string }>>`
       SELECT DISTINCT source
       FROM "Document"
-      WHERE "workspaceId" = ${"personal"}
-      AND source IS NOT NULL
+      WHERE deleted IS NULL AND source IS NOT NULL
+      ORDER BY source
     `;
 
-    // Combine both sources
+    // Build sources map from data sources
     const sourcesMap = new Map<string, { name: string; slug: string }>();
-
-    // Add integration account sources
-    integrationAccounts.forEach((account) => {
-      if (account.integrationDefinition) {
-        const { name, slug } = account.integrationDefinition;
-        if (name && slug) {
-          sourcesMap.set(slug, { name, slug });
-        }
-      }
-    });
-
-    // Add data field sources
     uniqueDataSources.forEach(({ source }) => {
       if (source) {
         const slug = source.toLowerCase().replace(/\s+/g, "-");
@@ -88,7 +60,7 @@ export const loader = createHybridLoaderApiRoute(
 
     // Build where clause for filtering
     const whereClause: any = {
-      workspaceId: "personal",
+      deleted: null,
     };
 
     if (sessionId) {

@@ -1276,9 +1276,9 @@ export async function getKnowledgeHomeData(userId: string, workspaceId: string) 
   const [projectRows, topicRows] = await Promise.all([
     graphProvider.runQuery(
       `
-        MATCH (e:Entity {userId: $ workspaceId: $)
+        MATCH (e:Entity {userId: $userId})
         WHERE e.type = 'Project'
-        OPTIONAL MATCH (statement:Statement {userId: $ workspaceId: $)-[:HAS_SUBJECT|HAS_OBJECT]->(e)
+        OPTIONAL MATCH (statement:Statement {userId: $userId})-[:HAS_SUBJECT|HAS_OBJECT]->(e)
         RETURN e.uuid as uuid, e.name as name, e.type as type, e.attributes as attributes, count(statement) as weight
         ORDER BY weight DESC, name ASC
         LIMIT 8
@@ -1287,9 +1287,9 @@ export async function getKnowledgeHomeData(userId: string, workspaceId: string) 
     ) as Promise<Array<{ get: (key: string) => unknown }>>,
     graphProvider.runQuery(
       `
-        MATCH (e:Entity {userId: $ workspaceId: $)
+        MATCH (e:Entity {userId: $userId})
         WHERE e.type IN ['Concept', 'Technology', 'Standard', 'Product']
-        OPTIONAL MATCH (statement:Statement {userId: $ workspaceId: $)-[:HAS_SUBJECT|HAS_OBJECT]->(e)
+        OPTIONAL MATCH (statement:Statement {userId: $userId})-[:HAS_SUBJECT|HAS_OBJECT]->(e)
         RETURN e.uuid as uuid, e.name as name, e.type as type, e.attributes as attributes, count(statement) as weight
         ORDER BY weight DESC, name ASC
         LIMIT 10

@@ -61,14 +61,11 @@ export class LabelService {
   /**
    * Get all labels for a workspace
    */
-  async getWorkspaceLabels(workspaceId: string, search?: string): Promise<Label[]> {
+  async getWorkspaceLabels(_workspaceId: string, search?: string): Promise<Label[]> {
     return await prisma.label.findMany({
-      where: {
-        workspaceId,
-        ...(search && {
-          name: { contains: search, mode: "insensitive" },
-        }),
-      },
+      where: search
+        ? { name: { contains: search, mode: "insensitive" } }
+        : undefined,
       orderBy: { name: "asc" },
       take: search ? 10 : undefined,
     });

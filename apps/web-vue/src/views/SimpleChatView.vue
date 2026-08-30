@@ -149,10 +149,6 @@ async function sendMessage() {
   }
 }
 
-function selectSession(sessionId: string) {
-  activeSessionId.value = sessionId;
-}
-
 function formatTime(value: string) {
   if (!value) return "";
   const date = new Date(value);

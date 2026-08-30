@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import { useSessionStore } from "@/stores/session";
@@ -31,6 +31,8 @@ const title = computed(() => {
 });
 
 const isGraphRoute = computed(() => route.path.startsWith("/home/memory/graph"));
+
+const isCollapsed = ref(false);
 
 function isNavActive(itemTo: string) {
   if (itemTo === "/home/memory/graph/inbox") {
@@ -64,7 +66,7 @@ watch(
 </script>
 
 <template>
-  <div class="shell" :class="{ 'shell--graph': isGraphRoute }">
+  <div class="shell" :class="{ 'shell--graph': isGraphRoute, 'shell--collapsed': isCollapsed }">
     <aside class="shell__sidebar">
       <div class="brand">
         <div class="brand__badge">MN</div>
@@ -95,11 +97,22 @@ watch(
       </div>
     </aside>
 
-    <main class="shell__content" :class="{ 'shell__content--graph': isGraphRoute }">
+    <main class="shell__content" :class="{ 'shell__content--graph': isGraphRoute, 'shell__content--collapsed': isCollapsed }">
       <header class="shell__header">
-        <div>
-          <p class="shell__eyebrow">个人知识沉淀系统</p>
-          <h2 class="shell__headline">{{ title }}</h2>
+        <div class="shell__header-left">
+          <button class="sidebar-toggle" @click="isCollapsed = !isCollapsed" title="折叠/展开侧边栏">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="6" x2="21" y2="6" v-if="!isCollapsed"/>
+              <line x1="3" y1="12" x2="21" y2="12" v-if="!isCollapsed"/>
+              <line x1="3" y1="18" x2="21" y2="18" v-if="!isCollapsed"/>
+              <polyline points="15 9 21 12 15 15" v-if="isCollapsed"/>
+              <polyline points="9 9 3 12 9 15" v-if="!isCollapsed"/>
+            </svg>
+          </button>
+          <div>
+            <p class="shell__eyebrow">个人知识沉淀系统</p>
+            <h2 class="shell__headline">{{ title }}</h2>
+          </div>
         </div>
         <div class="shell__meta">
           <span class="chip">{{ session.user?.name ?? "用户" }}</span>
@@ -115,6 +128,59 @@ watch(
 </template>
 
 <style scoped>
+.sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  margin-right: 12px;
+  color: var(--text-soft);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(201, 99, 61, 0.1);
+  color: var(--accent);
+  border-color: rgba(201, 99, 61, 0.3);
+}
+
+.shell__header-left {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 0.3s ease;
+}
+
+.shell--collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.shell--collapsed .shell__sidebar {
+  overflow: hidden;
+  width: 0;
+  padding: 0;
+  border: none;
+}
+
+.shell--collapsed .brand,
+.shell--collapsed .nav,
+.shell--collapsed .sidebar-card {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .logout-btn {
   margin-top: 8px;
   padding: 6px 12px;

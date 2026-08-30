@@ -86,6 +86,9 @@ export async function mountApiRoutes(router: Router): Promise<void> {
       if (action) {
         console.log(`  [OK] ${file.padEnd(50)} ${expressPath} (action)`);
         router.post(expressPath, wrapHandler(action));
+        router.delete(expressPath, wrapHandler(action));
+        router.patch(expressPath, wrapHandler(action));
+        router.put(expressPath, wrapHandler(action));
       }
     } catch (err) {
       console.error(`  [FAIL] ${file}:`, err instanceof Error ? err.message : String(err));

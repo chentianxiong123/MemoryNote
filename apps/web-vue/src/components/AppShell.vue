@@ -97,9 +97,9 @@ watch(
       <div class="sidebar-card sidebar-card--bottom">
         <button class="sidebar-toggle" @click="isCollapsed = !isCollapsed" title="折叠/展开侧边栏">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="6" x2="21" y1="6" v-if="!isCollapsed"/>
-            <line x1="3" y1="12" x2="21" y1="12" v-if="!isCollapsed"/>
-            <line x1="3" y1="18" x2="21" y1="18" v-if="!isCollapsed"/>
+            <line x1="3" y1="6" x2="21" y2="6" v-if="!isCollapsed"/>
+            <line x1="3" y1="12" x2="21" y2="12" v-if="!isCollapsed"/>
+            <line x1="3" y1="18" x2="21" y2="18" v-if="!isCollapsed"/>
             <polyline points="15 9 21 12 15 15" v-if="isCollapsed"/>
             <polyline points="9 9 3 12 9 15" v-if="!isCollapsed"/>
           </svg>

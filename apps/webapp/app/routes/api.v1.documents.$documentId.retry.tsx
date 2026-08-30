@@ -23,7 +23,7 @@ const { action } = createHybridActionApiRoute(
     corsStrategy: "all",
   },
   async ({ params, authentication }) => {
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       return json(
         {
           error: "No workspace found",
@@ -37,7 +37,7 @@ const { action } = createHybridActionApiRoute(
 
       const document = await getDocument(
         params.documentId,
-        authentication.workspaceId,
+        "personal",
       );
 
       if (!document) {
@@ -76,8 +76,8 @@ const { action } = createHybridActionApiRoute(
       // Re-enqueue the job with the existing queue ID (will upsert)
       await addToQueue(
         originalData,
-        authentication.userId,
-        authentication.workspaceId,
+        "personal",
+        "personal",
         latestIngestionLog.activityId || undefined,
         latestIngestionLog.id, // Pass the existing queue ID for upsert
       );

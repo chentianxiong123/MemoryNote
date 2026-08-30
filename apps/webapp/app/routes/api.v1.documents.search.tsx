@@ -42,7 +42,7 @@ const loader = createHybridLoaderApiRoute(
       return json({ error: "Provide q or labelIds parameter" }, { status: 400 });
     }
 
-    const workspaceId = authentication.workspaceId as string;
+    const workspaceId = "personal" as string;
 
     if (mode === "sessionIds") {
       // Optimized mode for graph filtering

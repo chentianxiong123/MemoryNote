@@ -18,8 +18,8 @@ const { action, loader } = createHybridActionApiRoute(
   async ({ params, authentication }) => {
     const item = await acceptKnowledgeCaptureItem(
       params.itemId,
-      authentication.userId,
-      authentication.workspaceId as string,
+      "personal",
+      "personal" as string,
     );
 
     return json({ success: true, item });

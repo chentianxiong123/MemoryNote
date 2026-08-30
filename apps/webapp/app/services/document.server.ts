@@ -23,13 +23,11 @@ export interface DocumentSearchResult {
  * Returns full document info - useful for cmd+k search
  */
 export const searchDocuments = async (
-  workspaceId: string,
   params: DocumentSearchParams,
 ): Promise<DocumentSearchResult[]> => {
   const { query, labelIds, limit = 50 } = params;
 
   const conditions: Prisma.DocumentWhereInput[] = [
-    { workspaceId },
     { deleted: null },
   ];
 
@@ -72,13 +70,11 @@ export const searchDocuments = async (
  * Optimized for graph filtering - minimal data transfer
  */
 export const searchDocumentSessionIds = async (
-  workspaceId: string,
   params: DocumentSearchParams,
 ): Promise<string[]> => {
   const { query, labelIds, limit = 100 } = params;
 
   const conditions: Prisma.DocumentWhereInput[] = [
-    { workspaceId },
     { deleted: null },
     { sessionId: { not: null } },
   ];
@@ -120,7 +116,7 @@ export const getDocument = async (id: string, workspaceId: string) => {
   const document = await prisma.document.findUnique({
     where: {
       id,
-      workspaceId,
+
     },
   });
 
@@ -155,13 +151,12 @@ export const getDocument = async (id: string, workspaceId: string) => {
 
 export const getDocumentForSession = async (
   sessionId: string,
-  workspaceId: string,
 ) => {
   const document = await prisma.document.findUnique({
     where: {
       sessionId_workspaceId: {
         sessionId,
-        workspaceId,
+
       },
     },
   });
@@ -197,13 +192,12 @@ export const getDocumentForSession = async (
 
 export const updateDocument = async (
   id: string,
-  workspaceId: string,
   updateData: DocumentUpdateParams,
 ) => {
   return await prisma.document.update({
     where: {
       id,
-      workspaceId,
+
     },
     data: {
       title: updateData.title,
@@ -216,7 +210,7 @@ export const deleteDocument = async (id: string, workspaceId: string) => {
   return await prisma.document.delete({
     where: {
       id,
-      workspaceId,
+
     },
   });
 };
@@ -227,7 +221,7 @@ export const getPersonaForUser = async (workspaceId: string) => {
     where: {
       title: "Persona",
       source: "persona-v2",
-      workspaceId,
+
     },
     orderBy: {
       createdAt: "desc",
@@ -243,7 +237,7 @@ export const getPersonaForUser = async (workspaceId: string) => {
     where: {
       title: "Persona",
       source: "persona",
-      workspaceId,
+
     },
     orderBy: {
       createdAt: "desc",
@@ -257,7 +251,7 @@ export const getPersonaDocumentForUser = async (workspaceId: string) => {
   // Persona is now the default "Persona" skill (skillType: "persona")
   const personaSkill = await prisma.document.findFirst({
     where: {
-      workspaceId,
+
       type: "skill",
       title: "Persona",
       deleted: null,
@@ -270,15 +264,13 @@ export const getPersonaDocumentForUser = async (workspaceId: string) => {
 export const updateDocumentContent = async (
   document: Document,
   content: string,
-  userId: string,
-  workspaceId: string,
 ) => {
   const id = document.id;
 
   // Persona documents should not be re-ingested when edited
   if (document.source === "persona" || document.source === "persona-v2") {
     await prisma.document.update({
-      where: { id, workspaceId },
+      where: { id },
       data: { content },
     });
 
@@ -294,7 +286,7 @@ export const updateDocumentContent = async (
     where: {
       sessionId: document.sessionId,
       type: "DOCUMENT",
-      workspaceId,
+
     },
     orderBy: {
       createdAt: "desc",
@@ -312,7 +304,7 @@ export const updateDocumentContent = async (
   await prisma.document.update({
     where: {
       id,
-      workspaceId,
+
     },
     data: {
       content,
@@ -350,7 +342,7 @@ export const updateDocumentContent = async (
       delay: true,
     };
 
-    const newLog = await addToQueue(newLogData, userId, workspaceId);
+    const newLog = await addToQueue(newLogData, workspaceId);
 
     return {
       success: true,

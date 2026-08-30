@@ -18,8 +18,8 @@ const loader = createHybridLoaderApiRoute(
   async ({ params, authentication }) => {
     const detail = await getKnowledgeObjectDetail(
       params.objectId,
-      authentication.userId,
-      authentication.workspaceId as string,
+      "personal",
+      "personal" as string,
     );
 
     return json(detail);

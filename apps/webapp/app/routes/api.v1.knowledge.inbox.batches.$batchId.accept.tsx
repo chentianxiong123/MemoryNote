@@ -18,8 +18,8 @@ const { action, loader } = createHybridActionApiRoute(
   async ({ params, authentication }) => {
     const batch = await acceptKnowledgeCaptureBatch(
       params.batchId,
-      authentication.userId,
-      authentication.workspaceId as string,
+      "personal",
+      "personal" as string,
     );
 
     return json({ success: true, batch });

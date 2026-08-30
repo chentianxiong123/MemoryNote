@@ -9,7 +9,7 @@ const loader = createHybridLoaderApiRoute(
     corsStrategy: "all",
   },
   async ({ authentication }) => {
-    const providers = await getProviders(authentication.workspaceId as string | undefined);
+    const providers = await getProviders("personal" as string | undefined);
     return json(providers);
   },
 );

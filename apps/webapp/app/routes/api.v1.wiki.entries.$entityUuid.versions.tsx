@@ -16,7 +16,7 @@ export const loader = createHybridLoaderApiRoute(
     findResource: async () => 1,
   },
   async ({ params, authentication }) => {
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       throw new Response("Workspace not found", { status: 404 });
     }
 
@@ -25,7 +25,7 @@ export const loader = createHybridLoaderApiRoute(
       where: {
         entityUuid_workspaceId: {
           entityUuid: params.entityUuid,
-          workspaceId: authentication.workspaceId,
+          workspaceId: "personal",
         },
       },
       select: {

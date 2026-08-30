@@ -18,7 +18,7 @@ const loader = createHybridLoaderApiRoute(
   async ({ authentication, params }) => {
     const conversation = await getConversationAndHistory(
       params.conversationId,
-      authentication.userId,
+      "personal",
     );
 
     if (!conversation) {

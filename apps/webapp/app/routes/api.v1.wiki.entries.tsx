@@ -29,14 +29,14 @@ export const loader = createHybridLoaderApiRoute(
     const sortBy = searchParams.sortBy || "updatedAt";
     const sortOrder = searchParams.sortOrder || "desc";
 
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       throw new Response("Workspace not found", { status: 404 });
     }
 
     const offset = (page - 1) * limit;
 
     const whereClause: any = {
-      workspaceId: authentication.workspaceId,
+      workspaceId: "personal",
     };
 
     if (status) {
@@ -75,7 +75,7 @@ export const loader = createHybridLoaderApiRoute(
       prisma.wikiEntry.count({ where: whereClause }),
       prisma.wikiEntry.groupBy({
         by: ["status"],
-        where: { workspaceId: authentication.workspaceId },
+        where: { workspaceId: "personal" },
         _count: { _all: true },
       }),
     ]);

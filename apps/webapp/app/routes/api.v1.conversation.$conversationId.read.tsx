@@ -20,7 +20,7 @@ const loader = createHybridLoaderApiRoute(
     corsStrategy: "all",
   },
   async ({ authentication, params }) => {
-    if (!authentication.workspaceId) {
+    if (!"personal") {
       throw new Error("No workspace found");
     }
 

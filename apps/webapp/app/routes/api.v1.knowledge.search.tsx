@@ -18,8 +18,8 @@ const loader = createHybridLoaderApiRoute(
   async ({ searchParams, authentication }) => {
     const data = await searchKnowledgeObjects(
       searchParams?.q ?? "",
-      authentication.userId,
-      authentication.workspaceId as string,
+      "personal",
+      "personal" as string,
     );
 
     return json(data);

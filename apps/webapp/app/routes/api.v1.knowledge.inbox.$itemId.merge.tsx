@@ -23,8 +23,8 @@ const { action, loader } = createHybridActionApiRoute(
     const item = await mergeKnowledgeCaptureItem(
       params.itemId,
       body,
-      authentication.userId,
-      authentication.workspaceId as string,
+      "personal",
+      "personal" as string,
     );
 
     return json({ success: true, item });

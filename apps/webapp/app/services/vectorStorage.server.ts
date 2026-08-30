@@ -29,7 +29,6 @@ export async function batchStoreEntityEmbeddings(
     embedding: number[];
     userId: string;
   }>,
-  workspaceId: string,
 ): Promise<void> {
   if (entities.length === 0) return;
 
@@ -38,7 +37,7 @@ export async function batchStoreEntityEmbeddings(
       id: entity.uuid,
       vector: entity.embedding,
       content: entity.name,
-      metadata: { userId: entity.userId, type: "entity", workspaceId },
+      metadata: { userId: entity.userId, type: "entity" },
     }));
 
     await vectorProvider().batchUpsert(items, VECTOR_NAMESPACES.ENTITY);
@@ -128,7 +127,6 @@ export async function storeStatementEmbedding(
   statementUuid: string,
   fact: string,
   embedding: number[],
-  userId: string,
 ): Promise<void> {
   try {
     await vectorProvider().upsert({
@@ -136,7 +134,7 @@ export async function storeStatementEmbedding(
       vector: embedding,
       content: fact,
       namespace: VECTOR_NAMESPACES.STATEMENT,
-      metadata: { userId, type: "statement" },
+      metadata: { type: "statement" },
     });
   } catch (error) {
     logger.error(`Failed to store statement embedding for ${statementUuid}:`, {
@@ -156,7 +154,6 @@ export async function batchStoreStatementEmbeddings(
     embedding: number[];
     userId: string;
   }>,
-  workspaceId: string,
 ): Promise<void> {
   if (statements.length === 0) return;
 
@@ -165,7 +162,7 @@ export async function batchStoreStatementEmbeddings(
       id: statement.uuid,
       vector: statement.embedding,
       content: statement.fact,
-      metadata: { userId: statement.userId, type: "statement", workspaceId },
+      metadata: { userId: statement.userId, type: "statement" },
     }));
 
     await vectorProvider().batchUpsert(items, VECTOR_NAMESPACES.STATEMENT);
@@ -257,8 +254,6 @@ export async function storeEpisodeEmbedding(
   episodeUuid: string,
   content: string,
   embedding: number[],
-  userId: string,
-  workspaceId: string,
   queueId: string,
   labelIds: string[],
   sessionId?: string,
@@ -272,14 +267,13 @@ export async function storeEpisodeEmbedding(
       content: content,
       namespace: VECTOR_NAMESPACES.EPISODE,
       metadata: {
-        userId,
         type: "episode",
         ingestionQueueId: queueId,
         labelIds: labelIds,
         sessionId: sessionId,
         version: version,
         chunkIndex,
-        workspaceId,
+
       },
     });
   } catch (error) {
@@ -363,15 +357,12 @@ export async function batchDeleteEpisodeEmbeddings(
 export async function updateEpisodeLabels(
   episodeUuids: string[],
   labelId: string,
-  userId: string,
-  workspaceId: string,
   forceUpdate: boolean = false,
 ): Promise<number> {
   return await vectorProvider().addLabelsToEpisodes(
     episodeUuids,
     [labelId],
-    userId,
-    workspaceId,
+
     forceUpdate,
   );
 }
@@ -379,15 +370,12 @@ export async function updateEpisodeLabels(
 export async function updateEpisodeLabelsBySessionId(
   sessionId: string,
   labelId: string,
-  userId: string,
-  workspaceId: string,
   forceUpdate: boolean = false,
 ): Promise<number> {
   return await vectorProvider().addLabelsToEpisodesBySessionId(
     sessionId,
     [labelId],
-    userId,
-    workspaceId,
+
     forceUpdate,
   );
 }
@@ -399,7 +387,6 @@ export async function getEpisodeByQueueId(
 }
 
 export async function getRecentEpisodes(
-  userId: string,
   limit: number,
   sessionId?: string,
   excludeIds?: string[],
@@ -407,12 +394,11 @@ export async function getRecentEpisodes(
   workspaceId?: string,
 ): Promise<EpisodeEmbedding[]> {
   return await vectorProvider().getRecentEpisodes(
-    userId,
     limit,
     sessionId,
     excludeIds,
     version,
-    workspaceId,
+
   );
 }
 
@@ -440,7 +426,7 @@ export async function searchStatements(params: {
         userId: params.userId,
         labelIds: params.labelIds,
         excludeIds: params.excludeIds,
-        workspaceId: params.workspaceId,
+
       },
     });
 
@@ -471,7 +457,6 @@ export async function searchEpisodes(params: {
       threshold: params.threshold || 0.2,
       filter: {
         userId: params.userId,
-        workspaceId: params.workspaceId,
         labelIds: params.labelIds,
         excludeIds: params.excludeIds,
       },
@@ -504,7 +489,7 @@ export async function searchEntities(params: {
       filter: {
         userId: params.userId,
         excludeIds: params.excludeIds,
-        workspaceId: params.workspaceId,
+
       },
     });
 

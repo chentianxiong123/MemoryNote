@@ -2,7 +2,7 @@ import { json } from "~/lib/remix-compat";
 import { z } from "zod";
 import { createHybridActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { prisma } from "~/db.server";
-import { env } from "~/env.server";
+import { getLLMConfig } from "~/services/llm-config.server";
 
 // 简单聊天请求 schema
 const ChatRequestSchema = z.object({
@@ -11,9 +11,10 @@ const ChatRequestSchema = z.object({
 });
 
 async function callLLM(message: string): Promise<string> {
-  const apiKey = env.OPENAI_API_KEY;
-  const baseUrl = env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
-  const model = env.MODEL;
+  const cfg = getLLMConfig();
+  const apiKey = cfg.openaiApiKey;
+  const baseUrl = cfg.openaiBaseUrl ?? "https://api.openai.com/v1";
+  const model = cfg.chatModel;
 
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY not configured");

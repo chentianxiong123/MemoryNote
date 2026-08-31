@@ -651,6 +651,31 @@ export async function createGraphTriplet(payload: {
   );
 }
 
+export async function importDocument(payload: {
+  title: string;
+  content: string;
+  source?: string;
+  type?: string;
+  createdAt?: string;
+  labelIds?: string[];
+  metadata?: Record<string, unknown>;
+}) {
+  return request<{
+    success: boolean;
+    document: {
+      id: string;
+      title: string;
+      source: string;
+      type: string;
+      createdAt: string;
+      updatedAt: string;
+    };
+  }>("/api/v1/document-import", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchModels() {
   return request<ModelOption[]>("/api/v1/llm-models");
 }

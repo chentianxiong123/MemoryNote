@@ -67,6 +67,20 @@ const openaiStatus = computed(() => {
   );
 });
 
+const copyState = ref("");
+
+async function copyToClipboard(value: string) {
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    copyState.value = "已复制";
+    setTimeout(() => (copyState.value = ""), 1500);
+  } catch {
+    copyState.value = "复制失败";
+    setTimeout(() => (copyState.value = ""), 1500);
+  }
+}
+
 const chatSuggestions = computed(() => {
   return settings.value?.chatModels ?? [];
 });
@@ -76,8 +90,13 @@ const embeddingSuggestions = computed(() => {
 });
 
 function syncFormsFromSettings() {
+  const openaiKey =
+    (openaiStatus.value as unknown as { apiKey?: string | null })?.apiKey ??
+    openaiStatus.value?.keyPrefix ??
+    "";
   providerForm.value.baseUrl = openaiStatus.value?.baseUrl ?? "https://api.pie-xian.com";
   providerForm.value.apiMode = openaiStatus.value?.apiMode ?? "chat_completions";
+  providerForm.value.apiKey = openaiKey;
 
   modelForms.value = {
     chat: settings.value?.modelConfig.chat?.modelId ?? "openai/gpt-5-mini-2025-08-07",
@@ -134,7 +153,6 @@ async function saveProviderConfig() {
       baseUrl: providerForm.value.baseUrl.trim(),
       apiMode: providerForm.value.apiMode,
     });
-    providerForm.value.apiKey = "";
     await loadSettings();
   } catch (err) {
     error.value =
@@ -276,8 +294,9 @@ onMounted(() => {
           <input
             v-model="providerForm.apiKey"
             class="input"
-            type="password"
-            placeholder="粘贴聊天/主模型 API Key"
+            type="text"
+            spellcheck="false"
+            placeholder="粘贴聊天/主模型 API Key（明文保存）"
           />
         </div>
 
@@ -287,11 +306,20 @@ onMounted(() => {
           </button>
           <button
             class="button button--ghost"
+            type="button"
+            :disabled="!providerForm.apiKey"
+            @click="copyToClipboard(providerForm.apiKey)"
+          >
+            复制 Key
+          </button>
+          <button
+            class="button button--ghost"
             :disabled="savingKey === 'provider-delete'"
             @click="removeProviderConfig"
           >
             {{ savingKey === "provider-delete" ? "删除中..." : "删除连接" }}
           </button>
+          <span v-if="copyState" class="copy-state">{{ copyState }}</span>
         </div>
 
         <p class="config-hint">
@@ -467,6 +495,11 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.copy-state {
+  font-size: 13px;
+  color: var(--accent, #2563eb);
 }
 
 .settings-list__item--stack {

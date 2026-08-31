@@ -137,7 +137,6 @@ export const loader = createHybridLoaderApiRoute(
             prisma.ingestionQueue.findMany({
               where: {
                 sessionId: { in: documentIds },
-                workspaceId: "personal",
               },
               select: {
                 id: true,
@@ -157,7 +156,6 @@ export const loader = createHybridLoaderApiRoute(
               by: ["sessionId"],
               where: {
                 sessionId: { in: documentIds },
-                workspaceId: "personal",
               },
               _count: {
                 id: true,

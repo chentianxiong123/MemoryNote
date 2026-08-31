@@ -457,16 +457,6 @@ export async function fetchDocuments(params?: Record<string, string>) {
   return request<DocumentsResponse>(`/api/v1/documents?${search.toString()}`);
 }
 
-export async function searchDocumentsApi(q: string, labelIds?: string[]) {
-  const params = new URLSearchParams({ q });
-  if (labelIds && labelIds.length > 0) {
-    params.set("labelIds", labelIds.join(","));
-  }
-  return request<{ documents: DocumentRecord[]; count: number }>(
-    `/api/v1/documents/search?${params.toString()}`
-  );
-}
-
 export async function fetchDocument(documentId: string) {
   return request<{ document: DocumentRecord }>(
     `/api/v1/documents/${documentId}`

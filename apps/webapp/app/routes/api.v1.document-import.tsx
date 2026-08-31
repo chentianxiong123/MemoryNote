@@ -23,11 +23,13 @@ const { action } = createHybridActionApiRoute(
     const sessionId = crypto.randomUUID();
     const docDate = body.createdAt ? new Date(body.createdAt) : new Date();
 
+    const cleanContent = body.content.replace(/\x00/g, "");
+
     const document = await prisma.document.create({
       data: {
         sessionId,
         title: body.title,
-        content: body.content,
+        content: cleanContent,
         source: body.source,
         type: body.type,
         labelIds: body.labelIds,

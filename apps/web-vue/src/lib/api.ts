@@ -336,6 +336,7 @@ export interface WorkspaceModelSettings {
     providerType: string;
     hasKey: boolean;
     keyPrefix: string | null;
+    apiKey?: string | null;
     baseUrl?: string | null;
     apiMode?: string | null;
   }>;
@@ -659,22 +660,13 @@ export async function fetchWorkspaceModelSettings() {
 }
 
 export async function updateWorkspaceModel(useCase: string, modelId: string) {
-  const form = new FormData();
-  form.set("intent", "updateModel");
-  form.set("useCase", useCase);
-  form.set("modelId", modelId);
-
-  const response = await fetch(`${API_BASE}/api/v1/workspace/models`, {
-    method: "POST",
-    credentials: "include",
-    body: form,
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  return request<{ success: boolean; config?: unknown }>(
+    "/api/v1/workspace/models",
+    {
+      method: "POST",
+      body: JSON.stringify({ intent: "updateModel", useCase, modelId }),
+    },
+  );
 }
 
 export async function setWorkspaceProviderKey(payload: {
@@ -683,66 +675,36 @@ export async function setWorkspaceProviderKey(payload: {
   baseUrl?: string;
   apiMode?: string;
 }) {
-  const form = new FormData();
-  form.set("intent", "setKey");
-  form.set("providerType", payload.providerType);
-  form.set("apiKey", payload.apiKey);
-  if (payload.baseUrl) form.set("baseUrl", payload.baseUrl);
-  if (payload.apiMode) form.set("apiMode", payload.apiMode);
-
-  const response = await fetch(`${API_BASE}/api/v1/workspace/models`, {
-    method: "POST",
-    credentials: "include",
-    body: form,
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  return request<{ success: boolean; config?: unknown }>(
+    "/api/v1/workspace/models",
+    {
+      method: "POST",
+      body: JSON.stringify({ intent: "setKey", ...payload }),
+    },
+  );
 }
 
 export async function deleteWorkspaceProviderKey(providerType: string) {
-  const form = new FormData();
-  form.set("intent", "deleteKey");
-  form.set("providerType", providerType);
-
-  const response = await fetch(`${API_BASE}/api/v1/workspace/models`, {
-    method: "POST",
-    credentials: "include",
-    body: form,
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  return request<{ success: boolean; config?: unknown }>(
+    "/api/v1/workspace/models",
+    {
+      method: "POST",
+      body: JSON.stringify({ intent: "deleteKey", providerType }),
+    },
+  );
 }
 
 export async function updateWorkspaceEmbeddingConfig(payload: {
   modelId: string;
   dimensions?: number | null;
 }) {
-  const form = new FormData();
-  form.set("intent", "updateEmbeddingConfig");
-  form.set("modelId", payload.modelId);
-  if (payload.dimensions !== undefined && payload.dimensions !== null) {
-    form.set("dimensions", String(payload.dimensions));
-  }
-
-  const response = await fetch(`${API_BASE}/api/v1/workspace/models`, {
-    method: "POST",
-    credentials: "include",
-    body: form,
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  return request<{ success: boolean; config?: unknown }>(
+    "/api/v1/workspace/models",
+    {
+      method: "POST",
+      body: JSON.stringify({ intent: "updateEmbeddingConfig", ...payload }),
+    },
+  );
 }
 
 export async function updateWorkspaceRerankConfig(payload: {
@@ -750,23 +712,11 @@ export async function updateWorkspaceRerankConfig(payload: {
   modelId?: string;
   threshold?: number | null;
 }) {
-  const form = new FormData();
-  form.set("intent", "updateRerankConfig");
-  form.set("provider", payload.provider);
-  if (payload.modelId) form.set("modelId", payload.modelId);
-  if (payload.threshold !== undefined && payload.threshold !== null) {
-    form.set("threshold", String(payload.threshold));
-  }
-
-  const response = await fetch(`${API_BASE}/api/v1/workspace/models`, {
-    method: "POST",
-    credentials: "include",
-    body: form,
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
+  return request<{ success: boolean; config?: unknown }>(
+    "/api/v1/workspace/models",
+    {
+      method: "POST",
+      body: JSON.stringify({ intent: "updateRerankConfig", ...payload }),
+    },
+  );
 }

@@ -1,5 +1,6 @@
 import { prisma } from "~/db.server";
 import { env } from "~/env.server";
+import { getLLMConfig } from "~/services/llm-config.server";
 import { logger } from "~/services/logger.service";
 import seedData from "~/config/llm-models.json";
 
@@ -254,17 +255,19 @@ export function getDefaultChatProviderType(): string {
 }
 
 export function getDefaultChatModelId(): string {
-  return env.MODEL;
+  return getLLMConfig().chatModel;
 }
 
 export function getProviderConfig(providerType: string): ProviderConfig {
   if (providerType === "openai") {
+    const cfg = getLLMConfig();
+    const apiMode = cfg.openaiApiMode;
     return {
-      baseUrl: env.OPENAI_BASE_URL,
+      baseUrl: cfg.openaiBaseUrl ?? undefined,
       apiMode:
-        env.OPENAI_API_MODE === "chat"
+        apiMode === "chat"
           ? "chat_completions"
-          : env.OPENAI_API_MODE,
+          : (apiMode as ProviderConfig["apiMode"]),
     };
   }
   if (providerType === "ollama") {
@@ -322,7 +325,7 @@ export async function getDefaultEmbeddingInfo(
           dimensions:
             workspaceEmbedding.dimensions ??
             model.dimensions ??
-            parseInt(env.EMBEDDING_MODEL_SIZE || "1024", 10),
+            parseInt(getLLMConfig().embeddingModelSize || "1024", 10),
         };
       }
 
@@ -332,12 +335,12 @@ export async function getDefaultEmbeddingInfo(
         providerType,
         dimensions:
           workspaceEmbedding.dimensions ??
-          parseInt(env.EMBEDDING_MODEL_SIZE || "1024", 10),
+          parseInt(getLLMConfig().embeddingModelSize || "1024", 10),
       };
     }
   }
 
-  const embeddingModelId = env.EMBEDDING_MODEL || "text-embedding-3-small";
+  const embeddingModelId = getLLMConfig().embeddingModel || "text-embedding-3-small";
   const model = await prisma.lLMModel.findFirst({
     where: { modelId: embeddingModelId, capabilities: { has: "embedding" } },
     include: { provider: true },
@@ -347,7 +350,8 @@ export async function getDefaultEmbeddingInfo(
     modelId: model.modelId,
     providerId: model.providerId,
     providerType: model.provider.type,
-    dimensions: model.dimensions ?? 1024,
+    dimensions:
+      model.dimensions ?? parseInt(getLLMConfig().embeddingModelSize || "1024", 10),
   };
 }
 
@@ -355,7 +359,7 @@ export async function getEmbeddingDimensions(
   workspaceId?: string | null,
 ): Promise<number> {
   const info = await getDefaultEmbeddingInfo(workspaceId);
-  return info?.dimensions ?? parseInt(env.EMBEDDING_MODEL_SIZE || "1024", 10);
+  return info?.dimensions ?? parseInt(getLLMConfig().embeddingModelSize || "1024", 10);
 }
 
 // ---------------------------------------------------------------------------
@@ -407,8 +411,8 @@ export async function getModelForUseCase(
     if (model) return model.modelId;
   }
 
-  // 3. env fallback
-  return env.MODEL;
+  // 3. runtime config fallback
+  return getLLMConfig().chatModel;
 }
 
 // ---------------------------------------------------------------------------
@@ -416,7 +420,6 @@ export async function getModelForUseCase(
 // ---------------------------------------------------------------------------
 
 const ENV_KEY_MAP: Record<string, string | undefined> = {
-  openai: env.OPENAI_API_KEY,
   anthropic: env.ANTHROPIC_API_KEY,
   google: env.GOOGLE_GENERATIVE_AI_API_KEY,
   openrouter: env.OPENROUTER_API_KEY,
@@ -428,6 +431,10 @@ const ENV_KEY_MAP: Record<string, string | undefined> = {
   ollama: env.OLLAMA_URL,
   azure: env.AZURE_API_KEY,
 };
+
+function resolveOpenAIKey(): string | undefined {
+  return getLLMConfig().openaiApiKey ?? undefined;
+}
 
 export async function getProviders(workspaceId?: string) {
   const globalProviders = await prisma.lLMProvider.findMany({
@@ -521,6 +528,7 @@ export async function getAvailableModels(workspaceId?: string) {
 // ---------------------------------------------------------------------------
 
 export function resolveApiKey(providerType: string): string | undefined {
+  if (providerType === "openai") return resolveOpenAIKey();
   return ENV_KEY_MAP[providerType];
 }
 
@@ -543,7 +551,9 @@ export async function resolveApiKeyForWorkspace(
     const byokKey = await resolveWorkspaceApiKey(workspaceId, providerType);
     if (byokKey) return { apiKey: byokKey, isBYOK: true };
   }
-  return { apiKey: ENV_KEY_MAP[providerType], isBYOK: false };
+  const fallbackKey =
+    providerType === "openai" ? resolveOpenAIKey() : ENV_KEY_MAP[providerType];
+  return { apiKey: fallbackKey, isBYOK: false };
 }
 
 /**

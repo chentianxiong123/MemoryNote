@@ -14,6 +14,7 @@ const DocumentsSearchParams = z.object({
   sessionId: z.string().optional(),
   label: z.string().optional(),
   cursor: z.string().optional(), // cursor for pagination (createdAt timestamp)
+  q: z.string().optional(),
 });
 
 export const loader = createHybridLoaderApiRoute(
@@ -32,6 +33,7 @@ export const loader = createHybridLoaderApiRoute(
     const sessionId = searchParams.sessionId;
     const label = searchParams.label;
     const cursor = searchParams.cursor; // Cursor is a createdAt timestamp
+    const q = searchParams.q;
 
     if (!"personal") {
       throw new Response("Workspace not found", { status: 404 });
@@ -99,6 +101,14 @@ export const loader = createHybridLoaderApiRoute(
       whereClause.createdAt = {
         lt: new Date(cursor),
       };
+    }
+
+    // Add text search on title and content
+    if (q && q.trim()) {
+      whereClause.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { content: { contains: q, mode: "insensitive" } },
+      ];
     }
 
     // Fetch Documents with simple pagination - no deduplication

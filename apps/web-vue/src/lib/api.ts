@@ -59,6 +59,7 @@ export interface DocumentRecord {
   status?: string | null;
   ingestionQueueCount?: number;
   labelIds?: string[];
+  content?: string;
 }
 
 export interface DocumentsResponse {
@@ -454,6 +455,38 @@ export async function fetchDocuments(params?: Record<string, string>) {
   });
 
   return request<DocumentsResponse>(`/api/v1/documents?${search.toString()}`);
+}
+
+export async function searchDocumentsApi(q: string, labelIds?: string[]) {
+  const params = new URLSearchParams({ q });
+  if (labelIds && labelIds.length > 0) {
+    params.set("labelIds", labelIds.join(","));
+  }
+  return request<{ documents: DocumentRecord[]; count: number }>(
+    `/api/v1/documents/search?${params.toString()}`
+  );
+}
+
+export async function fetchDocument(documentId: string) {
+  return request<{ document: DocumentRecord }>(
+    `/api/v1/documents/${documentId}`
+  );
+}
+
+export async function updateDocumentApi(
+  documentId: string,
+  body: { title?: string; content?: string; createdAt?: string; labelIds?: string[] }
+) {
+  return request<{ document: DocumentRecord }>(`/api/v1/documents/${documentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteDocumentApi(documentId: string) {
+  return request<{ success: boolean }>(`/api/v1/documents/${documentId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function fetchLabels(search = "") {

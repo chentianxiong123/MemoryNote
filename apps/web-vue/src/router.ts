@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 import ConversationView from "@/views/ConversationView.vue";
+import DocumentReaderView from "@/views/DocumentReaderView.vue";
 import KnowledgeInboxView from "@/views/KnowledgeInboxView.vue";
 import KnowledgeObjectView from "@/views/KnowledgeObjectView.vue";
 import MemoryDocumentsView from "@/views/MemoryDocumentsView.vue";
@@ -29,6 +30,12 @@ const router = createRouter({
     { path: "/home/conversation", component: SimpleChatView },
     { path: "/home/conversation/:conversationId", component: SimpleChatView, props: true },
     { path: "/home/memory/documents", component: MemoryDocumentsView },
+    {
+      path: "/home/memory/documents/:documentId",
+      name: "document-reader",
+      component: DocumentReaderView,
+      props: true,
+    },
     { path: "/home/memory/graph", component: MemoryGraphView },
     { path: "/home/memory/graph/inbox", component: KnowledgeInboxView },
     { path: "/home/memory/graph/object/:objectId", component: KnowledgeObjectView, props: true },

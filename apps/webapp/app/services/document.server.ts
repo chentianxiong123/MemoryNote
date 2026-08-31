@@ -154,10 +154,7 @@ export const getDocumentForSession = async (
 ) => {
   const document = await prisma.document.findUnique({
     where: {
-      sessionId_workspaceId: {
-        sessionId,
-
-      },
+      sessionId,
     },
   });
 
@@ -206,7 +203,7 @@ export const updateDocument = async (
   });
 };
 
-export const deleteDocument = async (id: string, workspaceId: string) => {
+export const deleteDocument = async (id: string) => {
   return await prisma.document.delete({
     where: {
       id,

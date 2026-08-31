@@ -42,11 +42,9 @@ const loader = createHybridLoaderApiRoute(
       return json({ error: "Provide q or labelIds parameter" }, { status: 400 });
     }
 
-    const workspaceId = "personal" as string;
-
     if (mode === "sessionIds") {
       // Optimized mode for graph filtering
-      const sessionIds = await searchDocumentSessionIds(workspaceId, {
+      const sessionIds = await searchDocumentSessionIds({
         query: q,
         labelIds,
         limit,
@@ -56,7 +54,7 @@ const loader = createHybridLoaderApiRoute(
     }
 
     // Full mode for cmd+k search
-    const documents = await searchDocuments(workspaceId, {
+    const documents = await searchDocuments({
       query: q,
       labelIds,
       limit,

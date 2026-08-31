@@ -64,7 +64,7 @@ export async function action({ request }: ActionFunctionArgs) {
   let deleted = 0;
   for (const doc of documents) {
     await deleteSession(doc.sessionId as string, userId);
-    await deleteDocument(doc.id, workspaceId);
+    await deleteDocument(doc.id);
     deleted++;
   }
 

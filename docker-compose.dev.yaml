@@ -2,7 +2,7 @@ services:
   postgres:
     container_name: memorynote-postgres
     image: pgvector/pgvector:pg16  # 复用已有镜像，不用拉 pg18
-    restart: unless-stopped
+    restart: no
     environment:
       - POSTGRES_USER=docker
       - POSTGRES_PASSWORD=docker
@@ -29,12 +29,12 @@ services:
   neo4j:
     container_name: memorynote-neo4j
     image: neo4j:5
-    restart: unless-stopped
+    restart: no
     environment:
       - NEO4J_AUTH=neo4j/docker1234
-      - NEO4J_server_memory_heap_initial__size=128M
-      - NEO4J_server_memory_heap_max__size=256M
-      - NEO4J_server_memory_pagecache_size=128M
+      - NEO4J_server_memory_heap_initial__size=256M
+      - NEO4J_server_memory_heap_max__size=512M
+      - NEO4J_server_memory_pagecache_size=256M
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -51,9 +51,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1024M
         reservations:
-          memory: 256M
+          memory: 512M
 
 networks:
   memorynote-dev:

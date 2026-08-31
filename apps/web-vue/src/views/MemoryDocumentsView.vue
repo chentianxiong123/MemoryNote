@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-
+import { ref, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
 import SectionCard from "@/components/SectionCard.vue";
-import { fetchDocuments, importDocument, type DocumentRecord } from "@/lib/api";
+import {
+  fetchDocuments,
+  importDocument,
+  type DocumentRecord,
+} from "@/lib/api";
+
+const router = useRouter();
 
 const documents = ref<DocumentRecord[]>([]);
 const availableSources = ref<Array<{ name: string; slug: string }>>([]);
@@ -18,20 +24,6 @@ const importForm = ref({
   title: "",
   content: "",
   createdAt: "",
-});
-
-const filteredDocuments = computed(() => {
-  const keyword = search.value.trim().toLowerCase();
-
-  return documents.value.filter((document) => {
-    const matchesSource = !selectedSource.value || document.source === selectedSource.value;
-    const matchesKeyword =
-      !keyword ||
-      document.title.toLowerCase().includes(keyword) ||
-      (document.source ?? "").toLowerCase().includes(keyword);
-
-    return matchesSource && matchesKeyword;
-  });
 });
 
 function formatDateTime(value: string) {
@@ -51,6 +43,25 @@ function toLocalDatetime(date: Date) {
   const hh = String(date.getHours()).padStart(2, "0");
   const mm = String(date.getMinutes()).padStart(2, "0");
   return `${y}-${m}-${d}T${hh}:${mm}`;
+}
+
+function previewText(content: string | undefined, maxLen = 100) {
+  if (!content) return "—";
+  const clean = content.replace(/\s+/g, " ").trim();
+  return clean.length > maxLen ? clean.slice(0, maxLen) + "..." : clean;
+}
+
+function openDocument(doc: DocumentRecord) {
+  router.push({ name: "document-reader", params: { documentId: doc.id } });
+}
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(async () => {
+    await loadDocuments();
+  }, 300);
 }
 
 function onFileSelected(event: Event) {
@@ -74,7 +85,11 @@ function onFileSelected(event: Event) {
 }
 
 function openManualImport() {
-  importForm.value = { title: "", content: "", createdAt: toLocalDatetime(new Date()) };
+  importForm.value = {
+    title: "",
+    content: "",
+    createdAt: toLocalDatetime(new Date()),
+  };
   showImport.value = true;
 }
 
@@ -111,14 +126,20 @@ async function submitImport() {
 
 async function loadDocuments() {
   try {
-    const response = await fetchDocuments();
+    const params: Record<string, string> = {};
+    if (selectedSource.value) params.source = selectedSource.value;
+    if (search.value.trim()) params.q = search.value.trim();
+    const response = await fetchDocuments(params);
     documents.value = response.documents;
     availableSources.value = response.availableSources;
   } catch (err) {
-    error.value =
-      err instanceof Error ? err.message : "加载文档失败。";
+    error.value = err instanceof Error ? err.message : "加载文档失败。";
   }
 }
+
+watch(selectedSource, () => {
+  void loadDocuments();
+});
 
 onMounted(() => {
   void loadDocuments();
@@ -141,7 +162,12 @@ onMounted(() => {
     </div>
 
     <div class="toolbar">
-      <input v-model="search" class="input" placeholder="搜索文档标题或来源" />
+      <input
+        v-model="search"
+        class="input"
+        placeholder="搜索文档标题或内容..."
+        @input="onSearchInput"
+      />
       <select v-model="selectedSource" class="select">
         <option value="">全部来源</option>
         <option
@@ -161,37 +187,54 @@ onMounted(() => {
           @change="onFileSelected"
         />
       </label>
-      <button class="button button--ghost" @click="openManualImport">手动录入</button>
+      <button class="button button--ghost" @click="openManualImport">
+        手动录入
+      </button>
     </div>
 
     <div class="data-table">
       <div class="data-table__row data-table__row--head">
         <span>标题</span>
+        <span>内容预览</span>
         <span>来源</span>
-        <span>状态</span>
         <span>创建时间</span>
       </div>
-      <div v-for="document in filteredDocuments" :key="document.id" class="data-table__row">
-        <span>{{ document.title }}</span>
+      <div
+        v-for="document in documents"
+        :key="document.id"
+        class="data-table__row data-table__row--clickable"
+        @click="openDocument(document)"
+      >
+        <span class="doc-title">{{ document.title }}</span>
+        <span class="doc-preview">{{ previewText(document.content) }}</span>
         <span>{{ document.source || "手动录入" }}</span>
-        <span>{{ document.status || "空闲" }}</span>
         <span>{{ formatDateTime(document.createdAt) }}</span>
       </div>
     </div>
 
-    <div v-if="filteredDocuments.length === 0" class="empty-state">
-      <p>当前筛选条件下没有文档。</p>
+    <div v-if="documents.length === 0" class="empty-state">
+      <p>当前条件下没有文档。</p>
     </div>
 
     <Teleport to="body">
-      <div v-if="showImport" class="modal-overlay" @click.self="showImport = false">
+      <div
+        v-if="showImport"
+        class="modal-overlay"
+        @click.self="showImport = false"
+      >
         <div class="modal-card">
           <h3>导入文档</h3>
-          <p v-if="importError" class="status status--error">{{ importError }}</p>
+          <p v-if="importError" class="status status--error">
+            {{ importError }}
+          </p>
 
           <div class="form-group">
             <label>标题</label>
-            <input v-model="importForm.title" class="input" placeholder="文档标题" />
+            <input
+              v-model="importForm.title"
+              class="input"
+              placeholder="文档标题"
+            />
           </div>
 
           <div class="form-group">
@@ -215,10 +258,16 @@ onMounted(() => {
           </div>
 
           <div class="modal-actions">
-            <button class="button" :disabled="importing || !importForm.content.trim()" @click="submitImport">
+            <button
+              class="button"
+              :disabled="importing || !importForm.content.trim()"
+              @click="submitImport"
+            >
               {{ importing ? "导入中..." : "确认导入" }}
             </button>
-            <button class="button button--ghost" @click="showImport = false">取消</button>
+            <button class="button button--ghost" @click="showImport = false">
+              取消
+            </button>
           </div>
         </div>
       </div>
@@ -244,6 +293,29 @@ onMounted(() => {
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+.data-table__row--clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.data-table__row--clickable:hover {
+  background: #f5f5f5;
+}
+
+.doc-title {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.doc-preview {
+  color: #666;
+  font-size: 13px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modal-overlay {

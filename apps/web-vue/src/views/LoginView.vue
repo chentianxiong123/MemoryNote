@@ -9,18 +9,6 @@
       
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
-          <label>用户名</label>
-          <input 
-            v-model="username" 
-            type="text" 
-            placeholder="请输入用户名"
-            required
-            autocomplete="username"
-            autofocus
-            class="text-input"
-          />
-        </div>
-        <div class="form-group">
           <label>访问密码</label>
           <input 
             v-model="password" 
@@ -29,6 +17,7 @@
             required
             autocomplete="current-password"
             class="password-input"
+            autofocus
           />
         </div>
         
@@ -49,7 +38,6 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
-const username = ref("");
 const password = ref("");
 const error = ref("");
 const isLoading = ref(false);
@@ -59,13 +47,10 @@ async function handleLogin() {
   error.value = "";
   
   try {
-    // 简单密码验证（个人系统）
     if (password.value === "8888") {
-      const uname = username.value.trim() || "用户";
       localStorage.setItem("user_token", "local");
-      localStorage.setItem("user_name", uname);
-      localStorage.setItem("user_email", `${uname.toLowerCase()}@local`);
-      localStorage.setItem("user_password", password.value);
+      localStorage.setItem("user_name", "用户");
+      localStorage.setItem("user_email", "user@local");
       router.push("/home");
     } else {
       error.value = "密码错误";

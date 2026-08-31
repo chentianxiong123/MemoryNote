@@ -13,6 +13,7 @@ import {
   updateDocumentContent,
 } from "~/services/document.server";
 import { type Document } from "@prisma/client";
+import { prisma } from "~/db.server";
 
 // Schema for space ID parameter
 const DocumentParamsSchema = z.object({
@@ -22,6 +23,8 @@ const DocumentParamsSchema = z.object({
 export const LogUpdateBody = z.object({
   labels: z.array(z.string()).optional(),
   title: z.string().optional(),
+  content: z.string().optional(),
+  createdAt: z.string().datetime().optional(),
 });
 
 export const ContentUpdateBody = z.object({
@@ -40,7 +43,6 @@ const loader = createHybridLoaderApiRoute(
 
     const document = await getDocument(
       params.documentId,
-      "personal" as string,
     );
 
     // Don't expose skill documents through this endpoint
@@ -64,7 +66,6 @@ const { action } = createHybridActionApiRoute(
   async ({ params, authentication, request }) => {
     const document = await getDocument(
       params.documentId,
-      "personal" as string,
     );
 
     if (!document) {
@@ -94,7 +95,7 @@ const { action } = createHybridActionApiRoute(
           );
         }
 
-        let { labels, title } = validationResult.data;
+        let { labels, title, content, createdAt } = validationResult.data;
 
         if (document.title === "Persona" || title === "Persona") {
           return json(
@@ -107,20 +108,23 @@ const { action } = createHybridActionApiRoute(
           );
         }
 
-        // Update the ingestion queue with new labels
-        const updatedQueue = await updateDocument(
-          params.documentId,
-          "personal" as string,
-          {
-            labelIds: labels,
-            title,
-          },
-        );
+        // Build update data
+        const updateData: any = {};
+        if (labels !== undefined) updateData.labelIds = labels;
+        if (title !== undefined) updateData.title = title;
+        if (content !== undefined) updateData.content = content;
+        if (createdAt !== undefined) updateData.createdAt = new Date(createdAt);
+
+        // Update the document
+        const updatedDocument = await prisma.document.update({
+          where: { id: params.documentId },
+          data: updateData,
+        });
 
         return json({
           success: true,
-          message: "Labels updated successfully",
-          labels: updatedQueue.labelIds,
+          message: "Document updated successfully",
+          document: updatedDocument,
         });
       } catch (error) {
         console.error("Error updating labels:", error);
@@ -170,7 +174,7 @@ const { action } = createHybridActionApiRoute(
           "personal",
         );
 
-        await deleteDocument(document.id as string, "personal" as string);
+        await deleteDocument(document.id as string);
         return json({
           success: true,
           message: "Session deleted successfully",

@@ -37,7 +37,6 @@ const { action } = createHybridActionApiRoute(
 
       const document = await getDocument(
         params.documentId,
-        "personal",
       );
 
       if (!document) {

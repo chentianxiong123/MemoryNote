@@ -450,7 +450,7 @@ export async function triggerConversationResponse(
 
 export async function fetchDocuments(params?: Record<string, string>) {
   const search = new URLSearchParams({
-    limit: "25",
+    limit: "20",
     ...(params ?? {}),
   });
 

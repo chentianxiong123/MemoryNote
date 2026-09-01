@@ -75,18 +75,17 @@ export class LabelService {
    * Get all labels for a workspace with document counts
    */
   async getWorkspaceLabelsWithCounts(
-    workspaceId: string,
+    _workspaceId: string,
   ): Promise<(Label & { documentCount: number })[]> {
     // Get labels and document counts in parallel
     const [labels, countResults] = await Promise.all([
       prisma.label.findMany({
-        where: { workspaceId },
         orderBy: { name: "asc" },
       }),
       prisma.$queryRaw<{ label_id: string; count: bigint }[]>`
         SELECT unnest("labelIds") as label_id, COUNT(*) as count
         FROM "Document"
-        WHERE "workspaceId" = ${workspaceId} AND deleted IS NULL
+        WHERE deleted IS NULL
         GROUP BY label_id
       `,
     ]);

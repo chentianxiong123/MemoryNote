@@ -183,8 +183,8 @@ async function loadDocuments(reset = true) {
     params.page = String(currentPage.value);
     params.limit = "20";
     const response = await fetchDocuments(params);
+    documents.value = response.documents;
     if (reset) {
-      documents.value = response.documents;
       availableSources.value = response.availableSources;
     }
     totalPages.value = response.totalPages || 1;

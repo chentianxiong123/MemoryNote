@@ -177,19 +177,19 @@ async function loadDocuments(reset = true) {
     if (selectedSource.value) params.source = selectedSource.value;
     if (search.value.trim() && !isKeywordSearch) params.q = search.value.trim();
     if (activeKeyword.value) {
-      // 关键词搜索：先加载第一页，后续翻页从缓存中切片
-      const res = await searchDocumentsByKeyword(activeKeyword.value, 100);
+      // 关键词搜索：先加载全部结果，后续翻页从缓存中切片
+      const res = await searchDocumentsByKeyword(activeKeyword.value, 200);
       const allDocs = res?.documents || [];
-      if (reset || isKeywordSearch) {
-        documents.value = allDocs.slice(0, 20);
-        currentPage.value = 1;
-        totalPages.value = Math.ceil(allDocs.length / 20) || 1;
+      if (reset) {
+        keywordDocs.value = allDocs;
         totalCount.value = allDocs.length;
+        totalPages.value = Math.ceil(allDocs.length / 20) || 1;
+        currentPage.value = 1;
+        documents.value = allDocs.slice(0, 20);
       } else {
-        // 翻页：从已加载的完整列表中切片
+        // 翻页：从缓存中切片
         const start = (currentPage.value - 1) * 20;
-        const end = start + 20;
-        documents.value = allDocs.slice(start, end);
+        documents.value = allDocs.slice(start, start + 20);
       }
       return;
     }

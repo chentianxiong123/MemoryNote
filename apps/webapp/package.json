@@ -36,6 +36,7 @@
     "gpt-tokenizer": "^3.4.0",
     "gray-matter": "4.0.3",
     "isbot": "^5.1.40",
+    "jieba": "^1.0.0",
     "luxon": "^3.5.0",
     "morgan": "^1.10.0",
     "neo4j-driver": "^5.28.1",

@@ -499,6 +499,29 @@ export async function fetchLabels(search = "") {
   return request<LabelRecord[]>(`/api/v1/labels${suffix}`);
 }
 
+export async function fetchBlockedKeywords() {
+  return request<Array<{ id: string; word: string; createdAt: string }>>(
+    "/api/v1/blocked-keywords"
+  );
+}
+
+export async function blockKeyword(word: string) {
+  return request<{ id: string; word: string }>(
+    "/api/v1/blocked-keywords",
+    {
+      method: "POST",
+      body: JSON.stringify({ word }),
+    }
+  );
+}
+
+export async function unblockKeyword(word: string) {
+  return request<{ success: boolean }>(
+    `/api/v1/blocked-keywords?word=${encodeURIComponent(word)}`,
+    { method: "DELETE" }
+  );
+}
+
 export async function createLabel(params: {
   name: string;
   description?: string;

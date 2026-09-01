@@ -20,17 +20,34 @@ const loader = createHybridLoaderApiRoute(
     const minDocs = parseInt(searchParams.minDocs || "2");
     const limit = parseInt(searchParams.limit || "100");
 
-    const tags = await prisma.$queryRaw`
-      SELECT 
-        word,
-        COUNT(DISTINCT document_id)::int as doc_count,
-        SUM(CAST(rank AS DOUBLE PRECISION))::float as total_weight
-      FROM "document_keywords"
-      GROUP BY word
-      HAVING COUNT(DISTINCT document_id) >= ${minDocs}
-      ORDER BY doc_count DESC, total_weight DESC
-      LIMIT ${limit}
-    `;
+    const blockedKeywords = await prisma.blockedKeyword.findMany({
+      select: { word: true },
+    });
+    const blockedWords = blockedKeywords.map((k) => k.word.toLowerCase());
+
+    let tags: any[];
+    if (blockedWords.length === 0) {
+      tags = await prisma.$queryRaw`
+        SELECT
+          word,
+          COUNT(DISTINCT document_id)::int as doc_count,
+          SUM(CAST(rank AS DOUBLE PRECISION))::float as total_weight
+        FROM "document_keywords"
+        GROUP BY word
+        HAVING COUNT(DISTINCT document_id) >= ${minDocs}
+        ORDER BY doc_count DESC, total_weight DESC
+        LIMIT ${limit}
+      `;
+    } else {
+      const placeholders = blockedWords.map((_, i) => `$${i + 2}`).join(", ");
+      const limitParam = blockedWords.length + 2;
+      tags = await prisma.$queryRawUnsafe(
+        `SELECT word, COUNT(DISTINCT document_id)::int as doc_count, SUM(CAST(rank AS DOUBLE PRECISION))::float as total_weight FROM "document_keywords" GROUP BY word HAVING COUNT(DISTINCT document_id) >= $1 AND LOWER(word) NOT IN (${placeholders}) ORDER BY doc_count DESC, total_weight DESC LIMIT $${limitParam}`,
+        minDocs,
+        ...blockedWords,
+        limit
+      );
+    }
 
     return json({ tags });
   },

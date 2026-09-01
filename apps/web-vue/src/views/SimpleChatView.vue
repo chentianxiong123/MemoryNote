@@ -270,6 +270,10 @@ function formatFullDate(value: string) {
 
 const canSend = computed(() => message.value.trim() && !isSending.value);
 
+const activeSession = computed(() =>
+  sessions.value.find((s) => s.id === activeSessionId.value) ?? null
+);
+
 function nextPage() {
   if (page.value < totalPages.value) {
     page.value++;

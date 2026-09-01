@@ -449,6 +449,22 @@ export async function triggerConversationResponse(
   });
 }
 
+export async function updateConversationTitle(
+  conversationId: string,
+  title: string,
+) {
+  return request<{ ok: boolean }>(`/api/v1/conversation/${conversationId}/update`, {
+    method: "PUT",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function deleteConversation(conversationId: string) {
+  return request<{ ok: boolean }>(`/api/v1/conversation/${conversationId}/delete`, {
+    method: "DELETE",
+  });
+}
+
 export async function fetchDocuments(params?: Record<string, string>) {
   const search = new URLSearchParams({
     limit: "20",

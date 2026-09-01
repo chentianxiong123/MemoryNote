@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 
 const router = useRouter();
 
-// 会话列表
 interface Session {
   id: string;
   title: string;
@@ -26,13 +25,25 @@ const message = ref("");
 const isSending = ref(false);
 const error = ref("");
 
+// Rename dialog
+const renameDialogOpen = ref(false);
+const renamingSession = ref<Session | null>(null);
+const renameInput = ref("");
+
+// Delete confirmation
+const deleteConfirmOpen = ref(false);
+const deletingSession = ref<Session | null>(null);
+
+// Hover tracking for action buttons
+const hoveredSessionId = ref<string | null>(null);
+
 async function loadSessions() {
   try {
-    const res = await fetch("/api/v1/conversations?limit=20", {
+    const res = await fetch("/api/v1/conversations?limit=50", {
       headers: { "Content-Type": "application/json" },
     });
     const data = await res.json();
-    sessions.value = data.conversations.map((c: any) => ({
+    sessions.value = (data.conversations ?? []).map((c: any) => ({
       id: c.id,
       title: c.title || "未命名对话",
       createdAt: c.createdAt,
@@ -116,7 +127,6 @@ async function sendMessage() {
 
   let sessionId = activeSessionId.value;
 
-  // 如果没有活跃会话，先创建
   if (!sessionId) {
     try {
       const session = await createSession(text.slice(0, 50));
@@ -131,7 +141,6 @@ async function sendMessage() {
   error.value = "";
   message.value = "";
 
-  // 确保 sessionId 不为 null
   if (!sessionId) {
     error.value = "请先选择或创建对话";
     isSending.value = false;
@@ -146,6 +155,55 @@ async function sendMessage() {
     error.value = err instanceof Error ? err.message : "发送失败";
   } finally {
     isSending.value = false;
+  }
+}
+
+function openRename(session: Session) {
+  renamingSession.value = session;
+  renameInput.value = session.title;
+  renameDialogOpen.value = true;
+}
+
+async function confirmRename() {
+  if (!renamingSession.value || !renameInput.value.trim()) return;
+  try {
+    await fetch(`/api/v1/conversation/${renamingSession.value.id}/update`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: renameInput.value.trim() }),
+    });
+    const session = sessions.value.find((s) => s.id === renamingSession.value!.id);
+    if (session) session.title = renameInput.value.trim();
+    renameDialogOpen.value = false;
+    renamingSession.value = null;
+  } catch (err) {
+    console.error("重命名失败:", err);
+  }
+}
+
+function openDeleteConfirm(session: Session) {
+  deletingSession.value = session;
+  deleteConfirmOpen.value = true;
+}
+
+async function confirmDelete() {
+  if (!deletingSession.value) return;
+  const sessionId = deletingSession.value.id;
+  try {
+    await fetch(`/api/v1/conversation/${sessionId}/delete`, {
+      method: "DELETE",
+    });
+    sessions.value = sessions.value.filter((s) => s.id !== sessionId);
+    if (activeSessionId.value === sessionId) {
+      activeSessionId.value = sessions.value[0]?.id ?? null;
+      if (activeSessionId.value) {
+        await loadSessionDetail(activeSessionId.value);
+      }
+    }
+    deleteConfirmOpen.value = false;
+    deletingSession.value = null;
+  } catch (err) {
+    console.error("删除失败:", err);
   }
 }
 
@@ -167,8 +225,8 @@ onMounted(() => {
     <!-- 消息区域 -->
     <main class="chat-main">
       <div class="chat-header">
-        <h2>💬 简单聊天</h2>
-        <p class="chat-subtitle">纯文本对话，无需 AI 配置</p>
+        <h2>💬 聊天记录</h2>
+        <p class="chat-subtitle">从 DeepSeek 导入的对话记录</p>
       </div>
 
       <div class="chat-messages">
@@ -216,22 +274,62 @@ onMounted(() => {
     <!-- 会话列表 -->
     <aside class="chat-sidebar">
       <div class="sidebar-header">
-        <h3>会话列表</h3>
+        <h3>会话列表 ({{ sessions.length }})</h3>
         <button class="button button--ghost" @click="createSession()">+ 新建</button>
       </div>
       <div class="session-list">
-        <button
+        <div
           v-for="session in sessions"
           :key="session.id"
-          class="session-item"
-          :class="{ 'session-item--active': session.id === activeSessionId }"
-          @click="selectSession(session.id)"
+          class="session-item-wrapper"
+          @mouseenter="hoveredSessionId = session.id"
+          @mouseleave="hoveredSessionId = null"
         >
-          <span class="session-item__title">{{ session.title || "未命名" }}</span>
-          <span class="session-item__time">{{ formatTime(session.updatedAt) }}</span>
-        </button>
+          <button
+            class="session-item"
+            :class="{ 'session-item--active': session.id === activeSessionId }"
+            @click="selectSession(session.id)"
+          >
+            <span class="session-item__title">{{ session.title || "未命名" }}</span>
+            <span class="session-item__time">{{ formatTime(session.updatedAt) }}</span>
+          </button>
+          <div v-if="hoveredSessionId === session.id" class="session-actions">
+            <button class="action-btn action-btn--edit" title="重命名" @click.stop="openRename(session)">✏️</button>
+            <button class="action-btn action-btn--delete" title="删除" @click.stop="openDeleteConfirm(session)">🗑️</button>
+          </div>
+        </div>
       </div>
     </aside>
+
+    <!-- 重命名对话框 -->
+    <div v-if="renameDialogOpen" class="modal-overlay" @click.self="renameDialogOpen = false">
+      <div class="modal">
+        <h3>重命名对话</h3>
+        <input
+          v-model="renameInput"
+          class="modal-input"
+          placeholder="输入新标题..."
+          maxlength="200"
+          @keydown.enter="confirmRename"
+        />
+        <div class="modal-actions">
+          <button class="button button--ghost" @click="renameDialogOpen = false">取消</button>
+          <button class="button button--primary" @click="confirmRename">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 删除确认对话框 -->
+    <div v-if="deleteConfirmOpen" class="modal-overlay" @click.self="deleteConfirmOpen = false">
+      <div class="modal modal--danger">
+        <h3>确认删除</h3>
+        <p>确定要删除对话「{{ deletingSession?.title }}」吗？此操作不可恢复。</p>
+        <div class="modal-actions">
+          <button class="button button--ghost" @click="deleteConfirmOpen = false">取消</button>
+          <button class="button button--danger" @click="confirmDelete">删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -409,9 +507,14 @@ onMounted(() => {
   min-height: 0;
 }
 
+.session-item-wrapper {
+  position: relative;
+}
+
 .session-item {
   width: 100%;
   padding: 8px 10px;
+  padding-right: 36px;
   border: 1px solid rgba(95, 64, 28, 0.08);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.6);
@@ -444,6 +547,44 @@ onMounted(() => {
 .session-item__time {
   font-size: 0.68rem;
   color: var(--text-soft);
+}
+
+.session-actions {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.session-item-wrapper:hover .session-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0;
+  transition: background 0.15s;
+}
+
+.action-btn--edit:hover {
+  background: rgba(201, 99, 61, 0.15);
+}
+
+.action-btn--delete:hover {
+  background: rgba(220, 50, 50, 0.15);
 }
 
 .button {
@@ -483,6 +624,73 @@ onMounted(() => {
   background: transparent;
   padding: 6px 10px;
   font-size: 0.8rem;
+}
+
+.button--danger {
+  background: rgba(220, 50, 50, 0.9);
+  color: white;
+  border: none;
+}
+
+.button--danger:hover {
+  background: rgba(200, 40, 40, 1);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: rgba(255, 250, 244, 0.98);
+  border: 1px solid rgba(95, 64, 28, 0.15);
+  border-radius: 16px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 24px 80px rgba(89, 50, 19, 0.15);
+}
+
+.modal h3 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.modal p {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(95, 64, 28, 0.2);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.8);
+  margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 @media (max-width: 820px) {

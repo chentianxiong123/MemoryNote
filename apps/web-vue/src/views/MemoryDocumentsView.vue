@@ -64,7 +64,11 @@ function previewText(content: string | undefined, maxLen = 100) {
 }
 
 function openDocument(doc: DocumentRecord) {
-  router.push({ name: "document-reader", params: { documentId: doc.id } });
+  if (doc.source === "对话" || doc.type === "conversation") {
+    router.push({ path: `/home/conversation/${doc.id}` });
+  } else {
+    router.push({ name: "document-reader", params: { documentId: doc.id } });
+  }
 }
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;

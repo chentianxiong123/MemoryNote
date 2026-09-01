@@ -4,14 +4,10 @@ import { useRouter } from "vue-router";
 
 import SectionCard from "@/components/SectionCard.vue";
 import {
-  fetchLabels,
-  createLabel,
-  deleteLabel,
   fetchTagCloud,
   fetchBlockedKeywords,
   blockKeyword,
   unblockKeyword,
-  type LabelRecord,
 } from "@/lib/api";
 
 const router = useRouter();
@@ -144,143 +140,57 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- 用户标签管理 -->
-    <SectionCard title="记忆标签" eyebrow="手动创建">
-      <p v-if="error" class="status status--error">{{ error }}</p>
+  <SectionCard title="关键词标签" eyebrow="自动提取">
+    <p v-if="loadingKeywords" class="status">加载中...</p>
+    <p v-else-if="keywords.length === 0" class="status status--error">暂无关键词</p>
 
-      <div class="toolbar">
-        <input v-model="search" class="input" placeholder="搜索标签..." />
-        <button class="btn btn--primary" @click="showCreate = !showCreate">
-          {{ showCreate ? "取消" : "+ 新建标签" }}
-        </button>
-        <div class="meta-card meta-card--compact">
-          <span class="meta-card__label">标签数量</span>
-          <strong>{{ filteredLabels.length }}</strong>
+    <div class="toolbar">
+      <input
+        v-model="search"
+        class="input"
+        placeholder="搜索关键词..."
+        style="flex: 1"
+      />
+      <div class="meta-card meta-card--compact">
+        <span class="meta-card__label">关键词总数</span>
+        <strong>{{ filteredKeywords.length }}</strong>
+      </div>
+    </div>
+
+    <div class="keyword-list">
+      <article
+        v-for="kw in filteredKeywords"
+        :key="kw.word"
+        class="keyword-item"
+      >
+        <span class="keyword-word">{{ kw.word }}</span>
+        <span class="keyword-count">{{ kw.doc_count }} 篇</span>
+        <div class="keyword-actions">
+          <button
+            class="btn btn--ghost btn--sm"
+            @click="viewKeywordDocs(kw.word)"
+          >
+            查看
+          </button>
+          <button
+            class="btn btn--sm"
+            :class="
+              blockedWords.has(kw.word.toLowerCase())
+                ? 'btn--danger'
+                : 'btn--secondary'
+            "
+            @click="toggleBlock(kw.word)"
+          >
+            {{ blockedWords.has(kw.word.toLowerCase()) ? "已屏蔽" : "屏蔽" }}
+          </button>
         </div>
-      </div>
+      </article>
+    </div>
 
-      <div v-if="showCreate" class="create-form">
-        <div class="form-row">
-          <label class="form-label">名称</label>
-          <input
-            v-model="newName"
-            class="input"
-            placeholder="如：AI、读书、灵感"
-            maxlength="100"
-          />
-        </div>
-        <div class="form-row">
-          <label class="form-label">描述（可选）</label>
-          <input
-            v-model="newDescription"
-            class="input"
-            placeholder="给这个标签加点说明"
-          />
-        </div>
-        <div class="form-row">
-          <label class="form-label">颜色</label>
-          <input v-model="newColor" class="input color-input" type="color" />
-        </div>
-        <button
-          class="btn btn--primary"
-          :disabled="creating"
-          @click="handleCreate"
-        >
-          {{ creating ? "创建中…" : "保存" }}
-        </button>
-      </div>
-
-      <div class="cluster-list">
-        <article
-          v-for="label in filteredLabels"
-          :key="label.id"
-          class="cluster-list__item"
-        >
-          <span
-            class="cluster-dot"
-            :style="{ backgroundColor: label.color }"
-          ></span>
-          <div class="cluster-list__content">
-            <h4>{{ label.name }}</h4>
-            <p>{{ label.description || "暂无描述" }}</p>
-          </div>
-          <div class="cluster-list__actions">
-            <button
-              class="btn btn--ghost btn--sm"
-              @click="viewLabelDocs(label)"
-            >
-              查看文档
-            </button>
-            <button
-              class="btn-icon"
-              title="删除标签"
-              @click="handleDelete(label)"
-            >
-              ×
-            </button>
-          </div>
-        </article>
-      </div>
-
-      <div v-if="filteredLabels.length === 0" class="empty-state">
-        <p>没有匹配的标签。</p>
-      </div>
-    </SectionCard>
-
-    <!-- 自动提取的关键词标签 -->
-    <SectionCard title="关键词标签" eyebrow="自动提取">
-      <p v-if="loadingKeywords" class="status">加载中...</p>
-      <p v-else-if="keywords.length === 0" class="status status--error">暂无关键词</p>
-
-      <div class="toolbar">
-        <input
-          v-model="search"
-          class="input"
-          placeholder="搜索关键词..."
-          style="flex: 1"
-        />
-        <div class="meta-card meta-card--compact">
-          <span class="meta-card__label">关键词总数</span>
-          <strong>{{ filteredKeywords.length }}</strong>
-        </div>
-      </div>
-
-      <div class="keyword-list">
-        <article
-          v-for="kw in filteredKeywords"
-          :key="kw.word"
-          class="keyword-item"
-        >
-          <span class="keyword-word">{{ kw.word }}</span>
-          <span class="keyword-count">{{ kw.doc_count }} 篇</span>
-          <div class="keyword-actions">
-            <button
-              class="btn btn--ghost btn--sm"
-              @click="viewKeywordDocs(kw.word)"
-            >
-              查看
-            </button>
-            <button
-              class="btn btn--sm"
-              :class="
-                blockedWords.has(kw.word.toLowerCase())
-                  ? 'btn--danger'
-                  : 'btn--secondary'
-              "
-              @click="toggleBlock(kw.word)"
-            >
-              {{ blockedWords.has(kw.word.toLowerCase()) ? "已屏蔽" : "屏蔽" }}
-            </button>
-          </div>
-        </article>
-      </div>
-
-      <div v-if="filteredKeywords.length === 0" class="empty-state">
-        <p>没有匹配的关键词。</p>
-      </div>
-    </SectionCard>
-  </div>
+    <div v-if="filteredKeywords.length === 0" class="empty-state">
+      <p>没有匹配的关键词。</p>
+    </div>
+  </SectionCard>
 </template>
 
 <style scoped>

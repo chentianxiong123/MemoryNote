@@ -18,6 +18,9 @@ const error = ref("");
 const search = ref("");
 const selectedSource = ref("");
 const activeKeyword = ref("");
+const hasMore = ref(false);
+const nextCursor = ref<string | null>(null);
+const loadingMore = ref(false);
 
 const tags = ref<Array<{ word: string; doc_count: number }>>([]);
 const loadingTags = ref(false);
@@ -158,22 +161,40 @@ async function submitImport() {
   }
 }
 
-async function loadDocuments() {
+async function loadDocuments(reset = true) {
+  if (reset) {
+    documents.value = [];
+    nextCursor.value = null;
+    hasMore.value = false;
+  }
+  loadingMore.value = true;
   try {
     const params: Record<string, string> = {};
     if (selectedSource.value) params.source = selectedSource.value;
     if (search.value.trim()) params.q = search.value.trim();
     if (activeKeyword.value) {
       const res = await searchDocumentsByKeyword(activeKeyword.value, 50);
-      documents.value = res.documents;
+      documents.value = reset ? res.documents : [...documents.value, ...res.documents];
+      hasMore.value = false;
       return;
     }
+    if (nextCursor.value) params.cursor = nextCursor.value;
     const response = await fetchDocuments(params);
-    documents.value = response.documents;
-    availableSources.value = response.availableSources;
+    if (reset) {
+      documents.value = response.documents;
+      availableSources.value = response.availableSources;
+    }
+    hasMore.value = response.hasMore;
+    nextCursor.value = response.nextCursor;
   } catch (err) {
     error.value = err instanceof Error ? err.message : "加载文档失败。";
+  } finally {
+    loadingMore.value = false;
   }
+}
+
+function loadMore() {
+  void loadDocuments(false);
 }
 
 watch(selectedSource, () => {
@@ -279,6 +300,12 @@ onMounted(() => {
 
     <div v-if="documents.length === 0" class="empty-state">
       <p>当前条件下没有文档。</p>
+    </div>
+
+    <div v-if="hasMore" class="load-more">
+      <button class="button" :disabled="loadingMore" @click="loadMore">
+        {{ loadingMore ? '加载中...' : '加载更多' }}
+      </button>
     </div>
 
     <Teleport to="body">
@@ -532,5 +559,15 @@ onMounted(() => {
 
 .tag-cloud__tag--active small {
   color: rgba(255,255,255,0.8);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.load-more button {
+  min-width: 120px;
 }
 </style>

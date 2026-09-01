@@ -11,6 +11,7 @@ interface Session {
   updatedAt: string;
   messageCount: number;
   lastMessage?: string;
+  messages?: Message[];
 }
 
 interface Message {
@@ -72,6 +73,7 @@ async function loadSessions(forceLoadFull = false) {
       updatedAt: c.updatedAt,
       messageCount: c._msgCount ?? 1,
       lastMessage: c.ConversationHistory?.[0]?.message ?? "",
+      messages: [],
     }));
 
     if (page.value === 1) {
@@ -106,6 +108,7 @@ async function loadSessionDetail(sessionId: string) {
     const session = sessions.value.find((s) => s.id === sessionId);
     if (session) {
       session.messageCount = messages.length;
+      session.messages = messages;
       session.lastMessage = messages[messages.length - 1]?.content?.slice(0, 50);
     }
     return messages;
@@ -118,9 +121,8 @@ async function loadSessionDetail(sessionId: string) {
 function selectSession(sessionId: string) {
   activeSessionId.value = sessionId;
   const session = sessions.value.find((s) => s.id === sessionId);
-  if (session && session.messageCount <= 1) {
-    void loadSessionDetail(sessionId);
-  }
+  // 始终加载详情（deepseek-export 对话初始无完整消息）
+  void loadSessionDetail(sessionId);
 }
 
 async function createSession(title?: string) {

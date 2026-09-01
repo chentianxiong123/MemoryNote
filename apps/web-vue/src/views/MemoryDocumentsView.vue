@@ -230,8 +230,8 @@ onMounted(() => {
 
     <div class="meta-grid">
       <div class="meta-card">
-        <span class="meta-card__label">文档数量</span>
-        <strong>{{ documents.length }}</strong>
+        <span class="meta-card__label">文档总数</span>
+        <strong>{{ totalCount }}</strong>
       </div>
       <div class="meta-card">
         <span class="meta-card__label">来源数量</span>

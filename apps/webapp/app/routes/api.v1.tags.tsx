@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "~/db.server";
 import { createHybridLoaderApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 
-// 默认屏蔽的纯数字关键词（避免无意义数字干扰）
 const DEFAULT_BLOCKED_PATTERNS = [/^\d+$/, /^-?\d+\.?\d*$/];
 
 function isDefaultValue(word: string): boolean {
@@ -27,7 +26,6 @@ const loader = createHybridLoaderApiRoute(
     const minDocs = parseInt(searchParams.minDocs || "2");
     const limit = parseInt(searchParams.limit || "100");
 
-    // 获取用户自定义屏蔽词
     const blockedKeywords = await prisma.blockedKeyword.findMany({
       select: { word: true },
     });
@@ -36,13 +34,24 @@ const loader = createHybridLoaderApiRoute(
     let tags: any[];
     if (blockedWords.length === 0) {
       tags = await prisma.$queryRaw`
-        SELECT
-          word,
-          COUNT(DISTINCT document_id)::int as doc_count,
-          SUM(CAST(rank AS DOUBLE PRECISION))::float as total_weight
-        FROM "document_keywords"
-        GROUP BY word
-        HAVING COUNT(DISTINCT document_id) >= ${minDocs}
+        SELECT word, doc_count, total_weight FROM (
+          SELECT
+            word,
+            COUNT(DISTINCT document_id)::int as doc_count,
+            SUM(CAST(rank AS DOUBLE PRECISION))::float as total_weight
+          FROM "document_keywords"
+          GROUP BY word
+          HAVING COUNT(DISTINCT document_id) >= ${minDocs}
+          
+          UNION ALL
+          
+          SELECT
+            word,
+            doc_count::int,
+            total_count::float
+          FROM "memorynote"."conversation_keywords"
+          WHERE doc_count >= ${minDocs}
+        ) combined
         ORDER BY doc_count DESC, total_weight DESC
         LIMIT ${limit}
       `;
@@ -57,9 +66,7 @@ const loader = createHybridLoaderApiRoute(
       );
     }
 
-    // 过滤默认屏蔽的纯数字关键词
     const filteredTags = tags.filter((t: any) => !isDefaultValue(t.word));
-
     return json({ tags: filteredTags });
   },
 );

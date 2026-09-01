@@ -195,25 +195,7 @@ export const getConversationAndHistory = async (
     include: {
       ConversationHistory: {
         orderBy: {
-          createdAt: "asc",
-        },
-      },
-    },
-  });
-
-  return conversation;
-};
-
-export const getOnboardingConversation = async (
-) => {
-  let conversation = await prisma.conversation.findFirst({
-    where: {
-      source: "onboarding-1",
-    },
-    include: {
-      ConversationHistory: {
-        orderBy: {
-          createdAt: "asc",
+          sortOrder: "asc",
         },
       },
     },
@@ -227,11 +209,11 @@ export const getOnboardingConversation = async (
         title: "Onboarding",
       },
       include: {
-        ConversationHistory: {
-          orderBy: {
-            createdAt: "asc",
-          },
+      ConversationHistory: {
+        orderBy: {
+          createdAt: "asc",
         },
+      },
       },
     });
   }

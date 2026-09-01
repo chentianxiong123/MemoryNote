@@ -23,6 +23,7 @@ const currentPage = ref(1);
 const totalPages = ref(1);
 const totalCount = ref(0);
 const loadingMore = ref(false);
+const keywordDocs = ref<DocumentRecord[]>([]); // 缓存关键词搜索结果用于分页
 
 const tags = ref<Array<{ word: string; doc_count: number }>>([]);
 const loadingTags = ref(false);
@@ -164,8 +165,8 @@ async function submitImport() {
 }
 
 async function loadDocuments(reset = true) {
-  // 关键词筛选时始终重置，因为每页都是完整的结果集
   const isKeywordSearch = activeKeyword.value.length > 0;
+  // 关键词筛选或初始化时重置；翻页时不重置但清空列表重新加载
   if (reset || isKeywordSearch) {
     documents.value = [];
     currentPage.value = 1;
@@ -176,19 +177,27 @@ async function loadDocuments(reset = true) {
     if (selectedSource.value) params.source = selectedSource.value;
     if (search.value.trim() && !isKeywordSearch) params.q = search.value.trim();
     if (activeKeyword.value) {
-      const res = await searchDocumentsByKeyword(activeKeyword.value, 50);
-      const docs = res?.documents || [];
-      documents.value = docs;
-      currentPage.value = 1;
-      totalPages.value = Math.ceil(docs.length / 20) || 1;
-      totalCount.value = docs.length;
+      // 关键词搜索：先加载第一页，后续翻页从缓存中切片
+      const res = await searchDocumentsByKeyword(activeKeyword.value, 100);
+      const allDocs = res?.documents || [];
+      if (reset || isKeywordSearch) {
+        documents.value = allDocs.slice(0, 20);
+        currentPage.value = 1;
+        totalPages.value = Math.ceil(allDocs.length / 20) || 1;
+        totalCount.value = allDocs.length;
+      } else {
+        // 翻页：从已加载的完整列表中切片
+        const start = (currentPage.value - 1) * 20;
+        const end = start + 20;
+        documents.value = allDocs.slice(start, end);
+      }
       return;
     }
     params.page = String(currentPage.value);
     params.limit = "20";
     const response = await fetchDocuments(params);
     documents.value = response?.documents || [];
-    if (reset || isKeywordSearch) {
+    if (reset) {
       availableSources.value = response?.availableSources || [];
     }
     totalPages.value = response?.totalPages || 1;

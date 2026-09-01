@@ -18,8 +18,9 @@ const error = ref("");
 const search = ref("");
 const selectedSource = ref("");
 const activeKeyword = ref("");
-const hasMore = ref(false);
-const nextCursor = ref<string | null>(null);
+const currentPage = ref(1);
+const totalPages = ref(1);
+const totalCount = ref(0);
 const loadingMore = ref(false);
 
 const tags = ref<Array<{ word: string; doc_count: number }>>([]);
@@ -164,8 +165,7 @@ async function submitImport() {
 async function loadDocuments(reset = true) {
   if (reset) {
     documents.value = [];
-    nextCursor.value = null;
-    hasMore.value = false;
+    currentPage.value = 1;
   }
   loadingMore.value = true;
   try {
@@ -175,17 +175,20 @@ async function loadDocuments(reset = true) {
     if (activeKeyword.value) {
       const res = await searchDocumentsByKeyword(activeKeyword.value, 50);
       documents.value = reset ? res.documents : [...documents.value, ...res.documents];
-      hasMore.value = false;
+      currentPage.value = 1;
+      totalPages.value = 1;
+      totalCount.value = res.documents.length;
       return;
     }
-    if (nextCursor.value) params.cursor = nextCursor.value;
+    params.page = String(currentPage.value);
+    params.limit = "20";
     const response = await fetchDocuments(params);
     if (reset) {
       documents.value = response.documents;
       availableSources.value = response.availableSources;
     }
-    hasMore.value = response.hasMore;
-    nextCursor.value = response.nextCursor;
+    totalPages.value = response.totalPages || 1;
+    totalCount.value = response.totalCount || 0;
   } catch (err) {
     error.value = err instanceof Error ? err.message : "加载文档失败。";
   } finally {
@@ -193,8 +196,22 @@ async function loadDocuments(reset = true) {
   }
 }
 
-function loadMore() {
+function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
   void loadDocuments(false);
+}
+
+function prevPage() {
+  if (currentPage.value > 1) {
+    goToPage(currentPage.value - 1);
+  }
+}
+
+function nextPage() {
+  if (currentPage.value < totalPages.value) {
+    goToPage(currentPage.value + 1);
+  }
 }
 
 watch(selectedSource, () => {
@@ -302,10 +319,10 @@ onMounted(() => {
       <p>当前条件下没有文档。</p>
     </div>
 
-    <div v-if="hasMore" class="load-more">
-      <button class="button" :disabled="loadingMore" @click="loadMore">
-        {{ loadingMore ? '加载中...' : '加载更多' }}
-      </button>
+    <div v-if="totalPages > 1" class="pagination">
+      <button class="page-btn" :disabled="currentPage === 1" @click="prevPage">上一页</button>
+      <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页 (共 {{ totalCount }} 篇)</span>
+      <button class="page-btn" :disabled="currentPage === totalPages" @click="nextPage">下一页</button>
     </div>
 
     <Teleport to="body">
@@ -561,13 +578,38 @@ onMounted(() => {
   color: rgba(255,255,255,0.8);
 }
 
-.load-more {
+.pagination {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 16px;
   padding: 20px 0;
 }
 
-.load-more button {
-  min-width: 120px;
+.page-btn {
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #475569;
+  transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 14px;
+  color: #64748b;
 }
 </style>

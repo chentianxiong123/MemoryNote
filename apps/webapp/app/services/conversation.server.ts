@@ -119,6 +119,17 @@ export async function deleteConversation(conversationId: string) {
   });
 }
 
+// Update conversation title
+export async function updateConversationTitle(
+  conversationId: string,
+  title: string,
+) {
+  return prisma.conversation.update({
+    where: { id: conversationId },
+    data: { title: title.substring(0, 200) },
+  });
+}
+
 export async function deleteConversationsBySource(
   source: string,
 ) {

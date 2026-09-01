@@ -5,6 +5,8 @@ import SectionCard from "@/components/SectionCard.vue";
 import {
   fetchDocuments,
   importDocument,
+  searchDocumentsByKeyword,
+  fetchTagCloud,
   type DocumentRecord,
 } from "@/lib/api";
 
@@ -15,6 +17,10 @@ const availableSources = ref<Array<{ name: string; slug: string }>>([]);
 const error = ref("");
 const search = ref("");
 const selectedSource = ref("");
+const activeKeyword = ref("");
+
+const tags = ref<Array<{ word: string; doc_count: number }>>([]);
+const loadingTags = ref(false);
 
 const showImport = ref(false);
 const importing = ref(false);
@@ -62,6 +68,34 @@ async function onSearchInput() {
   searchTimer = setTimeout(async () => {
     await loadDocuments();
   }, 300);
+}
+
+async function loadTags() {
+  loadingTags.value = true;
+  try {
+    const res = await fetchTagCloud(2, 80);
+    tags.value = res.tags.map((t: any) => ({ word: t.word, doc_count: t.doc_count }));
+  } catch (e) {
+    console.error("Failed to load tags", e);
+  } finally {
+    loadingTags.value = false;
+  }
+}
+
+function selectKeyword(keyword: string) {
+  if (activeKeyword.value === keyword) {
+    activeKeyword.value = "";
+  } else {
+    activeKeyword.value = keyword;
+    search.value = keyword;
+  }
+  void loadDocuments();
+}
+
+async function clearKeyword() {
+  activeKeyword.value = "";
+  search.value = "";
+  await loadDocuments();
 }
 
 function onFileSelected(event: Event) {
@@ -129,6 +163,11 @@ async function loadDocuments() {
     const params: Record<string, string> = {};
     if (selectedSource.value) params.source = selectedSource.value;
     if (search.value.trim()) params.q = search.value.trim();
+    if (activeKeyword.value) {
+      const res = await searchDocumentsByKeyword(activeKeyword.value, 50);
+      documents.value = res.documents;
+      return;
+    }
     const response = await fetchDocuments(params);
     documents.value = response.documents;
     availableSources.value = response.availableSources;
@@ -143,6 +182,7 @@ watch(selectedSource, () => {
 
 onMounted(() => {
   void loadDocuments();
+  void loadTags();
 });
 </script>
 
@@ -190,6 +230,31 @@ onMounted(() => {
       <button class="button button--ghost" @click="openManualImport">
         手动录入
       </button>
+    </div>
+
+    <div v-if="activeKeyword" class="keyword-filter">
+      <span class="keyword-filter__label">当前筛选：</span>
+      <span class="keyword-filter__tag">{{ activeKeyword }}</span>
+      <button class="keyword-filter__clear" @click="clearKeyword">✕</button>
+    </div>
+
+    <div class="tag-cloud">
+      <span class="tag-cloud__label">热门标签：</span>
+      <template v-if="loadingTags">
+        <span class="tag-cloud__loading">加载中...</span>
+      </template>
+      <template v-else>
+        <span
+          v-for="tag in tags"
+          :key="tag.word"
+          class="tag-cloud__tag"
+          :class="{ 'tag-cloud__tag--active': activeKeyword === tag.word }"
+          @click="selectKeyword(tag.word)"
+        >
+          {{ tag.word }}
+          <small>{{ tag.doc_count }}</small>
+        </span>
+      </template>
     </div>
 
     <div class="data-table">
@@ -373,5 +438,99 @@ onMounted(() => {
   gap: 10px;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+.keyword-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.keyword-filter__label {
+  color: #64748b;
+}
+
+.keyword-filter__tag {
+  background: #3b82f6;
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.keyword-filter__clear {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+
+.keyword-filter__clear:hover {
+  color: #64748b;
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.tag-cloud__label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.tag-cloud__loading {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.tag-cloud__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag-cloud__tag:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+.tag-cloud__tag--active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.tag-cloud__tag small {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.tag-cloud__tag--active small {
+  color: rgba(255,255,255,0.8);
 }
 </style>

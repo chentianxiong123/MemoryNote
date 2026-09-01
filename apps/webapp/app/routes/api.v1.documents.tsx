@@ -13,7 +13,6 @@ const DocumentsSearchParams = z.object({
   type: z.string().optional(),
   sessionId: z.string().optional(),
   label: z.string().optional(),
-  cursor: z.string().optional(), // cursor for pagination (createdAt timestamp)
   q: z.string().optional(),
 });
 
@@ -26,13 +25,12 @@ export const loader = createHybridLoaderApiRoute(
   },
   async ({ authentication, searchParams }) => {
     const page = parseInt(searchParams.page || "1");
-    const limit = parseInt(searchParams.limit || "25");
+    const limit = parseInt(searchParams.limit || "20");
     const source = searchParams.source;
     const status = searchParams.status;
     const type = searchParams.type;
     const sessionId = searchParams.sessionId;
     const label = searchParams.label;
-    const cursor = searchParams.cursor; // Cursor is a createdAt timestamp
     const q = searchParams.q;
 
     if (!"personal") {
@@ -96,13 +94,6 @@ export const loader = createHybridLoaderApiRoute(
       }
     }
 
-    // Add cursor condition for pagination
-    if (cursor) {
-      whereClause.createdAt = {
-        lt: new Date(cursor),
-      };
-    }
-
     // Add text search on title and content
     if (q && q.trim()) {
       whereClause.OR = [
@@ -111,6 +102,9 @@ export const loader = createHybridLoaderApiRoute(
       ];
     }
 
+    // Calculate skip for page-based pagination
+    const skip = Math.max(0, (page - 1) * limit);
+
     // Fetch Documents with simple pagination - no deduplication
     const [documents, totalCount] = await Promise.all([
       prisma.document.findMany({
@@ -118,6 +112,7 @@ export const loader = createHybridLoaderApiRoute(
         orderBy: {
           createdAt: "desc",
         },
+        skip: skip,
         take: limit,
       }),
       prisma.document.count({
@@ -125,14 +120,10 @@ export const loader = createHybridLoaderApiRoute(
       }),
     ]);
 
-    // Check if there are more results for hasMore flag
-    const hasMore = documents.length === limit && totalCount > limit;
-
-    // Get the cursor for the next page (last item's createdAt)
-    const nextCursor =
-      documents.length > 0
-        ? documents[documents.length - 1].createdAt.toISOString()
-        : null;
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
 
     // Get document IDs for ingestion queue lookups
     const documentIds = documents
@@ -192,8 +183,9 @@ export const loader = createHybridLoaderApiRoute(
       documents: documentsWithQueueData,
       page,
       limit,
-      hasMore,
-      nextCursor, // Client uses this for next page instead of page number
+      totalPages,
+      hasNextPage,
+      hasPrevPage,
       availableSources,
       totalCount,
     });

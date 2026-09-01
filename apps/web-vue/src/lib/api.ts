@@ -481,7 +481,7 @@ export async function deleteDocumentApi(documentId: string) {
 
 export async function searchDocumentsByKeyword(keyword: string, limit = 25) {
   return request<{ documents: DocumentRecord[]; keyword: string }>(
-    `/api/v1/documents/keyword?keyword=${encodeURIComponent(keyword)}&limit=${limit}`
+    `/api/v1/keyword-search?keyword=${encodeURIComponent(keyword)}&limit=${limit}`
   );
 }
 

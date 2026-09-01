@@ -479,6 +479,18 @@ export async function deleteDocumentApi(documentId: string) {
   });
 }
 
+export async function searchDocumentsByKeyword(keyword: string, limit = 25) {
+  return request<{ documents: DocumentRecord[]; keyword: string }>(
+    `/api/v1/documents/keyword?keyword=${encodeURIComponent(keyword)}&limit=${limit}`
+  );
+}
+
+export async function fetchTagCloud(minDocs = 2, limit = 100) {
+  return request<{ tags: Array<{ word: string; doc_count: number; total_weight: number }> }>(
+    `/api/v1/tags?minDocs=${minDocs}&limit=${limit}`
+  );
+}
+
 export async function fetchLabels(search = "") {
   const query = new URLSearchParams();
   if (search.trim()) query.set("search", search.trim());

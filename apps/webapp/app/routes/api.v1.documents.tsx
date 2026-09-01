@@ -4,7 +4,6 @@ import { prisma } from "~/db.server";
 
 import { createHybridLoaderApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 
-// Schema for logs search parameters
 const DocumentsSearchParams = z.object({
   page: z.string().optional(),
   limit: z.string().optional(),
@@ -27,27 +26,26 @@ export const loader = createHybridLoaderApiRoute(
     const page = parseInt(searchParams.page || "1");
     const limit = parseInt(searchParams.limit || "20");
     const source = searchParams.source;
-    const status = searchParams.status;
-    const type = searchParams.type;
-    const sessionId = searchParams.sessionId;
-    const label = searchParams.label;
     const q = searchParams.q;
 
     if (!"personal") {
       throw new Response("Workspace not found", { status: 404 });
     }
 
-    // Get unique sources from document data field using raw SQL
-    const uniqueDataSources = await prisma.$queryRaw<Array<{ source: string }>>`
-      SELECT DISTINCT source
-      FROM "Document"
-      WHERE deleted IS NULL AND source IS NOT NULL
-      ORDER BY source
-    `;
+    // Build available sources list
+    const [docSourcesResult, convSourcesResult] = await Promise.all([
+      prisma.$queryRaw<Array<{ source: string }>>`
+        SELECT DISTINCT source FROM "Document"
+        WHERE deleted IS NULL AND source IS NOT NULL ORDER BY source
+      `,
+      prisma.$queryRaw<Array<{ source: string }>>`
+        SELECT '对话' as source
+        WHERE EXISTS (SELECT 1 FROM "Conversation" WHERE source='deepseek-export' AND deleted IS NULL LIMIT 1)
+      `,
+    ]);
 
-    // Build sources map from data sources
     const sourcesMap = new Map<string, { name: string; slug: string }>();
-    uniqueDataSources.forEach(({ source }) => {
+    docSourcesResult.forEach(({ source }) => {
       if (source) {
         const slug = source.toLowerCase().replace(/\s+/g, "-");
         if (!sourcesMap.has(slug)) {
@@ -55,123 +53,105 @@ export const loader = createHybridLoaderApiRoute(
         }
       }
     });
-
+    convSourcesResult.forEach(({ source }) => {
+      if (source && !sourcesMap.has(source.toLowerCase())) {
+        sourcesMap.set(source.toLowerCase(), { name: source, slug: source.toLowerCase() });
+      }
+    });
     const availableSources = Array.from(sourcesMap.values());
 
-    // Build where clause for filtering
-    const whereClause: any = {
-      deleted: null,
-    };
+    const skip = Math.max(0, (page - 1) * limit);
 
-    if (sessionId) {
-      whereClause.sessionId = sessionId;
+    // Handle 对话 source
+    if (source === "对话" || source === "conversation") {
+      const whereClause: any = {
+        deleted: null,
+      };
+      if (q?.trim()) {
+        whereClause.title = { contains: q.trim(), mode: "insensitive" };
+      }
+
+      const [conversations, totalCount] = await Promise.all([
+        prisma.conversation.findMany({
+          where: whereClause,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+          select: { id: true, title: true, createdAt: true, updatedAt: true, source: true },
+        }),
+        prisma.conversation.count({ where: whereClause }),
+      ]);
+
+      const docs = conversations.map((c) => ({
+        id: c.id,
+        title: c.title || "(无标题)",
+        source: "对话",
+        type: "conversation",
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+        status: null,
+        ingestionQueueCount: 0,
+        labelIds: [],
+      }));
+
+      return json({
+        documents: docs,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNextPage: page < Math.ceil(totalCount / limit),
+        hasPrevPage: page > 1,
+        availableSources,
+        totalCount,
+      });
     }
+
+    // Default: Document table
+    const whereClause: any = { deleted: null };
 
     if (source) {
       whereClause.source = source;
     }
 
-    if (status) {
-      whereClause.status = status;
-    }
-
-    if (type) {
-      whereClause.type = type;
-    } else {
-      // Exclude skill documents by default
-      whereClause.type = { not: "skill" };
-    }
-
-    if (label) {
-      if (label === "no_label") {
-        whereClause.labelIds = {
-          isEmpty: true,
-        };
-      } else {
-        whereClause.labelIds = {
-          has: label,
-        };
-      }
-    }
-
-    // Add text search on title and content
-    if (q && q.trim()) {
+    if (q?.trim()) {
       whereClause.OR = [
-        { title: { contains: q, mode: "insensitive" } },
-        { content: { contains: q, mode: "insensitive" } },
+        { title: { contains: q.trim(), mode: "insensitive" } },
+        { content: { contains: q.trim(), mode: "insensitive" } },
       ];
     }
 
-    // Calculate skip for page-based pagination
-    const skip = Math.max(0, (page - 1) * limit);
-
-    // Fetch Documents with simple pagination - no deduplication
     const [documents, totalCount] = await Promise.all([
       prisma.document.findMany({
         where: whereClause,
-        orderBy: {
-          createdAt: "desc",
-        },
-        skip: skip,
+        orderBy: { createdAt: "desc" },
+        skip,
         take: limit,
       }),
-      prisma.document.count({
-        where: whereClause,
-      }),
+      prisma.document.count({ where: whereClause }),
     ]);
 
-    // Calculate pagination info
-    const totalPages = Math.ceil(totalCount / limit);
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
+    const documentIds = documents.map((d) => d.sessionId).filter(Boolean) as string[];
 
-    // Get document IDs for ingestion queue lookups
-    const documentIds = documents
-      .map((d) => d.sessionId)
-      .filter(Boolean) as string[];
-
-    // Fetch latest ingestion logs and counts in parallel for all documents
     const [latestLogs, queueCounts] =
       documentIds.length > 0
         ? await Promise.all([
-            // Get latest log for each sessionId (document.id)
             prisma.ingestionQueue.findMany({
-              where: {
-                sessionId: { in: documentIds },
-              },
-              select: {
-                id: true,
-                sessionId: true,
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-                error: true,
-              },
-              orderBy: {
-                createdAt: "desc",
-              },
+              where: { sessionId: { in: documentIds } },
+              select: { id: true, sessionId: true, status: true, error: true },
+              orderBy: { createdAt: "desc" },
               distinct: ["sessionId"],
             }),
-            // Get count for each sessionId
             prisma.ingestionQueue.groupBy({
               by: ["sessionId"],
-              where: {
-                sessionId: { in: documentIds },
-              },
-              _count: {
-                id: true,
-              },
+              where: { sessionId: { in: documentIds } },
+              _count: { id: true },
             }),
           ])
         : [[], []];
 
-    // Create lookup maps for O(1) access
     const latestLogMap = new Map(latestLogs.map((log) => [log.sessionId, log]));
-    const countMap = new Map(
-      queueCounts.map((count) => [count.sessionId, count._count.id]),
-    );
+    const countMap = new Map(queueCounts.map((count) => [count.sessionId, count._count.id]));
 
-    // Augment documents with ingestion queue data
     const documentsWithQueueData = documents.map((doc) => ({
       ...doc,
       status: latestLogMap.get(doc.sessionId)?.status || null,
@@ -183,9 +163,9 @@ export const loader = createHybridLoaderApiRoute(
       documents: documentsWithQueueData,
       page,
       limit,
-      totalPages,
-      hasNextPage,
-      hasPrevPage,
+      totalPages: Math.ceil(totalCount / limit),
+      hasNextPage: page < Math.ceil(totalCount / limit),
+      hasPrevPage: page > 1,
       availableSources,
       totalCount,
     });

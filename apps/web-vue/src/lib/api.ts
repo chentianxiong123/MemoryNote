@@ -77,6 +77,7 @@ export interface LabelRecord {
   name: string;
   color: string;
   description?: string | null;
+  documentCount?: number;
 }
 
 export interface GraphNodeRecord {

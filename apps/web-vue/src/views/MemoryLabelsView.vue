@@ -134,7 +134,7 @@ onMounted(() => {
         <span class="cluster-dot" :style="{ backgroundColor: label.color }"></span>
         <div class="cluster-list__content">
           <h4>{{ label.name }}</h4>
-          <p>{{ label.description || "暂无描述" }}</p>
+          <p>{{ label.description || "暂无描述" }}<span v-if="label.documentCount != null" class="doc-count">({{ label.documentCount }}篇文档)</span></p>
         </div>
         <div class="cluster-list__actions">
           <button class="btn btn--ghost btn--sm" @click="viewLabelDocs(label)">查看文档</button>
@@ -223,5 +223,10 @@ onMounted(() => {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border-color: rgba(239, 68, 68, 0.3);
+}
+.doc-count {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-left: 4px;
 }
 </style>

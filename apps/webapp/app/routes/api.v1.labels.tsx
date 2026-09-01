@@ -31,9 +31,18 @@ export async function loader({ request }: { request: Request }) {
   if (!parsed.success) {
     return json({ error: "Invalid query" }, { status: 400 });
   }
-  const labels = await new LabelService().getWorkspaceLabels(
+  const searchParam = parsed.data.search;
+
+  if (searchParam) {
+    const labels = await new LabelService().getWorkspaceLabels(
+      "personal",
+      searchParam,
+    );
+    return json(labels, { headers: corsHeaders() });
+  }
+
+  const labels = await new LabelService().getWorkspaceLabelsWithCounts(
     "personal",
-    parsed.data.search,
   );
   return json(labels, { headers: corsHeaders() });
 }

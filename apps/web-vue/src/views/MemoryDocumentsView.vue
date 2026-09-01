@@ -163,7 +163,9 @@ async function submitImport() {
 }
 
 async function loadDocuments(reset = true) {
-  if (reset) {
+  // 关键词筛选时始终重置，因为每页都是完整的结果集
+  const isKeywordSearch = activeKeyword.value.length > 0;
+  if (reset || isKeywordSearch) {
     documents.value = [];
     currentPage.value = 1;
   }
@@ -171,24 +173,25 @@ async function loadDocuments(reset = true) {
   try {
     const params: Record<string, string> = {};
     if (selectedSource.value) params.source = selectedSource.value;
-    if (search.value.trim()) params.q = search.value.trim();
+    if (search.value.trim() && !isKeywordSearch) params.q = search.value.trim();
     if (activeKeyword.value) {
       const res = await searchDocumentsByKeyword(activeKeyword.value, 50);
-      documents.value = reset ? res.documents : [...documents.value, ...res.documents];
+      const docs = res?.documents || [];
+      documents.value = docs;
       currentPage.value = 1;
-      totalPages.value = 1;
-      totalCount.value = res.documents.length;
+      totalPages.value = Math.ceil(docs.length / 20) || 1;
+      totalCount.value = docs.length;
       return;
     }
     params.page = String(currentPage.value);
     params.limit = "20";
     const response = await fetchDocuments(params);
-    documents.value = response.documents;
-    if (reset) {
-      availableSources.value = response.availableSources;
+    documents.value = response?.documents || [];
+    if (reset || isKeywordSearch) {
+      availableSources.value = response?.availableSources || [];
     }
-    totalPages.value = response.totalPages || 1;
-    totalCount.value = response.totalCount || 0;
+    totalPages.value = response?.totalPages || 1;
+    totalCount.value = response?.totalCount || 0;
   } catch (err) {
     error.value = err instanceof Error ? err.message : "加载文档失败。";
   } finally {

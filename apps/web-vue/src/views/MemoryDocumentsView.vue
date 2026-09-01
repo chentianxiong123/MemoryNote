@@ -63,6 +63,11 @@ function previewText(content: string | undefined, maxLen = 100) {
   return clean.length > maxLen ? clean.slice(0, maxLen) + "..." : clean;
 }
 
+function conversationPreview(doc: DocumentRecord) {
+  if (doc.source === "对话") return `${doc.id ? "📋 查看对话" : "—"}`;
+  return previewText(doc.content);
+}
+
 function openDocument(doc: DocumentRecord) {
   if (doc.source === "对话" || doc.type === "conversation") {
     router.push({ path: `/home/conversation/${doc.id}` });
@@ -332,7 +337,7 @@ onMounted(() => {
         @click="openDocument(document)"
       >
         <span class="doc-title">{{ document.title }}</span>
-        <span class="doc-preview">{{ previewText(document.content) }}</span>
+        <span class="doc-preview">{{ conversationPreview(document) }}</span>
         <span>{{ document.source || "手动录入" }}</span>
         <span>{{ formatDateTime(document.createdAt) }}</span>
       </div>

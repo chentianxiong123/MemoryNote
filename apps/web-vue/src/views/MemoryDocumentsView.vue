@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import SectionCard from "@/components/SectionCard.vue";
 import {
   fetchDocuments,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 
 const router = useRouter();
+const route = useRoute();
 
 const documents = ref<DocumentRecord[]>([]);
 const availableSources = ref<Array<{ name: string; slug: string }>>([]);
@@ -222,6 +223,12 @@ watch(selectedSource, () => {
 });
 
 onMounted(() => {
+  // 从标签页跳转过来时，自动搜索
+  const q = route.query.q as string;
+  if (q) {
+    search.value = q;
+    activeKeyword.value = q;
+  }
   void loadDocuments();
   void loadTags();
 });

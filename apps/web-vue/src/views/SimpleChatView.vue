@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
@@ -9,7 +9,8 @@ interface Session {
   title: string;
   createdAt: string;
   updatedAt: string;
-  messages: Message[];
+  messageCount: number;
+  lastMessage?: string;
 }
 
 interface Message {
@@ -25,6 +26,13 @@ const message = ref("");
 const isSending = ref(false);
 const error = ref("");
 
+// Pagination
+const page = ref(1);
+const pageSize = 50;
+const total = ref(0);
+const totalPages = ref(0);
+const isLoadingList = ref(false);
+
 // Rename dialog
 const renameDialogOpen = ref(false);
 const renamingSession = ref<Session | null>(null);
@@ -34,33 +42,55 @@ const renameInput = ref("");
 const deleteConfirmOpen = ref(false);
 const deletingSession = ref<Session | null>(null);
 
-// Hover tracking for action buttons
+// Hover tracking
 const hoveredSessionId = ref<string | null>(null);
 
-async function loadSessions() {
+// Search
+const searchQuery = ref("");
+
+async function loadSessions(forceLoadFull = false) {
+  isLoadingList.value = true;
   try {
-    const res = await fetch("/api/v1/conversations?limit=50", {
+    const params = new URLSearchParams({
+      limit: String(forceLoadFull ? total.value : pageSize),
+      page: String(page.value),
+      ...(searchQuery.value ? { search: searchQuery.value } : {}),
+    });
+    const res = await fetch(`/api/v1/conversations?${params}`, {
       headers: { "Content-Type": "application/json" },
     });
     const data = await res.json();
-    sessions.value = (data.conversations ?? []).map((c: any) => ({
+    const convs = data.conversations ?? [];
+    total.value = data.pagination?.total ?? 0;
+    totalPages.value = data.pagination?.totalPages ?? 1;
+
+    // Enrich with message counts
+    const enriched: Session[] = convs.map((c: any) => ({
       id: c.id,
       title: c.title || "未命名对话",
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
-      messages: [],
+      messageCount: c._msgCount ?? 1,
+      lastMessage: c.ConversationHistory?.[0]?.message ?? "",
     }));
-    if (sessions.value.length > 0 && !activeSessionId.value) {
-      activeSessionId.value = sessions.value[0].id;
+
+    if (page.value === 1) {
+      sessions.value = enriched;
+    } else {
+      sessions.value = [...sessions.value, ...enriched];
     }
-    if (activeSessionId.value) {
-      await loadSessionDetail(activeSessionId.value);
+
+    if (!activeSessionId.value && sessions.value.length > 0) {
+      activeSessionId.value = sessions.value[0].id;
     }
   } catch (err) {
     console.error("加载会话失败:", err);
+  } finally {
+    isLoadingList.value = false;
   }
 }
 
+// Override loadSessionDetail to fetch ALL messages
 async function loadSessionDetail(sessionId: string) {
   try {
     const res = await fetch(`/api/v1/conversation/${sessionId}`, {
@@ -70,21 +100,25 @@ async function loadSessionDetail(sessionId: string) {
     const messages: Message[] = (data.ConversationHistory ?? []).map((h: any) => ({
       id: h.id,
       role: h.role === "assistant" ? "assistant" : "user",
-      content:
-        h.parts?.find((p: any) => p.type === "text")?.text || h.message || "",
+      content: h.parts?.find((p: any) => p.type === "text")?.text || h.message || "",
       createdAt: h.createdAt,
     }));
     const session = sessions.value.find((s) => s.id === sessionId);
-    if (session) session.messages = messages;
+    if (session) {
+      session.messageCount = messages.length;
+      session.lastMessage = messages[messages.length - 1]?.content?.slice(0, 50);
+    }
+    return messages;
   } catch (err) {
     console.error("加载会话详情失败:", err);
+    return [];
   }
 }
 
 function selectSession(sessionId: string) {
   activeSessionId.value = sessionId;
   const session = sessions.value.find((s) => s.id === sessionId);
-  if (session && session.messages.length === 0) {
+  if (session && session.messageCount <= 1) {
     void loadSessionDetail(sessionId);
   }
 }
@@ -97,7 +131,13 @@ async function createSession(title?: string) {
       body: JSON.stringify({ title }),
     });
     const session = await res.json();
-    sessions.value.unshift(session);
+    sessions.value.unshift({
+      id: session.id,
+      title: session.title || "未命名对话",
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      messageCount: 0,
+    });
     activeSessionId.value = session.id;
     return session;
   } catch (err) {
@@ -113,8 +153,7 @@ async function sendReply(sessionId: string, text: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversationId: sessionId, message: text }),
     });
-    const reply = await res.json();
-    return reply;
+    return await res.json();
   } catch (err) {
     console.error("发送消息失败:", err);
     throw err;
@@ -126,7 +165,6 @@ async function sendMessage() {
   if (!text || isSending.value) return;
 
   let sessionId = activeSessionId.value;
-
   if (!sessionId) {
     try {
       const session = await createSession(text.slice(0, 50));
@@ -148,7 +186,7 @@ async function sendMessage() {
   }
 
   try {
-    const reply = await sendReply(sessionId, text);
+    await sendReply(sessionId, text);
     await loadSessionDetail(sessionId);
     await loadSessions();
   } catch (err) {
@@ -207,13 +245,49 @@ async function confirmDelete() {
   }
 }
 
-function formatTime(value: string) {
+function formatDateTime(value: string) {
   if (!value) return "";
   const date = new Date(value);
-  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  if (diffDays === 1) return "昨天";
+  if (diffDays < 7) return `${diffDays}天前`;
+  return date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+}
+
+function formatFullDate(value: string) {
+  if (!value) return "";
+  return new Date(value).toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 const canSend = computed(() => message.value.trim() && !isSending.value);
+
+function nextPage() {
+  if (page.value < totalPages.value) {
+    page.value++;
+    void loadSessions();
+  }
+}
+
+function prevPage() {
+  if (page.value > 1) {
+    page.value--;
+    void loadSessions(true);
+  }
+}
+
+watch(searchQuery, () => {
+  page.value = 1;
+  void loadSessions(true);
+});
 
 onMounted(() => {
   void loadSessions();
@@ -221,38 +295,42 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="simple-chat">
-    <!-- 消息区域 -->
+  <div class="chat-layout">
+    <!-- 主区域：消息 + 输入 -->
     <main class="chat-main">
       <div class="chat-header">
-        <h2>💬 聊天记录</h2>
-        <p class="chat-subtitle">从 DeepSeek 导入的对话记录</p>
+        <h2>{{ activeSession ? activeSession.title : '选择对话' }}</h2>
+        <span v-if="activeSession" class="chat-meta">
+          {{ activeSession.messageCount }} 条消息 · {{ formatFullDate(activeSession.updatedAt) }}
+        </span>
       </div>
 
       <div class="chat-messages">
-        <div v-if="sessions.length === 0" class="empty-chat">
+        <div v-if="sessions.length === 0 && !isLoadingList" class="empty-chat">
           <p>还没有对话</p>
           <button class="button button--primary" @click="createSession()">开始新对话</button>
         </div>
         <div v-else-if="!activeSessionId" class="empty-chat">
-          <p>选择一个会话开始对话</p>
+          <p>从左侧选择一个对话</p>
         </div>
         <div v-else class="messages-container">
           <div
-            v-for="msg in (sessions.find(s => s.id === activeSessionId)?.messages || [])"
+            v-for="msg in (activeSession?.messages || [])"
             :key="msg.id"
             class="message"
             :class="`message--${msg.role}`"
           >
             <div class="message__bubble">
               <p class="message__text">{{ msg.content }}</p>
-              <span class="message__time">{{ formatTime(msg.createdAt) }}</span>
+              <span class="message__time">{{ formatDateTime(msg.createdAt) }}</span>
             </div>
+          </div>
+          <div v-if="(!activeSession?.messages || activeSession.messages.length === 0)" class="empty-msgs">
+            <p>该对话暂无消息内容</p>
           </div>
         </div>
       </div>
 
-      <!-- 输入区域 -->
       <div class="chat-input">
         <textarea
           v-model="message"
@@ -271,13 +349,23 @@ onMounted(() => {
       </div>
     </main>
 
-    <!-- 会话列表 -->
+    <!-- 侧边栏：会话列表 -->
     <aside class="chat-sidebar">
       <div class="sidebar-header">
-        <h3>会话列表 ({{ sessions.length }})</h3>
+        <h3>对话列表 ({{ total }})</h3>
         <button class="button button--ghost" @click="createSession()">+ 新建</button>
       </div>
+
+      <input
+        v-model="searchQuery"
+        class="sidebar-search"
+        placeholder="搜索标题..."
+      />
+
       <div class="session-list">
+        <div v-if="isLoadingList" class="loading-state">
+          <span>加载中...</span>
+        </div>
         <div
           v-for="session in sessions"
           :key="session.id"
@@ -290,8 +378,11 @@ onMounted(() => {
             :class="{ 'session-item--active': session.id === activeSessionId }"
             @click="selectSession(session.id)"
           >
-            <span class="session-item__title">{{ session.title || "未命名" }}</span>
-            <span class="session-item__time">{{ formatTime(session.updatedAt) }}</span>
+            <span class="session-item__title">{{ session.title }}</span>
+            <div class="session-item__footer">
+              <span class="session-item__time">{{ formatDateTime(session.updatedAt) }}</span>
+              <span class="session-item__count">{{ session.messageCount }}条</span>
+            </div>
           </button>
           <div v-if="hoveredSessionId === session.id" class="session-actions">
             <button class="action-btn action-btn--edit" title="重命名" @click.stop="openRename(session)">✏️</button>
@@ -299,9 +390,16 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
+      <!-- 分页 -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="page === 1" @click="prevPage">上一页</button>
+        <span class="page-info">{{ page }} / {{ totalPages }}</span>
+        <button class="page-btn" :disabled="page === totalPages" @click="nextPage">下一页</button>
+      </div>
     </aside>
 
-    <!-- 重命名对话框 -->
+    <!-- 重命名弹窗 -->
     <div v-if="renameDialogOpen" class="modal-overlay" @click.self="renameDialogOpen = false">
       <div class="modal">
         <h3>重命名对话</h3>
@@ -319,7 +417,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 删除确认对话框 -->
+    <!-- 删除确认弹窗 -->
     <div v-if="deleteConfirmOpen" class="modal-overlay" @click.self="deleteConfirmOpen = false">
       <div class="modal modal--danger">
         <h3>确认删除</h3>
@@ -334,13 +432,15 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.simple-chat {
+.chat-layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 340px;
   height: calc(100vh - 80px);
   min-height: 500px;
+  gap: 12px;
 }
 
+/* 主区域 */
 .chat-main {
   display: flex;
   flex-direction: column;
@@ -359,13 +459,13 @@ onMounted(() => {
 
 .chat-header h2 {
   margin: 0 0 4px;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
-.chat-subtitle {
-  margin: 0;
+.chat-meta {
+  font-size: 0.78rem;
   color: var(--text-soft);
-  font-size: 0.85rem;
 }
 
 .chat-messages {
@@ -385,6 +485,15 @@ onMounted(() => {
   color: var(--text-soft);
 }
 
+.empty-msgs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
 .messages-container {
   display: flex;
   flex-direction: column;
@@ -401,16 +510,11 @@ onMounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.message--user {
-  justify-content: flex-end;
-}
-
-.message--assistant {
-  justify-content: flex-start;
-}
+.message--user { justify-content: flex-end; }
+.message--assistant { justify-content: flex-start; }
 
 .message__bubble {
-  max-width: 75%;
+  max-width: 80%;
   padding: 10px 14px;
   border-radius: 14px;
   position: relative;
@@ -430,17 +534,17 @@ onMounted(() => {
 
 .message__text {
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 
 .message__time {
   display: block;
   margin-top: 4px;
-  font-size: 0.7rem;
-  opacity: 0.6;
+  font-size: 0.68rem;
+  opacity: 0.55;
   text-align: right;
 }
 
@@ -474,6 +578,7 @@ onMounted(() => {
   border-color: var(--accent);
 }
 
+/* 侧边栏 */
 .chat-sidebar {
   background: rgba(255, 250, 244, 0.84);
   border-radius: 20px;
@@ -498,6 +603,23 @@ onMounted(() => {
   font-size: 0.95rem;
 }
 
+.sidebar-search {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(95, 64, 28, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.sidebar-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .session-list {
   display: flex;
   flex-direction: column;
@@ -505,6 +627,13 @@ onMounted(() => {
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-soft);
+  font-size: 0.85rem;
 }
 
 .session-item-wrapper {
@@ -544,9 +673,23 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
+.session-item__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .session-item__time {
   font-size: 0.68rem;
   color: var(--text-soft);
+}
+
+.session-item__count {
+  font-size: 0.65rem;
+  color: var(--text-soft);
+  background: rgba(201, 99, 61, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
 }
 
 .session-actions {
@@ -579,14 +722,46 @@ onMounted(() => {
   transition: background 0.15s;
 }
 
-.action-btn--edit:hover {
-  background: rgba(201, 99, 61, 0.15);
+.action-btn--edit:hover { background: rgba(201, 99, 61, 0.15); }
+.action-btn--delete:hover { background: rgba(220, 50, 50, 0.15); }
+
+/* 分页 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(95, 64, 28, 0.08);
+  flex-shrink: 0;
 }
 
-.action-btn--delete:hover {
-  background: rgba(220, 50, 50, 0.15);
+.page-btn {
+  padding: 4px 12px;
+  border: 1px solid rgba(95, 64, 28, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
+.page-btn:hover:not(:disabled) {
+  background: rgba(201, 99, 61, 0.1);
+  border-color: rgba(201, 99, 61, 0.3);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 0.75rem;
+  color: var(--text-soft);
+}
+
+/* 通用按钮 */
 .button {
   display: inline-flex;
   align-items: center;
@@ -632,9 +807,7 @@ onMounted(() => {
   border: none;
 }
 
-.button--danger:hover {
-  background: rgba(200, 40, 40, 1);
-}
+.button--danger:hover { background: rgba(200, 40, 40, 1); }
 
 /* Modal */
 .modal-overlay {
@@ -658,17 +831,8 @@ onMounted(() => {
   box-shadow: 0 24px 80px rgba(89, 50, 19, 0.15);
 }
 
-.modal h3 {
-  margin: 0 0 12px;
-  font-size: 1.1rem;
-}
-
-.modal p {
-  margin: 0 0 16px;
-  font-size: 0.9rem;
-  color: var(--text-soft);
-  line-height: 1.5;
-}
+.modal h3 { margin: 0 0 12px; font-size: 1.1rem; }
+.modal p { margin: 0 0 16px; font-size: 0.9rem; color: var(--text-soft); line-height: 1.5; }
 
 .modal-input {
   width: 100%;
@@ -682,30 +846,17 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-.modal-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
+.modal-input:focus { outline: none; border-color: var(--accent); }
 
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 @media (max-width: 820px) {
-  .simple-chat {
+  .chat-layout {
     grid-template-columns: 1fr;
     height: auto;
     min-height: auto;
   }
-
-  .chat-main {
-    min-height: 500px;
-  }
-
-  .chat-sidebar {
-    max-height: 300px;
-  }
+  .chat-main { min-height: 500px; }
+  .chat-sidebar { max-height: 400px; }
 }
 </style>

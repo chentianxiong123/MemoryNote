@@ -3,6 +3,13 @@ import { z } from "zod";
 import { prisma } from "~/db.server";
 import { createHybridLoaderApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 
+// 默认屏蔽的纯数字关键词（避免无意义数字干扰）
+const DEFAULT_BLOCKED_PATTERNS = [/^\d+$/, /^-?\d+\.?\d*$/];
+
+function isDefaultValue(word: string): boolean {
+  return DEFAULT_BLOCKED_PATTERNS.some((pattern) => pattern.test(word.trim()));
+}
+
 const TagCloudParams = z.object({
   minDocs: z.string().optional(),
   limit: z.string().optional(),
@@ -20,6 +27,7 @@ const loader = createHybridLoaderApiRoute(
     const minDocs = parseInt(searchParams.minDocs || "2");
     const limit = parseInt(searchParams.limit || "100");
 
+    // 获取用户自定义屏蔽词
     const blockedKeywords = await prisma.blockedKeyword.findMany({
       select: { word: true },
     });
@@ -49,7 +57,10 @@ const loader = createHybridLoaderApiRoute(
       );
     }
 
-    return json({ tags });
+    // 过滤默认屏蔽的纯数字关键词
+    const filteredTags = tags.filter((t: any) => !isDefaultValue(t.word));
+
+    return json({ tags: filteredTags });
   },
 );
 

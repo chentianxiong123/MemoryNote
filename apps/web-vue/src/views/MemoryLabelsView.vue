@@ -18,6 +18,13 @@ const loadingKeywords = ref(false);
 const blockedWords = ref<Set<string>>(new Set());
 const search = ref("");
 
+// 默认屏蔽的纯数字关键词
+const DEFAULT_BLOCKED_PATTERNS = [/^\d+$/, /^-?\d+\.?\d*$/];
+
+function isDefaultValue(word: string): boolean {
+  return DEFAULT_BLOCKED_PATTERNS.some((pattern) => pattern.test(word.trim()));
+}
+
 const filteredKeywords = computed(() => {
   const keyword = search.value.trim().toLowerCase();
   if (!keyword) return keywords.value;
@@ -25,6 +32,8 @@ const filteredKeywords = computed(() => {
     kw.word.toLowerCase().includes(keyword)
   );
 });
+
+const blockedCount = computed(() => blockedWords.value.size);
 
 async function loadKeywords() {
   loadingKeywords.value = true;
@@ -87,6 +96,10 @@ onMounted(async () => {
         <span class="meta-card__label">关键词总数</span>
         <strong>{{ filteredKeywords.length }}</strong>
       </div>
+      <div class="meta-card meta-card--compact" :class="{ 'meta-card--warning': blockedCount > 0 }">
+        <span class="meta-card__label">已屏蔽</span>
+        <strong>{{ blockedCount }}</strong>
+      </div>
     </div>
 
     <div class="keyword-list">
@@ -94,6 +107,7 @@ onMounted(async () => {
         v-for="kw in filteredKeywords"
         :key="kw.word"
         class="keyword-item"
+        :class="{ 'keyword-item--default-blocked': isDefaultValue(kw.word) && !blockedWords.has(kw.word.toLowerCase()) }"
       >
         <span class="keyword-word">{{ kw.word }}</span>
         <span class="keyword-count">{{ kw.doc_count }} 篇</span>
@@ -109,11 +123,13 @@ onMounted(async () => {
             :class="
               blockedWords.has(kw.word.toLowerCase())
                 ? 'btn--danger'
-                : 'btn--secondary'
+                : isDefaultValue(kw.word)
+                  ? 'btn--default-blocked'
+                  : 'btn--secondary'
             "
             @click="toggleBlock(kw.word)"
           >
-            {{ blockedWords.has(kw.word.toLowerCase()) ? "已屏蔽" : "屏蔽" }}
+            {{ blockedWords.has(kw.word.toLowerCase()) ? "已屏蔽" : isDefaultValue(kw.word) ? "默认屏蔽" : "屏蔽" }}
           </button>
         </div>
       </article>
@@ -147,6 +163,11 @@ onMounted(async () => {
   background: rgba(15, 23, 42, 0.03);
   border-radius: 8px;
   border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.keyword-item--default-blocked {
+  background: rgba(100, 116, 139, 0.05);
+  border-color: rgba(100, 116, 139, 0.15);
 }
 
 .keyword-word {
@@ -211,5 +232,17 @@ onMounted(async () => {
 
 .btn--danger:hover {
   background: rgba(34, 197, 94, 0.1);
+}
+
+.btn--default-blocked {
+  border-color: rgba(100, 116, 139, 0.3);
+  color: #64748b;
+  background: transparent;
+  cursor: not-allowed;
+}
+
+.meta-card--warning {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 </style>

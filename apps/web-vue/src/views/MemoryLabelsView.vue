@@ -12,31 +12,11 @@ import {
 
 const router = useRouter();
 
-// 用户创建的标签
-const labels = ref<LabelRecord[]>([]);
-const error = ref("");
-const search = ref("");
-const showCreate = ref(false);
-const newName = ref("");
-const newDescription = ref("");
-const newColor = ref("#3b82f6");
-const creating = ref(false);
-
 // 自动提取的关键词标签
 const keywords = ref<Array<{ word: string; doc_count: number; total_weight: number }>>([]);
 const loadingKeywords = ref(false);
 const blockedWords = ref<Set<string>>(new Set());
-
-const filteredLabels = computed(() => {
-  const keyword = search.value.trim().toLowerCase();
-  if (!keyword) return labels.value;
-  return labels.value.filter((label) => {
-    return (
-      label.name.toLowerCase().includes(keyword) ||
-      (label.description ?? "").toLowerCase().includes(keyword)
-    );
-  });
-});
+const search = ref("");
 
 const filteredKeywords = computed(() => {
   const keyword = search.value.trim().toLowerCase();
@@ -45,22 +25,6 @@ const filteredKeywords = computed(() => {
     kw.word.toLowerCase().includes(keyword)
   );
 });
-
-function viewLabelDocs(label: LabelRecord) {
-  router.push({ path: "/home/memory/documents", query: { q: label.name } });
-}
-
-function viewKeywordDocs(word: string) {
-  router.push({ path: "/home/memory/documents", query: { q: word } });
-}
-
-async function loadLabels() {
-  try {
-    labels.value = await fetchLabels();
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : "加载标签失败。";
-  }
-}
 
 async function loadKeywords() {
   loadingKeywords.value = true;
@@ -98,44 +62,12 @@ async function toggleBlock(word: string) {
   }
 }
 
-async function handleCreate() {
-  const name = newName.value.trim();
-  if (!name) {
-    error.value = "标签名不能为空";
-    return;
-  }
-  creating.value = true;
-  error.value = "";
-  try {
-    await createLabel({
-      name,
-      description: newDescription.value.trim() || undefined,
-      color: newColor.value,
-    });
-    newName.value = "";
-    newDescription.value = "";
-    newColor.value = "#3b82f6";
-    showCreate.value = false;
-    await loadLabels();
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : "创建失败。";
-  } finally {
-    creating.value = false;
-  }
-}
-
-async function handleDelete(label: LabelRecord) {
-  if (!confirm(`确定删除标签「${label.name}」吗？`)) return;
-  try {
-    await deleteLabel(label.id);
-    await loadLabels();
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : "删除失败。";
-  }
+function viewKeywordDocs(word: string) {
+  router.push({ path: "/home/memory/documents", query: { q: word } });
 }
 
 onMounted(async () => {
-  await Promise.all([loadLabels(), loadKeywords(), loadBlocked()]);
+  await Promise.all([loadKeywords(), loadBlocked()]);
 });
 </script>
 
@@ -194,97 +126,11 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.space-y-6 {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .toolbar {
   display: flex;
   gap: 12px;
   align-items: center;
   margin-bottom: 16px;
-}
-
-.create-form {
-  background: rgba(15, 23, 42, 0.04);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.form-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.form-label {
-  font-size: 12px;
-  color: var(--color-text-muted, #64748b);
-}
-
-.color-input {
-  width: 64px;
-  height: 36px;
-  padding: 2px;
-  cursor: pointer;
-}
-
-.cluster-list__item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cluster-list__content {
-  flex: 1;
-  min-width: 0;
-}
-
-.cluster-list__actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.btn--ghost.btn--sm {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.15);
-  border-radius: 6px;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn--ghost.btn--sm:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
-  background: #eff6ff;
-}
-
-.btn-icon {
-  background: transparent;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  color: #94a3b8;
-  font-size: 18px;
-  line-height: 1;
-}
-
-.btn-icon:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .keyword-list {
@@ -319,6 +165,23 @@ onMounted(async () => {
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+
+.btn--ghost.btn--sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn--ghost.btn--sm:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
 }
 
 .btn--sm {

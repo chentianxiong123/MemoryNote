@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
 import SectionCard from "@/components/SectionCard.vue";
 import { fetchLabels, createLabel, deleteLabel, type LabelRecord } from "@/lib/api";
+
+const router = useRouter();
 
 const labels = ref<LabelRecord[]>([]);
 const error = ref("");
@@ -25,6 +28,10 @@ const filteredLabels = computed(() => {
     );
   });
 });
+
+function viewLabelDocs(label: LabelRecord) {
+  router.push({ path: "/home/memory/documents", query: { q: label.name } });
+}
 
 async function loadLabels() {
   try {
@@ -129,13 +136,12 @@ onMounted(() => {
           <h4>{{ label.name }}</h4>
           <p>{{ label.description || "暂无描述" }}</p>
         </div>
-        <button
-          class="btn-icon"
-          title="删除标签"
-          @click="handleDelete(label)"
-        >
-          ×
-        </button>
+        <div class="cluster-list__actions">
+          <button class="btn btn--ghost btn--sm" @click="viewLabelDocs(label)">查看文档</button>
+          <button class="btn-icon" title="删除标签" @click="handleDelete(label)">
+            ×
+          </button>
+        </div>
       </article>
     </div>
 
@@ -178,6 +184,29 @@ onMounted(() => {
 .cluster-list__content {
   flex: 1;
   min-width: 0;
+}
+
+.cluster-list__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn--ghost.btn--sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn--ghost.btn--sm:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
 }
 .btn-icon {
   background: transparent;

@@ -49,11 +49,11 @@ const hoveredSessionId = ref<string | null>(null);
 // Search
 const searchQuery = ref("");
 
-async function loadSessions(forceLoadFull = false) {
+async function loadSessions() {
   isLoadingList.value = true;
   try {
     const params = new URLSearchParams({
-      limit: String(forceLoadFull ? total.value : pageSize),
+      limit: String(pageSize),
       page: String(page.value),
       ...(searchQuery.value ? { search: searchQuery.value } : {}),
     });
@@ -63,24 +63,17 @@ async function loadSessions(forceLoadFull = false) {
     const data = await res.json();
     const convs = data.conversations ?? [];
     total.value = data.pagination?.total ?? 0;
-    totalPages.value = data.pagination?.totalPages ?? 1;
+    totalPages.value = Math.max(1, data.pagination?.totalPages ?? 1);
 
-    // Enrich with message counts
-    const enriched: Session[] = convs.map((c: any) => ({
+    sessions.value = (convs as any[]).map((c) => ({
       id: c.id,
       title: c.title || "未命名对话",
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
-      messageCount: c._msgCount ?? 1,
+      messageCount: 1,
       lastMessage: c.ConversationHistory?.[0]?.message ?? "",
       messages: [],
     }));
-
-    if (page.value === 1) {
-      sessions.value = enriched;
-    } else {
-      sessions.value = [...sessions.value, ...enriched];
-    }
 
     if (!activeSessionId.value && sessions.value.length > 0) {
       activeSessionId.value = sessions.value[0].id;
@@ -276,23 +269,27 @@ const activeSession = computed(() =>
   sessions.value.find((s) => s.id === activeSessionId.value) ?? null
 );
 
-function nextPage() {
-  if (page.value < totalPages.value) {
-    page.value++;
-    void loadSessions();
-  }
+function goToPage(p: number) {
+  const pNum = Math.max(1, Math.min(p, totalPages.value));
+  if (pNum === page.value) return;
+  page.value = pNum;
+  activeSessionId.value = null;
+  void loadSessions();
 }
 
-function prevPage() {
-  if (page.value > 1) {
-    page.value--;
-    void loadSessions(true);
-  }
+function nextPage() { goToPage(page.value + 1); }
+function prevPage() { goToPage(page.value - 1); }
+
+// 跳转至指定页（回车确认）
+const jumpPageInput = ref("");
+function jumpToPage() {
+  const n = parseInt(jumpPageInput.value);
+  if (!isNaN(n)) goToPage(n);
+  jumpPageInput.value = "";
 }
 
 watch(searchQuery, () => {
-  page.value = 1;
-  void loadSessions(true);
+  goToPage(1);
 });
 
 onMounted(() => {
@@ -399,9 +396,21 @@ onMounted(() => {
 
       <!-- 分页 -->
       <div v-if="totalPages > 1" class="pagination">
-        <button class="page-btn" :disabled="page === 1" @click="prevPage">上一页</button>
+        <button class="page-btn" :disabled="page === 1" @click="prevPage">‹</button>
         <span class="page-info">{{ page }} / {{ totalPages }}</span>
-        <button class="page-btn" :disabled="page === totalPages" @click="nextPage">下一页</button>
+        <button class="page-btn" :disabled="page === totalPages" @click="nextPage">›</button>
+        <div class="page-jump">
+          <input
+            v-model="jumpPageInput"
+            class="page-jump-input"
+            type="number"
+            min="1"
+            :max="totalPages"
+            placeholder="跳转"
+            @keydown.enter="jumpToPage"
+          />
+          <button class="page-btn page-btn--small" @click="jumpToPage">GO</button>
+        </div>
       </div>
     </aside>
 
@@ -765,6 +774,32 @@ onMounted(() => {
 .page-info {
   font-size: 0.75rem;
   color: var(--text-soft);
+}
+
+.page-jump {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-jump-input {
+  width: 48px;
+  padding: 3px 6px;
+  border: 1px solid rgba(95, 64, 28, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.page-jump-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.page-btn--small {
+  padding: 3px 8px;
+  font-size: 0.72rem;
 }
 
 /* 通用按钮 */

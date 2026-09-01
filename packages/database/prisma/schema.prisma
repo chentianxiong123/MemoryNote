@@ -560,3 +560,10 @@ model WikiEntryVersion {
 
   @@index([wikiEntryId, version])
 }
+model BlockedKeyword {
+  id        String   @id @default(cuid())
+  word      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("blocked_keywords")
+}

@@ -58,6 +58,7 @@ model ConversationHistory {
 
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   conversationId String
+  sortOrder  Int?
 }
 
 enum KnowledgeCaptureBatchStatus {

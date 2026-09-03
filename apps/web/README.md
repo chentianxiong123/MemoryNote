@@ -1,14 +1,16 @@
 # apps/web — MemoryNote v2 (Next.js 15)
 
-> v2 是 MemoryNote 的**单前端**实现:用 Next.js 15 App Router 同时承担 server load、API route、React UI。
+> v2 是 MemoryNote 的**唯一前端 + 后端**实现:用 Next.js 15 App Router 同时承担 server load、API route、React UI。
+> v1 (webapp + web-vue) 已删除,见 git tag v1.0.0。
 
 ## 状态
 
 - ✅ 阶段 1 完成:`@core/core` 包抽离业务逻辑
 - ✅ 阶段 2 完成:Next.js 骨架 + 首页 RSC
-- ⏳ 阶段 3 待做:迁移剩余页面(对话/收件箱/词条)
-- ⏳ 阶段 4 待做:数据迁移脚本
-- ⏳ 阶段 5 待做:删 webapp / web-vue
+- ✅ 阶段 3 完成:P0 页面(列表/详情/流式 chat)
+- ✅ 阶段 4 完成:数据迁移 + source CHECK 约束
+- ✅ 阶段 5 完成:删 v1,只留 `apps/web`
+- ⏳ 后续:知识图谱、词条、设置页
 
 ## 启动
 
@@ -25,14 +27,11 @@ pnpm --filter web dev
 
 打开 http://localhost:3000/
 
-## 跟 v1 并行
+## 跟 v1 关系
 
-v1 (webapp:3033 + web-vue:4173) 和 v2 (web:3000) **共用同一份 PostgreSQL**。
-修改 v2 不会破坏 v1,因为:
-
-- v2 只读 webapp 已写的数据
-- v2 写新数据走 webapp 同一 schema
-- 字段兼容,枚举值已对齐
+v1 (webapp:3033 + web-vue:4173) **已删除**。v2 沿用 v1 的 PostgreSQL,
+直接读 v1 已写入的数据(`Conversation` / `Document` / `Label` / `WikiEntry`)。
+字段兼容,枚举已通过 CHECK 约束对齐。
 
 ## 关键设计
 
@@ -51,9 +50,11 @@ v1 (webapp:3033 + web-vue:4173) 和 v2 (web:3000) **共用同一份 PostgreSQL**
 
 | 路径 | 状态 | 说明 |
 |------|------|------|
-| `/` | ✅ 已实现 | 首页(总数/收件箱/最近对话/关键词云) |
-| `/memory/documents` | ⏳ | 文档+对话合并列表(对应 v1 MemoryDocumentsView) |
-| `/memory/conversations/[id]` | ⏳ | 对话详情 |
+| `/` | ✅ | 首页(总数/收件箱/最近对话/关键词云) |
+| `/memory/documents` | ✅ | 文档+对话合并列表 |
+| `/memory/conversations/[id]` | ✅ | 对话详情 + 继续对话 |
+| `/chat/new` | ✅ | 新对话 |
+| `/api/chat` | ✅ | 流式聊天 endpoint |
 | `/memory/tags` | ⏳ | 关键词云(对应 v1 KeywordTagsView) |
 | `/memory/labels` | ⏳ | 标签管理 |
 | `/knowledge/inbox` | ⏳ | 学习收件箱 |
@@ -61,4 +62,3 @@ v1 (webapp:3033 + web-vue:4173) 和 v2 (web:3000) **共用同一份 PostgreSQL**
 | `/wiki` | ⏳ | 词条列表 |
 | `/wiki/[id]` | ⏳ | 词条详情 |
 | `/settings/models` | ⏳ | LLM 模型配置 |
-| `/api/chat` | ⏳ | 流式聊天 endpoint |

@@ -1,17 +1,17 @@
 {
   "name": "memorynote",
   "private": true,
-  "version": "0.7.3",
+  "version": "2.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "build": "dotenv -- turbo run build",
     "dev": "dotenv -- turbo run dev",
-    "lint": "dotenv -- turbo run lint",
+    "build": "dotenv -- turbo run build",
+    "start": "dotenv -- turbo run start",
+    "typecheck": "dotenv -- turbo run typecheck",
     "format": "dotenv -- prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "dotenv -- turbo run check-types",
     "db:migrate": "dotenv -- turbo run db:migrate:deploy generate",
     "db:migrate:create": "dotenv -- turbo run db:migrate:create generate",
     "db:studio": "dotenv -- turbo run db:studio",
@@ -25,9 +25,6 @@
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "nodejieba": "^3.5.8"
+    "node": ">=20"
   }
 }

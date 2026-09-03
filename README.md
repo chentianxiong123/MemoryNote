@@ -1,119 +1,95 @@
-# MemoryNote
+# MemoryNote v2
 
-MemoryNote 是一个面向个人长期知识增长的 AI 对话与知识库工作台。它把日常和 AI 的对话、笔记、文档片段沉淀为可确认、可追溯、可关联的个人百科词条。
+> 单 Next.js 15 + React 19 应用,直接接 PostgreSQL。
+> v1 (Remix 后端 + Vue 前端) 已在 [v1.0.0 tag](https://github.com/chentianxiong123/MemoryNote/releases/tag/v1.0.0) 归档,代码已删除。
 
-当前版本的核心目标不是做一个炫技的全量知识图谱，而是建立一条更稳的个人知识链路：
+## 一句话定位
 
-```text
-AI 对话 / 笔记 / 文档
-        ↓
-会话 recap 与候选知识
-        ↓
-学习收件箱人工确认
-        ↓
-个人百科词条
-        ↓
-对象详情、证据、时间线、局部关系图
+个人长期知识增长的 AI 对话与文档工作台,把日常和 AI 的对话、笔记、文档沉淀为可确认、可追溯的个人百科词条。
+
+## 架构
+
+```
+┌────────────────────────────────────────────────────┐
+│                   MemoryNote v2                    │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│  apps/web/        Next.js 15.5 + React 19         │
+│  (port 3000)     ├─ React Server Components (RSC) │
+│                   │   直接调 @core/core,0 个 API  │
+│                   ├─ Route handlers (api/chat)    │
+│                   └─ ai-sdk 6 streamText (流式)   │
+│                                                    │
+│  packages/core/   纯 TS,无框架依赖                 │
+│                   ├─ conversation.ts              │
+│                   ├─ document.ts                  │
+│                   ├─ tag.ts                       │
+│                   ├─ wiki.ts                      │
+│                   ├─ knowledge.ts                 │
+│                   ├─ search.ts                    │
+│                   └─ mergedList.ts                │
+│                                                    │
+│  packages/database/  Prisma 5.4 + 25 model        │
+│  packages/providers/ LLM / Embedding 抽象         │
+│  packages/types/     共享枚举                      │
+│                                                    │
+│  PostgreSQL 16  ┐                                  │
+│  + pgvector      ├─ docker compose 本地            │
+│  (port 5433)    ┘                                  │
+└────────────────────────────────────────────────────┘
 ```
 
-## 现在能做什么
-
-- 对话优先：主工作区仍然是 AI 对话，知识沉淀发生在对话之后。
-- 学习收件箱：AI 提取候选对象、关系、事件和决策，用户确认后才进入长期知识库。
-- 百科式词条：每个术语、主题、项目、人物可以拥有短解释、别名、证据来源、时间信息和关系。
-- 证据层：对话、笔记、文档、网页摘录不抢主对象位置，只作为词条和关系的来源证据。
-- 局部图：图只出现在对象详情页，默认一跳邻居，避免首页全量渲染卡死。
-- 模型配置：支持 OpenAI 兼容接口、embedding、rerank 等配置。
-
-## 架构概览
-
-- `apps/web-vue`：当前主要前端，包含对话、知识工作台、学习收件箱、对象详情和局部图。
-- `apps/webapp`：Remix/Express 后端，负责 API、会话、知识捕获、图谱写入、模型调用。
-- `packages/database`：Prisma 数据模型。
-- `packages/providers`：Neo4j / pgvector 等底层 provider。
-- `packages/types`：共享类型，包含底层图谱实体与 statement 类型。
-- `docker-compose.dev.yaml`：本地开发依赖服务，包含 PostgreSQL、Redis、Neo4j。
-
-## 本地开发
-
-要求：
-
-- Node.js 20+
-- pnpm 9+
-- Docker / Docker Compose
-
-启动依赖服务：
+## 启动
 
 ```bash
+# 1. 基础设施
 docker compose -f docker-compose.dev.yaml up -d
-```
 
-安装依赖：
-
-```bash
+# 2. 依赖
 pnpm install
-```
 
-准备本地环境变量：
-
-```bash
-cp .env.example .env
-```
-
-至少配置一个可用的聊天模型 Key。支持 OpenAI 或 OpenAI-compatible endpoint：
-
-```bash
-OPENAI_API_KEY=
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_API_MODE=responses
-CHAT_PROVIDER=openai
-MODEL=gpt-5.2
-```
-
-启动后端：
-
-```bash
-pnpm --filter webapp dev
-```
-
-启动前端：
-
-```bash
-pnpm --filter web-vue dev
-```
-
-默认访问：
-
-- 前端：http://localhost:4173
-- 后端：http://localhost:3033
-- 知识工作台：http://localhost:4173/home/memory/graph
-
-## 常用命令
-
-```bash
-pnpm --filter webapp typecheck
-pnpm --filter web-vue typecheck
-pnpm --filter web-vue build
+# 3. 数据库迁移
 pnpm db:migrate
-pnpm generate
+
+# 4. 启动(单命令)
+pnpm dev
 ```
 
-## 发布前注意
+打开 http://localhost:3000
 
-- 不要提交任何 `.env` 文件。
-- 不要提交本地日志、临时交接文档、模型 API Key。
-- 如果使用 OpenAI-compatible 代理，只把配置方式写进文档，不要提交真实 Key。
-- 旧的全量图接口可以保留做兼容，但产品入口不应再依赖全量图渲染。
+`.env` 至少需要:
+- `DATABASE_URL` (默认 `postgresql://docker:docker@localhost:5433/memorynote?schema=memorynote`)
+- `OPENAI_API_KEY` (流式 chat 需要)
 
-## 当前方向
+可选:
+- `OPENAI_BASE_URL` (默认 `https://api.openai.com/v1`,OpenAI-compatible endpoint 可改)
+- `MODEL` (默认 `gpt-4o-mini`)
 
-MemoryNote 仍处于早期收口阶段。v1 的产品判断是：
+## 路由
 
-- 对话是主入口，不把知识收件箱放在对话前面。
-- 词条解释必须是 AI 草稿加用户确认，不直接把 LLM 输出写成长期事实。
-- 笔记和文档是证据层，不是首页主知识对象。
-- 3D 图谱不作为产品入口；2D 图谱只做对象详情里的局部图。
+| 路径 | 类型 | 说明 |
+|------|------|------|
+| `/` | RSC | 首页:总数 / 收件箱 / 最近对话 / Top 10 关键词 |
+| `/memory/documents` | RSC | 对话+文档合并列表 + 搜索 + 分页 |
+| `/memory/conversations/[id]` | RSC + 客户端 | 对话详情 + 继续对话 |
+| `/chat/new` | 客户端 | 新对话入口 |
+| `/api/chat` | API | 流式聊天 endpoint(SSE) |
+
+## 数据模型
+
+25 个 Prisma model 集中在 [`packages/database/prisma/schema.prisma`](packages/database/prisma/schema.prisma)。
+最近加的 CHECK 约束保证 `Conversation.source` 和 `Document.source` 只接受受控枚举值,详见
+[`prisma/migrations/20260903_clean_source/`](packages/database/prisma/migrations/20260903_clean_source/)。
+
+## v1 → v2 迁移历史
+
+- `v1.0.0` tag: 完整 v1 架构文档 + 已知问题清单
+- 阶段 1: 抽 `@core/core` 包(commit `94bff650`)
+- 阶段 2: Next.js 15 骨架(commit `47251255`)
+- 阶段 3: P0 页面 + 流式 chat(commit `31b58cf1`)
+- 阶段 4: source 枚举清洗 + CHECK 约束 + 删 document_fts
+- 阶段 5: 删 webapp + web-vue
 
 ## 来源与协议
 
-本项目基于开源项目 CORE 进行重构和个人知识库方向改造，保留原项目的协议约束。详见 [LICENSE](LICENSE)。
+本项目基于开源项目 CORE by RedPlanetHQ 改造,保留原项目的协议约束。详见 [LICENSE](LICENSE)。

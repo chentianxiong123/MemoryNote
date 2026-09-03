@@ -16,6 +16,7 @@
     "@ai-sdk/openai-compatible": "2.0.29",
     "@anthropic-ai/sdk": "^0.74.0",
     "@aws-sdk/s3-request-presigner": "3.879.0",
+    "@core/core": "workspace:*",
     "@core/database": "workspace:*",
     "@core/providers": "workspace:*",
     "@core/types": "workspace:*",

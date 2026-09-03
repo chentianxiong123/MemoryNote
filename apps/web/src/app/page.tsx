@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import * as core from "@core/core";
 
@@ -44,11 +45,17 @@ export default async function HomePage() {
 
   return (
     <main style={{ maxWidth: 920, margin: "0 auto", padding: "32px 24px" }}>
-      <header style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 600 }}>MemoryNote</h1>
-        <p style={{ color: "var(--muted)", marginTop: 4 }}>
-          v2 · Next.js 15 · 单一前端
-        </p>
+      <header style={{ marginBottom: 32, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 600 }}>MemoryNote</h1>
+          <p style={{ color: "var(--muted)", marginTop: 4 }}>
+            v2 · Next.js 15 · 单一前端
+          </p>
+        </div>
+        <nav style={{ display: "flex", gap: 12, fontSize: 13 }}>
+          <Link href="/memory/documents">记忆文档</Link>
+          <Link href="/chat/new">新对话</Link>
+        </nav>
       </header>
 
       <section style={{ marginBottom: 32 }}>

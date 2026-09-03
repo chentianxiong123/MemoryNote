@@ -16,6 +16,9 @@ model Conversation {
   deleted   DateTime?
 
   unread    Boolean @default(false)
+  // Allowed values: upload | deepseek-export | core | simple-chat
+  //                 | persona | skill | import | whatsapp | task | onboarding
+  // See migration 20260903_clean_source for the CHECK constraint.
   source    String  @default("core")
   incognito Boolean @default(false)
 
@@ -151,6 +154,7 @@ model Document {
   title       String
   content     String
   labelIds    String[]
+  // Allowed values: same as Conversation.source.
   source      String
   metadata    Json?
   type        String

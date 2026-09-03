@@ -50,7 +50,6 @@
   },
   "dependencies": {
     "@core/database": "workspace:*",
-    "@core/providers": "workspace:*",
     "@core/types": "workspace:*",
     "zod": "^4.3.6"
   },

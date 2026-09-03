@@ -1,6 +1,7 @@
 node_modules
 .turbo
 .trae
+.next
 .env
 *.log
 dist

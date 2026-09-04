@@ -2,14 +2,12 @@
  * Prompt Builder
  *
  * Two-layer architecture:
- * - Core brain: personality + channel format (synthesis only)
+ * - Core brain: personality + response format (synthesis only)
  * - Orchestrator: no personality, gathers context
  */
 
 import { PERSONALITY, type PersonalityType, type PronounType } from "./personality";
 import { CAPABILITIES } from "./capabilities";
-import { CHANNEL_FORMATS, type ChannelType } from "./channel-formats";
-import { getChannel } from "~/services/channels";
 import { buildDecisionAgentPrompt } from "./decision-prompt";
 
 export interface UserInfo {
@@ -24,23 +22,15 @@ export interface UserInfo {
 
 /**
  * Get Core brain's prompt for synthesizing responses.
- * Combines personality (who Core brain is) + capabilities (what Core brain can do) + channel format (how to communicate).
+ * Combines personality (who Core brain is) + capabilities (what Core brain can do) + response format.
  */
 export function getCorePrompt(
-  channel: ChannelType,
+  _channel?: string,
   userInfo?: UserInfo,
   userPersona?: string,
   butlerName?: string,
 ): string {
-  let channelFormat: string;
-  try {
-    channelFormat =
-      getChannel(channel)?.format ?? CHANNEL_FORMATS[channel].format;
-  } catch {
-    channelFormat =
-      CHANNEL_FORMATS[channel]?.format ?? CHANNEL_FORMATS.web.format;
-  }
-
+  const responseFormat = "{message}";
   const timezone = userInfo?.timezone || "UTC";
   const localTime = new Date().toLocaleString("en-US", {
     timeZone: timezone,
@@ -69,13 +59,11 @@ ${userPersona}
   const personalityPrompt =
     PERSONALITY[personalityType] ?? PERSONALITY.friendly;
 
-  return `${personalityPrompt}\n\n${CAPABILITIES}\n\n${channelFormat}\n\n${currentTime}${userContext}${personaSection}`;
+  return `${personalityPrompt}\n\n${CAPABILITIES}\n\n${responseFormat}\n\n${currentTime}${userContext}${personaSection}`;
 }
 
 // Re-export for convenience
 export { PERSONALITY, PERSONALITY_OPTIONS } from "./personality";
 export type { PersonalityType, PronounType } from "./personality";
 export { CAPABILITIES } from "./capabilities";
-export { CHANNEL_FORMATS } from "./channel-formats";
-export type { ChannelType } from "./channel-formats";
 export { buildDecisionAgentPrompt };

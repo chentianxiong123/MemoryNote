@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { createHybridActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { json } from "~/lib/remix-compat";
-import { trackFeatureUsage } from "~/services/telemetry.server";
 import { searchMemoryWithAgent } from "~/services/agent/memory";
 
 
@@ -33,7 +32,7 @@ const { action, loader } = createHybridActionApiRoute(
     corsStrategy: "all",
   },
   async ({ body, authentication }) => {
-    const results = await searchMemoryWithAgent(body.query, authentication.userId, authentication.workspaceId!, "api", {
+    const results = await searchMemoryWithAgent(body.query, authentication.userId, "api", {
       startTime: body.startTime ? new Date(body.startTime) : undefined,
       endTime: body.endTime ? new Date(body.endTime) : undefined,
       limit: body.limit,

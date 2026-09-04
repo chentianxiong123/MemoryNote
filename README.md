@@ -114,6 +114,6 @@ MemoryNote 仍处于早期收口阶段。v1 的产品判断是：
 - 笔记和文档是证据层，不是首页主知识对象。
 - 3D 图谱不作为产品入口；2D 图谱只做对象详情里的局部图。
 
-## 来源与协议
+## 协议
 
-本项目基于开源项目 CORE 进行重构和个人知识库方向改造，保留原项目的协议约束。详见 [LICENSE](LICENSE)。
+AGPL v3 with Commons Clause 协议。详见 [LICENSE](LICENSE)。

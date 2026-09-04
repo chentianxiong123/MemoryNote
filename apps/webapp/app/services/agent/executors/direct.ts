@@ -13,14 +13,12 @@ export class DirectOrchestratorTools extends OrchestratorTools {
   async searchMemory(
     query: string,
     userId: string,
-    workspaceId: string,
     source: string,
   ): Promise<string> {
     try {
       const result = await searchMemoryWithAgent(
         query,
         userId,
-        workspaceId,
         source,
         {
           structured: false,
@@ -39,10 +37,10 @@ export class DirectOrchestratorTools extends OrchestratorTools {
     }
   }
 
-  async getSkill(skillId: string, workspaceId: string): Promise<string> {
+  async getSkill(skillId: string): Promise<string> {
     try {
       const skill = await prisma.document.findFirst({
-        where: { id: skillId, workspaceId, type: "skill", deleted: null },
+        where: { id: skillId, type: "skill", deleted: null },
         select: { id: true, title: true, content: true },
       });
       if (!skill) return "Skill not found";

@@ -96,12 +96,6 @@ export interface HistoryStep {
   isError?: boolean;
 
   // The name of the skill/tool being used in this step
-  skill?: string;
-  skillId?: string;
-  skillInput?: string;
-  skillOutput?: string;
-  skillStatus?: ActionStatusEnum;
-
   // This is when the action has run and the output will be put here
   observation?: string;
 

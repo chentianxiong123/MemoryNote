@@ -14,7 +14,6 @@ import {
   batchDeleteStatementEmbeddings,
 } from "../vectorStorage.server";
 import { prisma } from "~/db.server";
-import { deleteVoiceAspectEmbeddings } from "../aspectStore.server";
 
 // Get the graph provider instance
 const graphProvider = () => ProviderFactory.getGraphProvider();
@@ -143,7 +142,6 @@ export async function deleteEpisodeWithRelatedNodes(params: {
 
     if (toDelete.length > 0) {
       await prisma.voiceAspect.deleteMany({ where: { id: { in: toDelete } } });
-      await deleteVoiceAspectEmbeddings(toDelete);
     }
   }
 

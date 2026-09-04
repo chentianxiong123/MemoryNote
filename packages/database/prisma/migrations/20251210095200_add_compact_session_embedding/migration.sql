@@ -39,7 +39,7 @@ CREATE TABLE "compacted_session_embeddings" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "vector" vector NOT NULL,
+    "vector" public.vector NOT NULL,
     "summary" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
 

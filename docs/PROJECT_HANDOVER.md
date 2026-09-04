@@ -2,7 +2,7 @@
 
 ## 1. 项目目标
 
-MemoryNote 最初基于 `CORE by RedPlanetHQ` 改造，但当前方向已经明确收敛为一个更简单的个人知识平台，重点不是保留 CORE 的全部能力，而是保留下面 4 件事：
+MemoryNote 是一个面向个人长期知识增长的 AI 对话与知识库工作台。
 
 1. 正常 AI 对话
 2. 对话/笔记形成持久记忆
@@ -42,7 +42,7 @@ MemoryNote 最初基于 `CORE by RedPlanetHQ` 改造，但当前方向已经明�
 
 - `Redis / BullMQ`
   - 已不再是系统启动和主流程的必需依赖
-- 大量旧 CORE 集成、任务、自动化、企业功能
+- 已删除企业级集成、多用户协作、复杂工作流等非核心内容
   - 已删除或不再作为当前主线继续维护
 
 ### 2.3 当前推荐的最小可用系统
@@ -109,10 +109,10 @@ Vue 前端当前主要页面：
 
 关键文件：
 
-- [apps/web-vue/src/views/ConversationView.vue](/D:/files/MemoryNote/core/apps/web-vue/src/views/ConversationView.vue)
-- [apps/web-vue/src/views/MemoryGraphView.vue](/D:/files/MemoryNote/core/apps/web-vue/src/views/MemoryGraphView.vue)
-- [apps/web-vue/src/views/SettingsModelsView.vue](/D:/files/MemoryNote/core/apps/web-vue/src/views/SettingsModelsView.vue)
-- [apps/web-vue/src/lib/api.ts](/D:/files/MemoryNote/core/apps/web-vue/src/lib/api.ts)
+- [apps/web-vue/src/views/ConversationView.vue](apps/web-vue/src/views/ConversationView.vue)
+- [apps/web-vue/src/views/MemoryGraphView.vue](apps/web-vue/src/views/MemoryGraphView.vue)
+- [apps/web-vue/src/views/SettingsModelsView.vue](apps/web-vue/src/views/SettingsModelsView.vue)
+- [apps/web-vue/src/lib/api.ts](apps/web-vue/src/lib/api.ts)
 
 注意：
 
@@ -121,7 +121,7 @@ Vue 前端当前主要页面：
 
 ## 4.2 知识图谱接口已从“会话聚类”转向“知识三元组”
 
-旧 CORE 的图谱更偏会话/episode 聚类，不适合当前“个人知识体系搭建”目标。已做的改动：
+- 知识图谱已从会话聚类转向实体三元组，按个人知识体系重新建模
 
 - 重写图谱查询接口语义，开始按实体/关系输出
 - 新增手动录入知识三元组接口
@@ -129,9 +129,9 @@ Vue 前端当前主要页面：
 
 关键文件：
 
-- [apps/webapp/app/routes/api.v1.graph.clustered.tsx](/D:/files/MemoryNote/core/apps/webapp/app/routes/api.v1.graph.clustered.tsx)
-- [apps/webapp/app/routes/api.v1.graph.triplets.tsx](/D:/files/MemoryNote/core/apps/webapp/app/routes/api.v1.graph.triplets.tsx)
-- [apps/web-vue/src/views/MemoryGraphView.vue](/D:/files/MemoryNote/core/apps/web-vue/src/views/MemoryGraphView.vue)
+- [apps/webapp/app/routes/api.v1.graph.clustered.tsx](apps/webapp/app/routes/api.v1.graph.clustered.tsx)
+- [apps/webapp/app/routes/api.v1.graph.triplets.tsx](apps/webapp/app/routes/api.v1.graph.triplets.tsx)
+- [apps/web-vue/src/views/MemoryGraphView.vue](apps/web-vue/src/views/MemoryGraphView.vue)
 
 当前能力：
 
@@ -161,11 +161,11 @@ Vue 前端当前主要页面：
 
 关键文件：
 
-- [apps/webapp/app/routes/api.v1.workspace.models.tsx](/D:/files/MemoryNote/core/apps/webapp/app/routes/api.v1.workspace.models.tsx)
-- [apps/webapp/app/services/byok.server.ts](/D:/files/MemoryNote/core/apps/webapp/app/services/byok.server.ts)
-- [apps/webapp/app/services/llm-provider.server.ts](/D:/files/MemoryNote/core/apps/webapp/app/services/llm-provider.server.ts)
-- [apps/webapp/app/lib/model.server.ts](/D:/files/MemoryNote/core/apps/webapp/app/lib/model.server.ts)
-- [apps/web-vue/src/views/SettingsModelsView.vue](/D:/files/MemoryNote/core/apps/web-vue/src/views/SettingsModelsView.vue)
+- [apps/webapp/app/routes/api.v1.workspace.models.tsx](apps/webapp/app/routes/api.v1.workspace.models.tsx)
+- [apps/webapp/app/services/byok.server.ts](apps/webapp/app/services/byok.server.ts)
+- [apps/webapp/app/services/llm-provider.server.ts](apps/webapp/app/services/llm-provider.server.ts)
+- [apps/webapp/app/lib/model.server.ts](apps/webapp/app/lib/model.server.ts)
+- [apps/web-vue/src/views/SettingsModelsView.vue](apps/web-vue/src/views/SettingsModelsView.vue)
 
 当前推荐的配置方式：
 
@@ -279,7 +279,7 @@ Vue 前端当前主要页面：
 
 关键文件：
 
-- [apps/webapp/app/services/knowledgeGraph.server.ts](/D:/files/MemoryNote/core/apps/webapp/app/services/knowledgeGraph.server.ts)
+- [apps/webapp/app/services/knowledgeGraph.server.ts](apps/webapp/app/services/knowledgeGraph.server.ts)
 
 ### 问题 2：`search-v2/handlers.ts` 中 rerank/vector 路径的 `workspaceId` 没传完整
 
@@ -296,7 +296,7 @@ Vue 前端当前主要页面：
 
 关键文件：
 
-- [apps/webapp/app/services/search-v2/handlers.ts](/D:/files/MemoryNote/core/apps/webapp/app/services/search-v2/handlers.ts)
+- [apps/webapp/app/services/search-v2/handlers.ts](apps/webapp/app/services/search-v2/handlers.ts)
 
 ## 7.2 BYOK 配置链路需要完整验证
 
@@ -332,28 +332,28 @@ Vue 前端当前主要页面：
 
 ### 8.1 Vue 前端
 
-- [apps/web-vue/src/views/ConversationView.vue](/D:/files/MemoryNote/core/apps/web-vue/src/views/ConversationView.vue)
-- [apps/web-vue/src/views/MemoryGraphView.vue](/D:/files/MemoryNote/core/apps/web-vue/src/views/MemoryGraphView.vue)
-- [apps/web-vue/src/views/SettingsModelsView.vue](/D:/files/MemoryNote/core/apps/web-vue/src/views/SettingsModelsView.vue)
-- [apps/web-vue/src/lib/api.ts](/D:/files/MemoryNote/core/apps/web-vue/src/lib/api.ts)
+- [apps/web-vue/src/views/ConversationView.vue](apps/web-vue/src/views/ConversationView.vue)
+- [apps/web-vue/src/views/MemoryGraphView.vue](apps/web-vue/src/views/MemoryGraphView.vue)
+- [apps/web-vue/src/views/SettingsModelsView.vue](apps/web-vue/src/views/SettingsModelsView.vue)
+- [apps/web-vue/src/lib/api.ts](apps/web-vue/src/lib/api.ts)
 
 ### 8.2 后端 API
 
-- [apps/webapp/app/routes/api.v1.conversation.reply.tsx](/D:/files/MemoryNote/core/apps/webapp/app/routes/api.v1.conversation.reply.tsx)
-- [apps/webapp/app/routes/api.v1.workspace.models.tsx](/D:/files/MemoryNote/core/apps/webapp/app/routes/api.v1.workspace.models.tsx)
-- [apps/webapp/app/routes/api.v1.graph.clustered.tsx](/D:/files/MemoryNote/core/apps/webapp/app/routes/api.v1.graph.clustered.tsx)
-- [apps/webapp/app/routes/api.v1.graph.triplets.tsx](/D:/files/MemoryNote/core/apps/webapp/app/routes/api.v1.graph.triplets.tsx)
+- [apps/webapp/app/routes/api.v1.conversation.reply.tsx](apps/webapp/app/routes/api.v1.conversation.reply.tsx)
+- [apps/webapp/app/routes/api.v1.workspace.models.tsx](apps/webapp/app/routes/api.v1.workspace.models.tsx)
+- [apps/webapp/app/routes/api.v1.graph.clustered.tsx](apps/webapp/app/routes/api.v1.graph.clustered.tsx)
+- [apps/webapp/app/routes/api.v1.graph.triplets.tsx](apps/webapp/app/routes/api.v1.graph.triplets.tsx)
 
 ### 8.3 模型与提供商配置
 
-- [apps/webapp/app/services/byok.server.ts](/D:/files/MemoryNote/core/apps/webapp/app/services/byok.server.ts)
-- [apps/webapp/app/services/llm-provider.server.ts](/D:/files/MemoryNote/core/apps/webapp/app/services/llm-provider.server.ts)
-- [apps/webapp/app/lib/model.server.ts](/D:/files/MemoryNote/core/apps/webapp/app/lib/model.server.ts)
+- [apps/webapp/app/services/byok.server.ts](apps/webapp/app/services/byok.server.ts)
+- [apps/webapp/app/services/llm-provider.server.ts](apps/webapp/app/services/llm-provider.server.ts)
+- [apps/webapp/app/lib/model.server.ts](apps/webapp/app/lib/model.server.ts)
 
 ### 8.4 检索与图谱服务
 
-- [apps/webapp/app/services/knowledgeGraph.server.ts](/D:/files/MemoryNote/core/apps/webapp/app/services/knowledgeGraph.server.ts)
-- [apps/webapp/app/services/search-v2/handlers.ts](/D:/files/MemoryNote/core/apps/webapp/app/services/search-v2/handlers.ts)
+- [apps/webapp/app/services/knowledgeGraph.server.ts](apps/webapp/app/services/knowledgeGraph.server.ts)
+- [apps/webapp/app/services/search-v2/handlers.ts](apps/webapp/app/services/search-v2/handlers.ts)
 
 ---
 
@@ -400,7 +400,7 @@ Vue 前端当前主要页面：
 
 ## 11. 当前已知事实总结
 
-- 这个项目的方向已经从“完整复刻 CORE”转向“个人知识平台”
+- 项目方向已收敛为纯个人知识平台
 - Vue 前端已经是主线
 - Redis 已经不该再成为阻塞点
 - 当前真正卡点是模型配置链路和剩余类型问题

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { json } from "~/lib/remix-compat";
 import { createActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
-import { trackFeatureUsage } from "~/services/telemetry.server";
 
 import { logger } from "~/services/logger.service";
 import { createAgent, resolveModelString } from "~/lib/model.server";

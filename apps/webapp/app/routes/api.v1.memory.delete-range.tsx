@@ -25,11 +25,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const { id: userId, workspaceId } = await requireUser(request);
-
-  if (!workspaceId) {
-    return json({ error: "Workspace not found" }, { status: 404 });
-  }
+  const { id: userId } = await requireUser(request);
 
   const body = await request.json();
   const { duration, unit, confirm } = body as {
@@ -51,7 +47,6 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const documents = await prisma.document.findMany({
     where: {
-      workspaceId,
       createdAt: { gte: since },
     },
     select: { id: true, sessionId: true },

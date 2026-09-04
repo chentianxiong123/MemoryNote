@@ -3,7 +3,6 @@ import { UserTypeEnum } from "@core/types";
 import { prisma } from "~/db.server";
 
 import { z } from "zod";
-import { trackFeatureUsage } from "~/services/telemetry.server";
 import { logger } from "./logger.service";
 
 export const CreateConversationSchema = z.object({

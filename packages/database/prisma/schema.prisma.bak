@@ -26,11 +26,21 @@ model Conversation {
   status         String  @default("pending")
   activeStreamId String?
 
-
-
   ConversationHistory ConversationHistory[]
   knowledgeCaptureBatches KnowledgeCaptureBatch[]
   RecallLog           RecallLog[]
+}
+
+model CompactedSessionEmbedding {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vector   Unsupported("vector")
+  summary  String
+  metadata Json?
+
+  @@map("compacted_session_embeddings")
 }
 
 model ConversationHistory {
@@ -139,8 +149,6 @@ model Document {
   sessionId String?
 
   title       String
-
-
   content     String
   labelIds    String[]
   source      String
@@ -166,6 +174,19 @@ model EntityEmbedding {
   metadata Json?
 
   @@map("entity_embeddings")
+}
+
+model LabelEmbedding {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String
+  description String?
+  vector      Unsupported("vector")
+  metadata    Json?
+
+  @@map("label_embeddings")
 }
 
 model EpisodeEmbedding {
@@ -200,7 +221,6 @@ model IngestionQueue {
   priority Int     @default(0)
 
   source    String?
-
   title     String?
   sessionId String?
   type      String?
@@ -251,8 +271,6 @@ model RecallLog {
   deleted   DateTime?
 
   accessType String
-
-
   query      String?
   targetType String?
   targetId   String?
@@ -273,6 +291,28 @@ model RecallLog {
   conversationId String?
 
   metadata Json? @default("{}")
+}
+
+model Reminder {
+  id               String    @id @default(uuid())
+  text             String
+  schedule         String
+  startDate        DateTime?
+  nextRunAt        DateTime?
+  maxOccurrences   Int?
+  occurrenceCount  Int       @default(0)
+  endDate          DateTime?
+  channel          String    @default("whatsapp")
+  isActive         Boolean   @default(true)
+  confirmedActive  Boolean   @default(false)
+  unrespondedCount Int       @default(0)
+  lastSentAt       DateTime?
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([nextRunAt])
 }
 
 model StatementEmbedding {
@@ -335,8 +375,6 @@ model Task {
   updatedAt DateTime @updatedAt
 
   title       String
-
-
   description String?
   status      TaskStatus @default(Todo)
 
@@ -410,7 +448,6 @@ model ButlerComment {
   resolvedAt DateTime?
 
   selectedText   String
-
   content        String
   relativeStart  Json?
   relativeEnd    Json?
@@ -445,7 +482,6 @@ enum UserType {
 model LLMProvider {
   id          String     @id @default(uuid())
   name        String
-
   type        String
   config      Json       @default("{}")
   isActive    Boolean    @default(true)
@@ -461,7 +497,6 @@ model LLMModel {
   providerId    String
   provider      LLMProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
   modelId       String
-
   label         String
   complexity    String
   supportsBatch Boolean     @default(true)
@@ -492,8 +527,6 @@ model WikiEntry {
   updatedAt DateTime @updatedAt
 
   entityUuid String
-
-
   title      String
   definition String
   summary    String

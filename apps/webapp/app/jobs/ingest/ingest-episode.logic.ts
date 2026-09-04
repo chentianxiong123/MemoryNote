@@ -34,7 +34,6 @@ export const IngestBodyRequest = z.object({
 export interface IngestEpisodePayload {
   body: z.infer<typeof IngestBodyRequest>;
   userId: string;
-  workspaceId: string;
   queueId: string;
 }
 
@@ -58,29 +57,25 @@ export async function processEpisodeIngestion(
   enqueueLabelAssignment?: (params: {
     queueId: string;
     userId: string;
-    workspaceId: string;
   }) => Promise<any>,
   enqueueTitleGeneration?: (params: {
     queueId: string;
     userId: string;
-    workspaceId: string;
   }) => Promise<any>,
   enqueuePersonaGeneration?: (params: {
     userId: string;
-    workspaceId: string;
     episodeUuid?: string;
   }) => Promise<any>,
   enqueueGraphResolution?: (params: {
     episodeUuid: string;
     userId: string;
     episodeDetails: AddEpisodeResult;
-    workspaceId: string;
     queueId?: string;
   }) => Promise<any>,
 ): Promise<IngestEpisodeResult> {
   // Credits are reserved upfront in addToQueue — no check needed here
   // BYOK workspaces skip all credit operations
-  const byok = await isWorkspaceBYOK(payload.workspaceId);
+  const byok = await isWorkspaceBYOK(undefined);
   try {
     logger.log(`Processing job for user ${payload.userId}`);
 
@@ -115,7 +110,7 @@ export async function processEpisodeIngestion(
         {
           ...episodeBody,
           userId: payload.userId,
-          workspaceId: payload.workspaceId,
+          workspaceId: undefined,
           userName, // Pass user name for user-centric extraction
           queueId: payload.queueId,
         },
@@ -139,7 +134,7 @@ export async function processEpisodeIngestion(
         await enqueueGraphResolution({
           episodeUuid: episodeDetails.episodeUuid,
           userId: payload.userId,
-          workspaceId: payload.workspaceId,
+          workspaceId: undefined,
           queueId: payload.queueId,
           episodeDetails,
         });
@@ -176,7 +171,6 @@ export async function processEpisodeIngestion(
         const reservedCredits = (queue?.output as any)?.reservedCredits;
         if (reservedCredits && reservedCredits > 0) {
           await refundCredits(
-            payload.workspaceId,
             payload.userId,
             reservedCredits,
           );
@@ -214,14 +208,14 @@ export async function processEpisodeIngestion(
               `Triggering LLM label assignment after successful ingestion`,
               {
                 userId: payload.userId,
-                workspaceId: payload.workspaceId,
+                workspaceId: undefined,
                 queueId: payload.queueId,
               },
             );
             await enqueueLabelAssignment({
               queueId: payload.queueId,
               userId: payload.userId,
-              workspaceId: payload.workspaceId,
+              workspaceId: undefined,
             });
           }
         } else {
@@ -240,14 +234,14 @@ export async function processEpisodeIngestion(
             `Triggering title generation after successful ingestion`,
             {
               userId: payload.userId,
-              workspaceId: payload.workspaceId,
+              workspaceId: undefined,
               queueId: payload.queueId,
             },
           );
           await enqueueTitleGeneration({
             queueId: payload.queueId,
             userId: payload.userId,
-            workspaceId: payload.workspaceId,
+            workspaceId: undefined,
           });
         }
       }
@@ -272,13 +266,13 @@ export async function processEpisodeIngestion(
       ) {
         logger.info(`Triggering persona generation check after ingestion`, {
           userId: payload.userId,
-          workspaceId: payload.workspaceId,
+          workspaceId: undefined,
         });
 
         // Trigger persona generation - checks if episode has persona-relevant statements
         await enqueuePersonaGeneration({
           userId: payload.userId,
-          workspaceId: payload.workspaceId,
+          workspaceId: undefined,
           episodeUuid: episodeDetails?.episodeUuid || undefined,
         });
       }
@@ -305,7 +299,6 @@ export async function processEpisodeIngestion(
         const reservedCredits = (queue?.output as any)?.reservedCredits;
         if (reservedCredits && reservedCredits > 0) {
           await refundCredits(
-            payload.workspaceId,
             payload.userId,
             reservedCredits,
           );

@@ -24,7 +24,7 @@ export const loader = createHybridLoaderApiRoute(
     const timeline = await getWikiEntryTimeline({
       entityUuid: params.entityUuid,
       userId: "personal",
-      workspaceId: "personal",
+      
       prisma,
     });
 

@@ -24,7 +24,7 @@ export const loader = createHybridLoaderApiRoute(
       where: {
         entityUuid_workspaceId: {
           entityUuid: params.entityUuid,
-          workspaceId: "personal",
+          
         },
       },
     });

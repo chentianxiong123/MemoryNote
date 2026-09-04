@@ -17,7 +17,7 @@ export const loader = createHybridLoaderApiRoute(
 
     const documents = await prisma.document.findMany({
       where: {
-        workspaceId: "personal",
+        
         deleted: null,
         type: { not: "skill" },
       },

@@ -24,7 +24,6 @@ import { getEpisodeIdsForStatements } from "../graphModels/statement";
 export async function performBM25Search(
   query: string,
   userId: string,
-  workspaceId: string,
   options: Required<SearchOptions>,
 ): Promise<EpisodeSearchResult[]> {
   try {
@@ -38,7 +37,7 @@ export async function performBM25Search(
     const results = await graphProvider.performBM25Search({
       query: sanitizedQuery,
       userId,
-      workspaceId,
+      undefined,
       validAt: options.endTime,
       startTime: options.startTime ?? undefined,
       includeInvalidated: options.includeInvalidated,
@@ -85,7 +84,6 @@ export function sanitizeLuceneQuery(query: string): string {
 export async function performVectorSearch(
   query: Embedding,
   userId: string,
-  workspaceId: string,
   options: Required<SearchOptions>,
 ): Promise<EpisodeSearchResult[]> {
   try {
@@ -93,7 +91,7 @@ export async function performVectorSearch(
     const scoredStatements = await searchStatements({
       queryVector: query,
       userId,
-      workspaceId,
+      undefined,
       labelIds: options.labelIds.length > 0 ? options.labelIds : undefined,
       threshold: 0.5,
       limit: 100,
@@ -108,7 +106,7 @@ export async function performVectorSearch(
     const episodeData = await graphProvider.getEpisodesForStatements({
       statementUuids: scoredStatements.map((s) => s.uuid),
       userId,
-      workspaceId,
+      undefined,
       validAt: options.endTime,
       startTime: options.startTime ?? undefined,
       includeInvalidated: options.includeInvalidated,
@@ -160,7 +158,6 @@ export async function performVectorSearch(
 export async function performEpisodeVectorSearch(
   queryEmbedding: Embedding,
   userId: string,
-  workspaceId: string,
   options: Required<SearchOptions>,
 ): Promise<EpisodeSearchResult[]> {
   try {
@@ -168,7 +165,7 @@ export async function performEpisodeVectorSearch(
     const scoredEpisodes = await searchEpisodes({
       queryVector: queryEmbedding,
       userId,
-      workspaceId,
+      undefined,
       labelIds: options.labelIds.length > 0 ? options.labelIds : undefined,
       threshold: 0.5,
       limit: 50,
@@ -183,7 +180,7 @@ export async function performEpisodeVectorSearch(
     const episodeData = await graphProvider.getEpisodesByIdsWithStatements({
       episodeUuids: scoredEpisodes.map((e) => e.uuid),
       userId,
-      workspaceId,
+      undefined,
       validAt: options.endTime,
       startTime: options.startTime ?? undefined,
       includeInvalidated: options.includeInvalidated,
@@ -234,7 +231,6 @@ export async function performBfsSearch(
   _query: string,
   embedding: Embedding,
   userId: string,
-  workspaceId: string,
   entities: EntityNode[],
   options: Required<SearchOptions>,
 ): Promise<EpisodeSearchResult[]> {
@@ -250,7 +246,7 @@ export async function performBfsSearch(
       options.maxBfsDepth || 2,
       options.endTime,
       userId,
-      workspaceId,
+      undefined,
       options.includeInvalidated,
       options.startTime,
     );
@@ -299,7 +295,7 @@ export async function performBfsSearch(
     const episodes = await graphProvider.fetchEpisodesByIds({
       episodeIds,
       userId,
-      workspaceId,
+      undefined,
       labelIds: options.labelIds,
     });
 
@@ -340,7 +336,6 @@ async function bfsTraversal(
   maxDepth: number,
   validAt: Date,
   userId: string,
-  workspaceId: string,
   includeInvalidated: boolean,
   startTime: Date | null,
 ): Promise<{
@@ -384,7 +379,7 @@ async function bfsTraversal(
     const statementResults = await graphProvider.bfsGetStatements({
       entityIds: currentLevelEntities,
       userId,
-      workspaceId,
+      undefined,
       validAt,
       startTime: startTime ?? undefined,
       includeInvalidated,
@@ -427,7 +422,7 @@ async function bfsTraversal(
       const nextLevelResults = await graphProvider.bfsGetNextLevel({
         statementUuids: currentLevelStatementUuids,
         userId,
-        workspaceId,
+        undefined,
       });
 
       // Filter out already visited entities and limit expansion to prevent explosion
@@ -457,7 +452,7 @@ async function bfsTraversal(
   const fetchResults = await graphProvider.bfsFetchStatements({
     statementUuids: relevantUuids,
     userId,
-    workspaceId,
+    undefined,
   });
 
   const statementMap = new Map(
@@ -531,7 +526,6 @@ function generateQueryChunks(query: string): string[] {
 export async function extractEntitiesFromQuery(
   query: string,
   userId: string,
-  workspaceId: string,
   startEntities: string[] = [],
 ): Promise<EntityNode[]> {
   try {
@@ -557,7 +551,7 @@ export async function extractEntitiesFromQuery(
           limit: 3,
           threshold: 0.5,
           userId,
-          workspaceId,
+          undefined,
         });
       }),
     );
@@ -611,7 +605,6 @@ export async function performEpisodeGraphSearch(
   queryEntities: EntityNode[],
   queryEmbedding: Embedding,
   userId: string,
-  workspaceId: string,
   options: Required<SearchOptions>,
 ): Promise<EpisodeGraphResult[]> {
   try {
@@ -634,7 +627,7 @@ export async function performEpisodeGraphSearch(
     const graphResults = await graphProvider.performEpisodeGraphSearch({
       queryEntityIds,
       userId,
-      workspaceId,
+      undefined,
       validAt: options.endTime,
       startTime: options.startTime ?? undefined,
       includeInvalidated: options.includeInvalidated,

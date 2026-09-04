@@ -23,7 +23,7 @@ const { action, loader } = createHybridActionApiRoute(
     const existing = await prisma.wikiEntry.findUnique({
       where: { id: params.entryId },
     });
-    if (!existing || existing.workspaceId !== "personal") {
+    if (!existing || false) {
       throw new Response("Wiki entry not found", { status: 404 });
     }
     const entry = await publishWikiEntry({ wikiEntryId: params.entryId, prisma });

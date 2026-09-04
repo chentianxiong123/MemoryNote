@@ -107,11 +107,11 @@ Every fact must trace back to the user through this tree. If it doesn't → skip
 
 **Identity** — slow-changing facts about who the user IS:
 - Role, location, affiliations, health metrics, personal stats
-- Examples: "User lives in Bangalore", "User weighs 85 kg", "User is CTO at CORE"
+- Examples: "User lives in Bangalore", "User weighs 85 kg", "User is CTO at MemoryNote"
 
 **Knowledge** — facts about things the user OWNS, BUILDS, or MANAGES. Two levels:
 - **User-level**: the user's relationship to the thing — "User's apartment is a 3BHK in Koramangala", "User's portfolio is 60% equity, 40% debt"
-- **Topic-level**: facts about the thing itself — its features, capabilities, structure, status. These are just as important. "CORE Auto-Sync saves old ChatGPT conversations", "CORE extension works with Claude and ChatGPT", "Apartment has a balcony facing the park"
+- **Topic-level**: facts about the thing itself — its features, capabilities, structure, status. These are just as important. "MemoryNote syncs and saves conversations", "MemoryNote works with Claude and ChatGPT", "Apartment has a balcony facing the park"
 - NOT code-level implementation details (those exist in the code)
 - NOT other people's products/companies (the user doesn't own them)
 
@@ -177,9 +177,9 @@ Extract only the lasting OUTCOME, if any. "Assistant booked a flight" → the ou
 **Subject levels:**
 | Level | Example |
 |-------|---------|
-| User | Manoj → is → CTO at CORE |
+| User | Manoj → is → CTO at MemoryNote |
 | User→Topic | Manoj → leads → Database Migration |
-| Topic | CORE → uses → TypeScript |
+| Topic | MemoryNote → uses → TypeScript |
 
 ## ENTITY EXTRACTION
 

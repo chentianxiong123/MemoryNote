@@ -2,7 +2,6 @@ import { z } from "zod";
 import { createHybridActionApiRoute } from "~/services/routeBuilders/apiBuilder.server";
 import { SearchService } from "~/services/search.server";
 import { json } from "~/lib/remix-compat";
-import { trackFeatureUsage } from "~/services/telemetry.server";
 
 export const SearchBodyRequest = z.object({
   query: z.string(),

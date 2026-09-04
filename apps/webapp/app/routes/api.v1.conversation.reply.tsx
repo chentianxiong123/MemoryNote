@@ -122,7 +122,7 @@ const { loader, action } = createHybridActionApiRoute(
     corsStrategy: "all",
   },
   async ({ body, authentication }) => {
-    const workspaceId = "personal" as string;
+
     const conversation = await getConversationAndHistory(
       body.id,
       "personal",
@@ -166,7 +166,7 @@ const { loader, action } = createHybridActionApiRoute(
     const memoryResults = await searchMemoryWithAgent(
       body.message,
       "personal",
-      workspaceId,
+      undefined,
       body.source,
       { limit: 8 },
     ).catch(() => null);
@@ -223,7 +223,7 @@ You are operating in Vue migration mode.
         "medium",
         "vue-sync-reply",
         undefined,
-        workspaceId,
+        undefined,
         "chat",
       );
 
@@ -240,7 +240,6 @@ You are operating in Vue migration mode.
         incomingUserText: body.message,
         incognito: conversation.incognito,
         userId: "personal",
-        workspaceId,
       });
     } catch (error) {
       logger.error("Vue sync reply failed", {
@@ -257,7 +256,6 @@ You are operating in Vue migration mode.
         incomingUserText: body.message,
         incognito: conversation.incognito,
         userId: "personal",
-        workspaceId,
       });
     }
 
@@ -266,7 +264,6 @@ You are operating in Vue migration mode.
           conversationId: body.id,
           sessionId: body.id,
           userId: "personal",
-          workspaceId,
           userName: user?.displayName ?? user?.name ?? null,
           userMessage: body.message,
           assistantMessage: assistantText,

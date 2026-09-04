@@ -120,11 +120,11 @@ Query: "anything about airbnb email"
 Query: "Looking for information about Sarah to understand her role and background"
 → aspects: ["Identity", "Knowledge"], queryType: "entity_lookup", temporal: {type: "all", days: null, startDate: null, endDate: null}, entityHints: ["Sarah"], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: [], shouldSearch: true
 
-Query: "What happened last week with the CORE project?"
-→ aspects: ["Event", "Habit"], queryType: "temporal", temporal: {type: "recent", days: 7, startDate: null, endDate: null}, entityHints: ["CORE"], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: [], shouldSearch: true
+Query: "What happened last week with the MemoryNote project?"
+→ aspects: ["Event", "Habit"], queryType: "temporal", temporal: {type: "recent", days: 7, startDate: null, endDate: null}, entityHints: ["MemoryNote"], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: [], shouldSearch: true
 
-Query: "Need recent context about CORE project activities to catch up on progress"
-→ aspects: ["Habit", "Event", "Decision"], queryType: "temporal", temporal: {type: "recent", days: 7, startDate: null, endDate: null}, entityHints: ["CORE"], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: [], shouldSearch: true
+Query: "Need recent context about MemoryNote project activities to catch up on progress"
+→ aspects: ["Habit", "Event", "Decision"], queryType: "temporal", temporal: {type: "recent", days: 7, startDate: null, endDate: null}, entityHints: ["MemoryNote"], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: [], shouldSearch: true
 
 Query: "What topics did I speak about last week?"
 → aspects: [], queryType: "temporal_facets", temporal: {type: "recent", days: 7, startDate: null, endDate: null}, entityHints: [], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: ["topics"], shouldSearch: true
@@ -141,8 +141,8 @@ Query: "What decisions and goals came up last month?"
 Query: "Give me an overview of last week — topics, people, and what I decided"
 → aspects: ["Decision"], queryType: "temporal_facets", temporal: {type: "recent", days: 7, startDate: null, endDate: null}, entityHints: [], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: ["topics", "entities", "aspects"], shouldSearch: true
 
-Query: "search implementation in CORE"
-→ aspects: ["Knowledge", "Habit", "Decision"], queryType: "exploratory", temporal: {type: "all", days: null, startDate: null, endDate: null}, entityHints: ["search", "CORE"], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: [], shouldSearch: true
+Query: "search implementation in MemoryNote"
+→ aspects: ["Knowledge", "Habit", "Decision"], queryType: "exploratory", temporal: {type: "all", days: null, startDate: null, endDate: null}, entityHints: ["search", "MemoryNote"], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: [], shouldSearch: true
 
 Query: "I need context about authentication implementation and security discussions to help review this PR"
 → aspects: ["Knowledge", "Habit", "Decision"], queryType: "exploratory", temporal: {type: "all", days: null, startDate: null, endDate: null}, entityHints: ["authentication", "security"], selectedLabels: [], lookupMode: "broad", attributeHint: null, facets: [], shouldSearch: true
@@ -166,14 +166,13 @@ Query: "What's the weather like?"
  */
 async function searchLabels(
   intent: string,
-  workspaceId: string,
   limit: number = 8,
 ): Promise<LabelMatch[]> {
   const startTime = Date.now();
   const vectorProvider = ProviderFactory.getVectorProvider();
 
   // Get embedding for intent
-  const intentEmbedding = await getEmbedding(intent, workspaceId);
+  const intentEmbedding = await getEmbedding(intent, "");
 
   if (!intentEmbedding || intentEmbedding.length === 0) {
     logger.warn("[Router] Failed to get embedding for intent");
@@ -185,7 +184,7 @@ async function searchLabels(
     vector: intentEmbedding,
     namespace: VECTOR_NAMESPACES.LABEL,
     limit,
-    filter: { workspaceId },
+    filter: { userId },
     threshold: env.SEARCH_LABEL_VECTOR_THRESHOLD, // Candidate threshold, later filtered/selected by router
   });
 
@@ -231,7 +230,6 @@ async function searchLabels(
 async function extractAspects(
   intent: string,
   matchedLabels: LabelMatch[] = [],
-  workspaceId?: string,
 ): Promise<AspectExtraction> {
   const startTime = Date.now();
 
@@ -253,7 +251,7 @@ async function extractAspects(
       "medium",
       cacheKey,
       undefined,
-      workspaceId,
+      undefined,
       "search",
     );
 
@@ -293,17 +291,16 @@ async function extractAspects(
 export async function routeIntent(
   intent: string,
   userId: string,
-  workspaceId: string,
 ): Promise<RouterOutput> {
   const startTime = Date.now();
 
   logger.info(`[Router] Routing intent: "${intent.slice(0, 100)}..."`);
 
   // Step 1: Run label search first (fast, ~400ms)
-  const labelMatches = await searchLabels(intent, workspaceId);
+  const labelMatches = await searchLabels(intent, "");
 
   // Step 2: Run aspect extraction with label context
-  const aspectExtraction = await extractAspects(intent, labelMatches, workspaceId);
+  const aspectExtraction = await extractAspects(intent, labelMatches, "");
 
   const routingTimeMs = Date.now() - startTime;
 

@@ -13,7 +13,6 @@ import { type ModelConfig } from "~/services/llm-provider.server";
 
 interface CreateCoreToolsParams {
   userId: string;
-  workspaceId: string;
   source: string;
   conversationId: string;
   executorTools?: OrchestratorTools;
@@ -21,7 +20,6 @@ interface CreateCoreToolsParams {
   interactive?: boolean;
   timezone?: string;
   readOnly?: boolean;
-  skills?: unknown[];
   onMessage?: (message: string) => Promise<void>;
   defaultChannel?: string;
   availableChannels?: string[];
@@ -32,7 +30,7 @@ interface CreateCoreToolsParams {
 export async function createCoreTools(
   params: CreateCoreToolsParams,
 ): Promise<Record<string, Tool>> {
-  const { workspaceId, userId, source, executorTools, executor } = params;
+  const { userId, source, executorTools, executor } = params;
   const resolvedExecutor = executorTools ?? executor;
 
   const tools: Record<string, Tool> = {};
@@ -47,21 +45,7 @@ export async function createCoreTools(
       if (!resolvedExecutor) {
         return "Memory search not available";
       }
-      return resolvedExecutor.searchMemory(query, userId, workspaceId, source);
-    },
-  });
-
-  // Get skill tool
-  tools["get_skill"] = tool({
-    description: "Load a skill by ID",
-    inputSchema: z.object({
-      skillId: z.string().describe("The skill ID"),
-    }),
-    execute: async ({ skillId }) => {
-      if (!resolvedExecutor) {
-        return "Skill loading not available";
-      }
-      return resolvedExecutor.getSkill(skillId, workspaceId);
+      return resolvedExecutor.searchMemory(query, userId, source);
     },
   });
 

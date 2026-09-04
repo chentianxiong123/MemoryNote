@@ -34,6 +34,7 @@ const { action } = createHybridActionApiRoute(
         type: body.type,
         labelIds: body.labelIds,
         editedBy: "user",
+        userId: "personal",
         metadata: body.metadata ?? {},
         createdAt: docDate,
         updatedAt: docDate,

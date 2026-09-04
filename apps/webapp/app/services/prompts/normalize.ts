@@ -278,8 +278,8 @@ STRUCTURED PREFERENCES:
 - Why: Timeless preferences don't need date prefix. Use actual name instead of "the user".
 
 SELF-INTRODUCTION - SPEAKER ATTRIBUTION:
-- Original: "I'm John. I'm a Developer. My primary goal with CORE is to build a personal memory system."
-- Enriched: "On October 2, 2025, the user introduced themselves as John, a Developer. John's primary goal with CORE is to build a personal memory system."
+- Original: "I'm John. I'm a Developer. My primary goal with MemoryNote is to build a personal knowledge system."
+- Enriched: "On October 2, 2025, the user introduced themselves as John, a Developer. John's primary goal with MemoryNote is to build a personal memory system."
 - Why: Date once for the introduction event, then facts follow without date repetition
 
 - Original: "Hi, my name is Sarah and I work at Meta as a product manager"

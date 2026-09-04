@@ -50,12 +50,10 @@ import {
 } from "~/services/vectorStorage.server";
 import { type ModelMessage } from "ai";
 import { reconcileCredits } from "../credit_utils";
-import { processAspectResolution } from "./aspect-resolution.logic";
 
 export interface GraphResolutionPayload {
   episodeUuid: string;
   userId: string;
-  workspaceId: string;
   queueId?: string;
   episodeDetails?: AddEpisodeResult;
 }
@@ -89,7 +87,7 @@ export async function processGraphResolution(
 
     // Step 0: Deduplicate entities with same name before resolution
     const { count: deduplicatedCount, deletedUuids: deduplicatedEntityUuids } =
-      await deduplicateEntitiesByName(payload.userId, payload.workspaceId);
+      await deduplicateEntitiesByName(payload.userId, undefined);
     if (deduplicatedCount > 0) {
       logger.info(
         `Pre-resolution: deduplicated ${deduplicatedCount} entities for user ${payload.userId}`,
@@ -106,7 +104,6 @@ export async function processGraphResolution(
     const triples = await getTriplesForEpisode(
       payload.episodeUuid,
       payload.userId,
-      payload.workspaceId,
     );
 
     if (triples.length === 0) {
@@ -125,7 +122,6 @@ export async function processGraphResolution(
         episode.sessionId,
         payload.userId,
         5,
-        payload.workspaceId,
       );
     }
 
@@ -142,7 +138,6 @@ export async function processGraphResolution(
         episode,
         previousEpisodes,
         tokenMetrics,
-        payload.workspaceId,
       );
 
     logger.info(
@@ -156,7 +151,6 @@ export async function processGraphResolution(
         episode,
         previousEpisodes,
         tokenMetrics,
-        payload.workspaceId,
       );
 
     logger.info(
@@ -169,7 +163,6 @@ export async function processGraphResolution(
         merge.sourceUuid,
         merge.targetUuid,
         payload.userId,
-        payload.workspaceId,
       );
     }
 
@@ -196,7 +189,6 @@ export async function processGraphResolution(
           dup.newStatementUuid,
           dup.existingStatementUuid,
           payload.userId,
-          payload.workspaceId,
         );
         totalMoved += moved;
       }
@@ -209,7 +201,6 @@ export async function processGraphResolution(
       await deleteStatements(
         duplicateStatementUuids,
         payload.userId,
-        payload.workspaceId,
       );
       logger.info(
         `Processed ${duplicateStatements.length} duplicate statements, moved ${totalMoved} provenance relationships`,
@@ -228,13 +219,13 @@ export async function processGraphResolution(
         statementIds: invalidatedStatements,
         invalidatedBy: payload.episodeUuid,
         userId: payload.userId,
-        workspaceId: payload.workspaceId,
+        workspaceId: undefined,
       });
     }
 
     // Step 6: Clean up orphaned entities (entities with no relationships)
     const { count: orphanedCount, deletedUuids: orphanedEntityUuids } =
-      await deleteOrphanedEntities(payload.userId, payload.workspaceId);
+      await deleteOrphanedEntities(payload.userId, undefined);
     if (orphanedCount > 0) {
       logger.info(`Deleted ${orphanedCount} orphaned entities`);
 
@@ -243,25 +234,7 @@ export async function processGraphResolution(
       logger.info(
         `Deleted ${orphanedEntityUuids.length} embeddings for orphaned entities`,
       );
-    }
-
-    // Step 7: Voice aspect resolution (dedup/evolution)
-    try {
-      const aspectResult = await processAspectResolution({
-        episodeUuid: payload.episodeUuid,
-        userId: payload.userId,
-        workspaceId: payload.workspaceId,
-      });
-      logger.info(
-        `Aspect resolution: ${aspectResult.duplicatesSkipped} duplicates, ${aspectResult.evolutionsResolved} evolutions, ${aspectResult.newKept} new`,
-      );
-    } catch (aspectError: any) {
-      logger.warn(`Aspect resolution failed (non-blocking):`, {
-        error: aspectError.message,
-      });
-    }
-
-    // Step 8: Update ingestion queue with resolution token usage
+    }    // Step 8: Update ingestion queue with resolution token usage
     try {
       const queue = await prisma.ingestionQueue.findUnique({
         where: { id: payload.queueId },
@@ -280,7 +253,7 @@ export async function processGraphResolution(
         ? await getEpisodeStatements({
             episodeUuid: finalOutput.episodeUuid,
             userId: payload.userId,
-            workspaceId: payload.workspaceId,
+            workspaceId: undefined,
           })
         : [];
 
@@ -345,7 +318,7 @@ export async function processGraphResolution(
 
       // Credit reconciliation: only reconcile when all chunks are done
       // Skip for BYOK workspaces (no credits were reserved or need deducting)
-      const byok = await isWorkspaceBYOK(payload.workspaceId);
+      const byok = await isWorkspaceBYOK(undefined);
 
       if (!byok) {
         const reservedCredits = finalOutput?.reservedCredits || currentOutput?.reservedCredits || 0;
@@ -358,7 +331,7 @@ export async function processGraphResolution(
             // All chunks done: reconcile reserved vs total statements across all chunks
             const totalStatementsUsed = finalOutput?.statementsCreated || statementsCount;
             await reconcileCredits(
-              payload.workspaceId,
+              undefined,
               payload.userId,
               "addEpisode",
               reservedCredits,
@@ -369,7 +342,7 @@ export async function processGraphResolution(
         } else {
           // Fallback: no reservation found (legacy path), deduct full amount
           await deductCredits(
-            payload.workspaceId,
+            undefined,
             payload.userId,
             "addEpisode",
             statementsCount,
@@ -412,9 +385,7 @@ async function resolveExtractedNodesWithMerges(
   tokenMetrics: {
     high: { input: number; output: number; total: number; cached: number };
     low: { input: number; output: number; total: number; cached: number };
-  },
-  workspaceId: string,
-): Promise<{
+  },): Promise<{
   resolvedTriples: Triple[];
   entityMerges: Array<{ sourceUuid: string; targetUuid: string }>;
 }> {
@@ -525,10 +496,8 @@ async function resolveExtractedNodesWithMerges(
           tokenMetrics.low.cached += (usage.cachedInputTokens as number) || 0;
         }
       },
-      undefined,
       "low",
       "entity-deduplication",
-      undefined,
       workspaceId,
       "memory",
     );
@@ -615,9 +584,7 @@ async function resolveStatementsWithDuplicates(
   tokenMetrics: {
     high: { input: number; output: number; total: number; cached: number };
     low: { input: number; output: number; total: number; cached: number };
-  },
-  workspaceId: string,
-): Promise<{
+  },): Promise<{
   resolvedStatements: Triple[];
   invalidatedStatements: string[];
   duplicateStatements: Array<{
@@ -863,10 +830,8 @@ async function resolveStatementsWithDuplicates(
           tokenMetrics.low.cached += (usage.cachedInputTokens as number) || 0;
         }
       },
-      undefined,
       "low",
       "statement-resolution",
-      undefined,
       workspaceId,
       "memory",
     );

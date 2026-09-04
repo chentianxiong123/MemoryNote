@@ -25,7 +25,7 @@ import { RawTriplet } from "./neo4j/types";
  */
 
 export interface IGraphProvider {
-  // ===== CORE INFRASTRUCTURE =====
+  // ===== PROVIDER INFRASTRUCTURE =====
 
   /**
    * Execute a raw query (Cypher for Neo4j, equivalent for others)

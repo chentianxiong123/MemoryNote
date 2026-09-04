@@ -74,10 +74,10 @@ Use the episode to resolve ambiguity — check whether a fact describes a real o
 ## KEEP — these belong in a knowledge graph
 
 - **Relationships**: "Nina is the user's real estate agent" / "Leo leads the mobile team"
-- **Identity**: "User is CTO at CORE" / "User lives in Bangalore"
+- **Identity**: "User is CTO at MemoryNote" / "User lives in Bangalore"
 - **Events** (with date): "Had annual checkup with Dr. Patel" / "Signed the lease on March 5"
 - **Decisions**: "Chose PostgreSQL over MySQL" / "Decided to bring in a contractor for frontend"
-- **Knowledge**: "CORE uses TypeScript and Remix" / "Apartment is a 3BHK in Koramangala"
+- **Knowledge**: "MemoryNote uses TypeScript and Remix" / "Apartment is a 3BHK in Koramangala"
 - **Outcomes**: "Air India flight booked to Mumbai on March 20" (not the search process)
 - **Problems**: "Stripe API keeps timing out, blocking payments integration"
 

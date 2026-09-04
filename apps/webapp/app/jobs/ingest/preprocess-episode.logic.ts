@@ -19,9 +19,7 @@ import {
 import { EpisodeChunker } from "~/services/episodeChunker.server";
 import { saveEpisode } from "~/services/graphModels/episode";
 import { prisma } from "~/db.server";
-import { type SessionCompactionPayload } from "~/jobs/session/session-compaction.logic";
 import { getRecentEpisodes } from "~/services/vectorStorage.server";
-import { type EpisodeEmbedding } from "@prisma/client";
 
 export { IngestBodyRequest };
 
@@ -42,12 +40,11 @@ async function getPreviousVersionEpisodes(
   userId: string,
   previousVersion: number,
   workspaceId?: string,
-): Promise<EpisodeEmbedding[]> {
+): Promise<any[]> {
   const allEpisodes = await getRecentEpisodes(
     userId,
     200,
     sessionId,
-    undefined,
     undefined,
     workspaceId,
   );
@@ -66,14 +63,11 @@ async function getPreviousVersionEpisodes(
  * 3. For documents: analyze versions and apply differential processing
  * 4. For conversations: chunk if needed
  * 5. Output array of pre-chunked episode payloads
- * 6. Trigger session compaction for conversations (in parallel with ingestion)
  */
 export async function processEpisodePreprocessing(
   payload: IngestEpisodePayload,
   // Callback function for enqueueing ingestion jobs (one per chunk)
   enqueueIngestEpisode?: (params: IngestEpisodePayload) => Promise<any>,
-  // Callback function for enqueueing session compaction (for conversations)
-  enqueueSessionCompaction?: (params: SessionCompactionPayload) => Promise<any>,
 ): Promise<PreprocessEpisodeResult> {
   try {
     logger.info(`Preprocessing episode for user ${payload.userId}`, {
@@ -91,7 +85,7 @@ export async function processEpisodePreprocessing(
         where: {
           sessionId_workspaceId: {
             sessionId,
-            workspaceId: payload.workspaceId,
+            workspaceId: undefined,
           },
         },
       });
@@ -170,7 +164,6 @@ export async function processEpisodePreprocessing(
       const versioningService = new EpisodeVersioningService();
       const versionInfo = await versioningService.analyzeVersionChanges(
         sessionId,
-        payload.workspaceId,
         chunked.originalContent,
         chunked.chunkHashes,
         type,
@@ -208,7 +201,7 @@ export async function processEpisodePreprocessing(
           const document = await prisma.document.findFirst({
             where: {
               sessionId,
-              workspaceId: payload.workspaceId,
+              workspaceId: undefined,
             },
             select: {
               content: true,
@@ -252,7 +245,6 @@ export async function processEpisodePreprocessing(
             sessionId,
             payload.userId,
             previousVersion,
-            payload.workspaceId,
           );
 
           if (previousVersionEpisodes.length > 0) {
@@ -418,7 +410,7 @@ export async function processEpisodePreprocessing(
           validAt: new Date(chunk.referenceTime),
           labelIds: chunk.labelIds || [],
           userId: payload.userId,
-          workspaceId: payload.workspaceId,
+          workspaceId: undefined,
           sessionId: chunk.sessionId!,
           queueId: payload.queueId,
           type: chunk.type,
@@ -462,59 +454,8 @@ export async function processEpisodePreprocessing(
         await enqueueIngestEpisode({
           body: chunkWithUuid,
           userId: payload.userId,
-          workspaceId: payload.workspaceId,
+          workspaceId: undefined,
           queueId: payload.queueId,
-        });
-      }
-    }
-
-    // Trigger session compaction in parallel for conversations
-    if (
-      sessionId &&
-      type === EpisodeType.CONVERSATION &&
-      enqueueSessionCompaction
-    ) {
-      // Check if this is a compact document update (type='conversation' in Document table)
-      const document = await prisma.document.findUnique({
-        where: {
-          sessionId_workspaceId: {
-            sessionId,
-            workspaceId: payload.workspaceId,
-          },
-        },
-        select: { type: true },
-      });
-
-      // Only trigger compaction if document type is 'conversation' or document doesn't exist yet
-      // Skip if type is 'document' (shouldn't happen for CONVERSATION type episodes)
-      if (!document || document.type === "conversation") {
-        logger.info(`Enqueueing session compaction for conversation`, {
-          sessionId,
-          userId: payload.userId,
-          isNewConversation: !document,
-        });
-
-        try {
-          await enqueueSessionCompaction({
-            userId: payload.userId,
-            sessionId,
-            source: episodeBody.source,
-            workspaceId: payload.workspaceId,
-          });
-        } catch (compactionError) {
-          // Don't fail preprocessing if compaction enqueueing fails
-          logger.warn(`Failed to enqueue session compaction`, {
-            sessionId,
-            error:
-              compactionError instanceof Error
-                ? compactionError.message
-                : String(compactionError),
-          });
-        }
-      } else {
-        logger.info(`Skipping compaction for non-conversation document`, {
-          sessionId,
-          documentType: document.type,
         });
       }
     } else if (sessionId && type === EpisodeType.DOCUMENT) {
@@ -528,7 +469,7 @@ export async function processEpisodePreprocessing(
         where: {
           sessionId_workspaceId: {
             sessionId,
-            workspaceId: payload.workspaceId,
+            workspaceId: undefined,
           },
         },
         create: {
@@ -545,7 +486,7 @@ export async function processEpisodePreprocessing(
             preprocessedAt: new Date().toISOString(),
           },
           editedBy: payload.userId,
-          workspaceId: payload.workspaceId,
+          workspaceId: undefined,
         },
         update: {
           title: episodeBody.title || "Untitled Document",

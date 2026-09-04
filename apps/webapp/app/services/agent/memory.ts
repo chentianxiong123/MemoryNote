@@ -37,7 +37,6 @@ function hasSearchResults(result: any): boolean {
 interface MemoryAgentParams {
   intent: string;
   userId: string;
-  workspaceId: string;
   source: string;
 }
 
@@ -119,7 +118,6 @@ Output: ["recent discussions and work on authentication"]
 export async function memoryAgent({
   intent,
   userId,
-  workspaceId,
   source,
 }: MemoryAgentParams): Promise<{
   episodes: any[];
@@ -147,7 +145,6 @@ Generate 1-5 optimized search queries to retrieve relevant context from memory.`
       "low",
       undefined,
       undefined,
-      workspaceId,
       "search",
     );
 
@@ -163,7 +160,7 @@ Generate 1-5 optimized search queries to retrieve relevant context from memory.`
         const result = (await searchService.search(
           query,
           userId,
-          workspaceId,
+          undefined,
           {
             structured: true,
             limit: 20, // Get top 10 per query
@@ -278,32 +275,16 @@ interface SearchMemoryOptions {
 export async function searchMemoryWithAgent(
   intent: string,
   userId: string,
-  workspaceId: string,
   source: string,
   options: SearchMemoryOptions = {},
 ) {
   try {
-    // Check workspace version to determine search strategy
-    const workspace = await prisma.workspace.findFirst({
-      where: { id: workspaceId },
-      select: { version: true },
-    });
-    const isV3User = workspace?.version === "V3";
+    logger.info(`[MemoryAgent] Starting search for intent: "${intent}"`);
 
-    logger.info(
-      `[MemoryAgent] Starting search for intent: "${intent}" (workspace version: ${workspace?.version || "unknown"}, V1 fallback: ${!isV3User})`,
-    );
-
-    // For V3 users: V2 only (no V1 fallback - all their data is V2-compatible)
-    // For V1/V2 users: parallel V1/V2 with V2-first, V1-fallback
-    const v1Promise = isV3User
-      ? null
-      : memoryAgent({ intent, userId, workspaceId, source });
-
+    // V2 only (personal use, no V1 fallback needed)
     const v2Promise = searchV2(intent, userId, {
       structured: true,
       limit: options.limit ?? 20,
-      workspaceId,
       source,
       startTime: options.startTime,
       endTime: options.endTime,
@@ -336,7 +317,7 @@ export async function searchMemoryWithAgent(
       facts = v2Structured.facts || [];
       facets = v2Structured.facets || null;
       voiceAspects = v2Structured.voiceAspects || [];
-    } else if (!isV3User && v1Promise) {
+    } else if (v1Promise) {
       // V2 empty and V1 fallback enabled - wait for V1 (already running in parallel)
       logger.info(`[MemoryAgent] V2 empty, using V1 fallback`);
       const v1Result = await v1Promise.catch((err) => {
@@ -347,8 +328,8 @@ export async function searchMemoryWithAgent(
       invalidFacts = v1Result.facts || [];
       usedVersion = "v1";
     } else {
-      // V3 user with empty V2 results - no fallback
-      logger.info(`[MemoryAgent] V2 empty, no V1 fallback for V3 user`);
+      // V2 empty, no fallback
+      logger.info(`[MemoryAgent] V2 empty, no V1 fallback`);
     }
 
     logger.info(

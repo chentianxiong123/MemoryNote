@@ -5,7 +5,6 @@
 
 import { type Tool } from "ai";
 import { createCoreTools } from "./agents/core";
-import { type SkillRef } from "./types";
 
 export const createTools = async (
   userId: string,
@@ -14,7 +13,6 @@ export const createTools = async (
   source: string,
   readOnly: boolean = false,
   _persona?: string,
-  skills?: SkillRef[],
   onMessage?: (message: string) => Promise<void>,
   defaultChannel?: string,
   availableChannels?: string[],

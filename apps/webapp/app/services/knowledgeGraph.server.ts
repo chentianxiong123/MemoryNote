@@ -59,7 +59,6 @@ import {
   batchStoreStatementEmbeddings,
   getRecentEpisodes,
 } from "./vectorStorage.server";
-import { saveVoiceAspects } from "./aspectStore.server";
 import { type ModelMessage } from "ai";
 
 // Default number of previous episodes to retrieve for context
@@ -908,36 +907,6 @@ export class KnowledgeGraphService {
       if (!workspaceId) {
         return null;
       }
-
-      const integrationAccount = await prisma.integrationAccount.findFirst({
-        where: {
-          integrationDefinition: {
-            slug: source,
-          },
-
-          isActive: true,
-          deleted: null,
-        },
-      });
-
-      if (!integrationAccount) {
-        return null;
-      }
-
-      // Fetch active rules for this source
-      const rules = await prisma.ingestionRule.findMany({
-        where: {
-          source: integrationAccount.id,
-
-          isActive: true,
-          deleted: null,
-        },
-        select: {
-          text: true,
-          name: true,
-        },
-        orderBy: { createdAt: "asc" },
-      });
 
       if (rules.length === 0) {
         return null;

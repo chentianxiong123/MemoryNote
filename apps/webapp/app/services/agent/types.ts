@@ -1,9 +1,3 @@
-export interface SkillRef {
-  id: string;
-  title: string;
-  metadata: Record<string, unknown> | null;
-}
-
 export type MessageChannel = "whatsapp" | "email" | "slack" | "telegram";
 
 export type ExplorerType = "memory" | "integration";

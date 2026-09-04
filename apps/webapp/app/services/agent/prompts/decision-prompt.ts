@@ -1,8 +1,7 @@
-import { type ChannelType } from "./channel-formats";
 
 export function buildDecisionAgentPrompt(context: {
   userMessage: string;
-  channelType?: ChannelType;
+  channelType?: "web";
   previousContext?: string;
 }): string {
   return `You are a decision-making agent. Analyze the following message and decide the best action.

@@ -1,8 +1,7 @@
 # MemoryNote v1 架构总览(冻结快照)
 
-> v1 是基于 CORE by RedPlanetHQ 改造的 **Remix 后端 + Vue 3 前端** 双栈应用。
-> 本文是 v1 收尾归档,代码已在 `v1.0.0` tag 冻结。
-> v2 将彻底重写为单 Next.js 应用,见 [MIGRATION-TO-V2.md](./MIGRATION-TO-V2.md)。
+> v1 是 MemoryNote 的早期 **Remix 后端 + Vue 3 前端** 双栈版本。
+> 本文是 v1 收尾归档，代码已在 `v1.0.0` tag 冻结。
 
 **最后更新**: 2026-09-03
 **版本**: v1.0.0

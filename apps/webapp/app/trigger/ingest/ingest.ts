@@ -6,7 +6,6 @@ import {
 } from "~/jobs/ingest/ingest-episode.logic";
 import { labelAssignmentTask } from "../labels/label-assignment";
 import { titleGenerationTask } from "../titles/title-generation";
-import { personaGenerationTask } from "../spaces/persona-generation";
 import { graphResolutionTask } from "./graph-resolution";
 import { initializeProvider } from "../utils/provider";
 
@@ -42,18 +41,7 @@ export const ingestTask = task({
         await titleGenerationTask.trigger(params, {
           tags: [payload.queueId],
         });
-      },
-      // Callback for persona generation
-      async (params) => {
-        await personaGenerationTask.trigger(params, {
-          queue: "persona-generation-queue",
-          concurrencyKey: payload.userId,
-          tags: [payload.userId, payload.queueId],
-          idempotencyKey: payload.userId,
-          idempotencyKeyTTL: "10m",
-        });
-      },
-      // Callback for async graph resolution (includes aspect resolution)
+      },      // Callback for async graph resolution (includes aspect resolution)
       async (params) => {
         await graphResolutionTask.trigger(params, {
           queue: "graph-resolution-queue",

@@ -22,7 +22,7 @@ CREATE TABLE "voice_aspect_embeddings" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "fact" TEXT NOT NULL,
     "aspect" TEXT NOT NULL,
-    "vector" vector NOT NULL,
+    "vector" public.vector NOT NULL,
     "metadata" JSONB,
     "userId" TEXT NOT NULL,
     "workspaceId" TEXT,

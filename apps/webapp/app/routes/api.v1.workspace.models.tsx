@@ -41,13 +41,13 @@ async function ensureModelInDb(
 
   const provider =
     (await prisma.lLMProvider.findFirst({
-      where: { type: "openai", workspaceId: null },
+      where: { type: "openai" },
     })) ??
     (await prisma.lLMProvider.create({
       data: {
         type: "openai",
         name: "OpenAI-Compatible",
-        workspaceId: null,
+        
         isActive: true,
       },
     }));

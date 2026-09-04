@@ -22,7 +22,7 @@ const PERSONAL_USER = {
   confirmedBasicDetails: true,
   onboardingComplete: true,
   isImpersonating: false,
-  workspaceId: "personal",
+
 };
 
 export async function getUserId(
@@ -33,8 +33,8 @@ export async function getUserId(
 
 export async function getUserSession(
   _request: Request | ERequest,
-): Promise<{ userId: string; workspaceId?: string } | undefined> {
-  return { userId: PERSONAL_USER.id, workspaceId: PERSONAL_USER.workspaceId };
+): Promise<{ userId: string } | undefined> {
+  return { userId: PERSONAL_USER.id };
 }
 
 export async function getUser(_request: Request) {
@@ -53,7 +53,7 @@ export async function requireUser(_request: Request) {
 }
 
 export async function requireWorkpace(_request: Request) {
-  return { id: PERSONAL_USER.workspaceId, name: "Personal", slug: "personal" };
+  return { id: "personal", name: "Personal", slug: "personal" };
 }
 
 export async function logout(_request: Request) {
@@ -65,5 +65,5 @@ export async function getWorkspaceId(
   _userId: string,
   providedWorkspaceId?: string | null,
 ): Promise<string | undefined> {
-  return providedWorkspaceId ?? PERSONAL_USER.workspaceId;
+  return providedWorkspaceId ?? "personal";
 }

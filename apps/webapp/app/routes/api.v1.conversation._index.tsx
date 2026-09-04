@@ -161,7 +161,6 @@ const { loader, action } = createHybridActionApiRoute(
       }
 
       const selection = await selectModelMessages({
-        workspaceId: ("personal" as string) ?? "",
         conversationId: body.id,
         history: historyForSelection,
         currentMessage,
@@ -184,12 +183,10 @@ const { loader, action } = createHybridActionApiRoute(
     const useEmptyMessages =
       conversationHistory.length === 0 && !isTaskConversation;
 
-    const workspaceId = "personal" as string;
     const modelString = body.modelId ?? getDefaultChatModelId();
 
     const { modelConfig, isBYOK } = await resolveModelConfig(
       modelString,
-      workspaceId,
     );
 
     const {
@@ -202,7 +199,6 @@ const { loader, action } = createHybridActionApiRoute(
       isBackgroundExecution,
     } = await buildAgentContext({
       userId: "personal",
-      workspaceId,
       source: body.source as any,
       finalMessages: useEmptyMessages ? [] : finalMessages,
       conversationId: body.id,
@@ -245,7 +241,7 @@ const { loader, action } = createHybridActionApiRoute(
       incomingUserText,
       incognito: conversation?.incognito,
       userId: "personal",
-      workspaceId: workspaceId || "",
+      
       isBYOK,
     };
 

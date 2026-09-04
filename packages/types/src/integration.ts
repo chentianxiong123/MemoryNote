@@ -42,7 +42,7 @@ export type WebWidgetComponent = () => unknown;
 
 /**
  * A pi-tui Component instance (tui placement).
- * Returned by createPlayer / createList / etc. from @redplanethq/ui/tui.
+ * Returned by createPlayer / createList / etc. from pi-tui.
  */
 export type TuiWidgetComponent = object;
 

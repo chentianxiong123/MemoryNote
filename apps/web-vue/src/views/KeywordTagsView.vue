@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import SectionCard from "@/components/SectionCard.vue";
@@ -21,6 +21,10 @@ const blockedWords = ref<Set<string>>(new Set());
 // 搜索过滤
 const search = ref("");
 
+// 分页
+const PAGE_SIZE = 30;
+const currentPage = ref(1);
+
 const filteredKeywords = computed(() => {
   const keyword = search.value.trim().toLowerCase();
   if (!keyword) return keywords.value;
@@ -28,6 +32,25 @@ const filteredKeywords = computed(() => {
     kw.word.toLowerCase().includes(keyword)
   );
 });
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredKeywords.value.length / PAGE_SIZE)));
+
+const paginatedKeywords = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE;
+  return filteredKeywords.value.slice(start, start + PAGE_SIZE);
+});
+
+watch(filteredKeywords, () => {
+  currentPage.value = 1;
+});
+
+function prevPage() {
+  if (currentPage.value > 1) currentPage.value -= 1;
+}
+
+function nextPage() {
+  if (currentPage.value < totalPages.value) currentPage.value += 1;
+}
 
 async function loadKeywords() {
   loadingKeywords.value = true;
@@ -94,7 +117,7 @@ onMounted(async () => {
 
     <div class="keyword-list">
       <article
-        v-for="kw in filteredKeywords"
+        v-for="kw in paginatedKeywords"
         :key="kw.word"
         class="keyword-item"
       >
@@ -120,6 +143,12 @@ onMounted(async () => {
 
     <div v-if="filteredKeywords.length === 0" class="empty-state">
       <p>没有匹配的关键词。</p>
+    </div>
+
+    <div v-if="totalPages > 1" class="pagination">
+      <button class="page-btn" :disabled="currentPage === 1" @click="prevPage">上一页</button>
+      <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页 (共 {{ filteredKeywords.length }} 个)</span>
+      <button class="page-btn" :disabled="currentPage === totalPages" @click="nextPage">下一页</button>
     </div>
   </SectionCard>
 </template>
@@ -210,5 +239,42 @@ onMounted(async () => {
 
 .btn--danger:hover {
   background: rgba(34, 197, 94, 0.1);
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.page-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  background: #fff;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #c9633d;
+  color: #c9633d;
+  background: #fef3ec;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 13px;
+  color: #64748b;
 }
 </style>

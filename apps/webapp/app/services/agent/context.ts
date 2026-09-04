@@ -16,7 +16,6 @@ import { type MessageEntry } from "./context-window";
 
 interface BuildAgentContextParams {
   userId: string;
-  workspaceId: string;
   source: string;
   finalMessages: any[];
   conversationId: string;
@@ -25,7 +24,6 @@ interface BuildAgentContextParams {
   modelConfig?: ModelConfig;
   triggerContext?: unknown;
   onMessage?: (message: string) => Promise<void>;
-  channelMetadata?: Record<string, string>;
   scratchpadPageId?: string;
 }
 
@@ -44,7 +42,6 @@ interface AgentContext {
 
 export async function buildAgentContext({
   userId,
-  workspaceId,
   source,
   finalMessages,
   conversationId,
@@ -53,25 +50,16 @@ export async function buildAgentContext({
   modelConfig,
 }: BuildAgentContextParams): Promise<AgentContext> {
   // Load user
-  const [user, workspace] = await Promise.all([
-    getUserById(userId),
-    prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { name: true, metadata: true },
-    }),
-  ]);
+  const user = await getUserById(userId);
 
   if (!user) throw new Error("User not found");
 
   const userMetadata = (user.metadata ?? {}) as Record<string, unknown>;
   const timezone =
     typeof userMetadata.timezone === "string" ? userMetadata.timezone : "UTC";
-  const metadata = (workspace?.metadata ?? {}) as Record<string, unknown>;
-  const channel = source as import("./prompts/channel-formats").ChannelType;
-
   // Get core system prompt
   let systemPrompt = getCorePrompt(
-    channel,
+    "web",
     {
       name: user.displayName ?? user.name ?? "User",
       email: user.email,
@@ -79,7 +67,7 @@ export async function buildAgentContext({
       phoneNumber: user.phoneNumber ?? undefined,
     },
     undefined,
-    workspace?.name ?? undefined,
+    undefined,
   );
 
   // Add current datetime
@@ -101,24 +89,6 @@ export async function buildAgentContext({
   // Create executor
   const executor = executorTools ?? new DirectOrchestratorTools();
 
-  // Get available skills
-  const skills = await prisma.document.findMany({
-    where: { workspaceId, type: "skill", deleted: null },
-    select: { id: true, title: true, metadata: true },
-    orderBy: { createdAt: "desc" },
-  });
-
-  // Add skills context
-  if (skills.length > 0) {
-    const skillsList = skills
-      .map((s) => `- "${s.title}" (ID: ${s.id})`)
-      .join("\n");
-    systemPrompt += `
-    <skills>
-    Available skills you can call with get_skill(skillId):
-    ${skillsList}
-    </skills>`;
-  }
 
   // Create Mastra agents
   const { gatherContextAgent, takeActionAgent } =
@@ -129,7 +99,6 @@ export async function buildAgentContext({
   // Create tools
   const tools = await createCoreTools({
     executorTools: executor,
-    workspaceId,
     userId,
     source,
     conversationId,

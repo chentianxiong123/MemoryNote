@@ -7,7 +7,6 @@ import { prisma } from "~/db.server";
 import { countTokens } from "~/services/search/tokenBudget";
 import { type IngestBodyRequest } from "~/jobs/ingest/ingest-episode.logic";
 import { enqueuePreprocessEpisode } from "~/lib/queue-adapter.server";
-import { trackFeatureUsage } from "~/services/telemetry.server";
 import { estimateCreditsFromTokens, reserveCredits } from "~/jobs/credit_utils";
 import { isWorkspaceBYOK } from "~/services/byok.server";
 
@@ -15,7 +14,6 @@ import { isWorkspaceBYOK } from "~/services/byok.server";
 export const addToQueue = async (
   rawBody: z.infer<typeof IngestBodyRequest>,
   userId: string,
-  workspaceId: string,
   activityId?: string,
   ingestionQueueId?: string,
 ) => {
@@ -25,13 +23,12 @@ export const addToQueue = async (
   // Filter out invalid labels if labelIds are provided
   let validatedLabelIds: string[] = [];
   if (body.labelIds && body.labelIds.length > 0) {
-    // Get only the valid labels for this workspace
+    // Get only the valid labels
     const validLabels = await prisma.label.findMany({
       where: {
         id: {
           in: body.labelIds,
         },
-        workspaceId: workspaceId,
       },
       select: {
         id: true,
@@ -137,9 +134,7 @@ export const addToQueue = async (
 
   // Track feature usage
   if (body.type === EpisodeType.DOCUMENT) {
-    trackFeatureUsage("document_ingested", userId).catch(console.error);
   } else {
-    trackFeatureUsage("episode_ingested", userId).catch(console.error);
   }
 
   return { id: handler.id };

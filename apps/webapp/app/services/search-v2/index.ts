@@ -1,7 +1,7 @@
 /**
  * Search V2 - Hybrid Router-based Retrieval System
  *
- * New search architecture for CORE's memory recall system.
+ * New search architecture for MemoryNote's memory recall system.
  * Replaces v1 multi-signal fusion with hybrid router-based retrieval:
  *
  * 1. Vector search → Match topic labels (fast, scalable)
@@ -105,12 +105,12 @@ export async function searchV2(
 ): Promise<ReturnType<typeof formatForV1Compatibility> | string> {
   const startTime = Date.now();
 
-  const workspaceId = await resolveWorkspaceIdForUser(userId, options.workspaceId);
+  void options.workspaceId; // personal use, resolved to "personal"
 
   logger.debug(`[SearchV2] Starting search for: "${query.slice(0, 100)}..."`);
 
   // Step 1: Route the intent (parallel vector + LLM)
-  const routerOutput = await routeIntent(query, userId, workspaceId);
+  const routerOutput = await routeIntent(query, userId, "personal");
 
   // Step 2: Check if we should search
   if (!shouldProceedWithSearch(routerOutput)) {
@@ -131,7 +131,6 @@ export async function searchV2(
   // Step 3: Build handler context
   const ctx: HandlerContext = {
     userId,
-    workspaceId,
     routerOutput,
     options: {
       ...options,
@@ -199,11 +198,8 @@ export async function searchV2(
 export async function analyzeQuery(
   query: string,
   userId: string,
-  workspaceId?: string
 ) {
-  const resolvedWorkspaceId = await resolveWorkspaceIdForUser(userId, workspaceId);
-
-  const routerOutput = await routeIntent(query, userId, resolvedWorkspaceId);
+  const routerOutput = await routeIntent(query, userId, "personal");
 
   return {
     shouldSearch: shouldProceedWithSearch(routerOutput),

@@ -5,7 +5,7 @@ CREATE TABLE "label_embeddings" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
-    "vector" vector NOT NULL,
+    "vector" public.vector NOT NULL,
     "metadata" JSONB,
     "workspaceId" TEXT NOT NULL,
 

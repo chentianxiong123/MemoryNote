@@ -55,9 +55,9 @@ interface NoStreamProcessBody {
     reminderText: string;
     userPersona?: string;
   };
-  /** Optional callback for channels to send intermediate messages (acks) */
+  /** Optional callback for sending intermediate messages */
   onMessage?: (message: string) => Promise<void>;
-  /** Channel-specific metadata (messageSid, slackUserId, threadTs, etc.) */
+  /** Channel-specific metadata */
   channelMetadata?: Record<string, string>;
   /** If true, the user message won't be saved to conversation history (still used as AI context) */
   skipUserMessage?: boolean;
@@ -72,7 +72,7 @@ interface NoStreamProcessBody {
 export async function noStreamProcess(
   body: NoStreamProcessBody,
   userId: string,
-  workspaceId: string,
+  
 ) {
   const conversation = await getConversationAndHistory(body.id, userId);
   const isAssistantApproval = body.needsApproval;
@@ -142,7 +142,7 @@ export async function noStreamProcess(
       parts: body.message?.parts ?? [{ text: message, type: "text" }],
     };
     const selection = await selectModelMessages({
-      workspaceId,
+      $userId,
       conversationId: body.id,
       history: historyMessages,
       currentMessage,
@@ -163,7 +163,7 @@ export async function noStreamProcess(
   const modelString = getDefaultChatModelId();
   const { modelConfig, isBYOK } = await resolveModelConfig(
     modelString,
-    workspaceId,
+    $userId,
   );
 
   const {
@@ -176,7 +176,7 @@ export async function noStreamProcess(
     gatewayAgents,
   } = await buildAgentContext({
     userId,
-    workspaceId,
+    $userId,
     source: body.source as any,
     finalMessages,
     triggerContext: body.triggerContext,
@@ -218,7 +218,7 @@ export async function noStreamProcess(
     (gw as any).__registerMastra(mastra);
   }
 
-  // Capture final parts/text from outputProcessor for channel reply
+  // Capture final parts/text from outputProcessor
   let capturedParts: any[] = [];
   let capturedText = "";
 
@@ -355,12 +355,12 @@ export async function noStreamProcess(
           sessionId: body.id,
         },
         userId,
-        workspaceId,
+        $userId,
       );
     }
 
     if (!isBYOK) {
-      await deductCredits(workspaceId, userId, "chatMessage", 1);
+      await deductCredits($userId, userId, "chatMessage", 1);
     }
   } finally {
     await updateConversationStatus(body.id, "completed");

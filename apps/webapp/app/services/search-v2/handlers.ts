@@ -21,12 +21,6 @@ import {
   type VoiceAspect,
   VOICE_ASPECTS,
 } from "@core/types";
-import {
-  searchVoiceAspects,
-  getVoiceAspectsForTimeRange,
-} from "~/services/aspectStore.server";
-
-/** Episode with optional relevance score from reranking */
 type RankedEpisode = EpisodicNode & { relevanceScore?: number };
 import { CohereClientV2 } from "cohere-ai";
 import { getEmbedding } from "~/lib/model.server";
@@ -165,7 +159,7 @@ async function getEpisodesViaEntityHints(
 
   const entityUuidSets = await Promise.all(
     hintsToSearch.map(async (hint) => {
-      const embedding = await getEmbedding(hint, ctx.workspaceId);
+      const embedding = await getEmbedding(hint, undefined);
       if (!embedding?.length) return [];
       const results = await vectorProvider.search({
         vector: embedding,
@@ -188,7 +182,7 @@ async function getEpisodesViaEntityHints(
   return graphProvider.getEpisodesForEntities({
     entityUuids: uniqueUuids,
     userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
+    workspaceId: undefined,
     maxEpisodes,
   });
 }
@@ -212,7 +206,7 @@ async function getEpisodesViaVectorSearch(
   ctx: HandlerContext,
   maxEpisodes: number,
 ): Promise<EpisodicNode[]> {
-  const queryEmbedding = await getEmbedding(query, ctx.workspaceId);
+  const queryEmbedding = await getEmbedding(query, undefined);
   if (!queryEmbedding?.length) return [];
 
   const vectorProvider = ProviderFactory.getVectorProvider();
@@ -261,7 +255,7 @@ export async function handleAspectQuery(
   const [labelEpisodes, entityEpisodes, vectorEpisodes] = await Promise.all([
     graphProvider.getEpisodesForAspect({
       userId: ctx.userId,
-      workspaceId: ctx.workspaceId,
+      workspaceId: undefined,
       labelIds,
       aspects,
       temporalStart,
@@ -331,7 +325,7 @@ export async function handleEntityLookup(
 
   for (const hint of entityHints) {
     // Get embedding for the hint
-  const hintEmbedding = await getEmbedding(hint, ctx.workspaceId);
+  const hintEmbedding = await getEmbedding(hint, undefined);
 
     if (!hintEmbedding || hintEmbedding.length === 0) {
       logger.debug(
@@ -354,7 +348,7 @@ export async function handleEntityLookup(
     const entityNodes = await graphProvider.getEntities(
       entityUuids,
       ctx.userId,
-      ctx.workspaceId,
+      undefined,
     );
 
     allEntities.push(...entityNodes.filter((e) => e && e.uuid && e.name));
@@ -448,7 +442,7 @@ export async function handleEntityLookup(
   const episodes = await graphProvider.getEpisodesForEntities({
     entityUuids,
     userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
+    workspaceId: undefined,
     maxEpisodes,
     aspects,
   });
@@ -490,7 +484,7 @@ export async function handleTemporal(
   const [labelEpisodes, entityEpisodes, vectorEpisodes] = await Promise.all([
     graphProvider.getEpisodesForTemporal({
       userId: ctx.userId,
-      workspaceId: ctx.workspaceId,
+      workspaceId: undefined,
       labelIds,
       aspects: ctx.routerOutput.aspects,
       startTime: effectiveStart,
@@ -536,7 +530,7 @@ export async function handleTemporal(
  * Returns raw episode nodes without reranking or normalization
  *
  * Exploratory queries are for broad exploration across a topic/project:
- * - "search implementation in CORE"
+ * - "search implementation in MemoryNote"
  * - "authentication architecture"
  * - "recent progress on feature X"
  */
@@ -558,7 +552,7 @@ export async function handleExploratory(
   // Label path: query Document table directly — one compacted row per session, no grouping needed
   const labelSessionsPromise = prisma.document.findMany({
     where: {
-      workspaceId: ctx.workspaceId,
+      workspaceId: undefined,
       type: "conversation",
       deleted: null,
       ...(labelIds.length > 0 ? { labelIds: { hasSome: labelIds } } : {}),
@@ -598,7 +592,7 @@ export async function handleExploratory(
         sessionId: doc.sessionId ?? undefined,
         type: "DOCUMENT",
         userId: ctx.userId,
-        workspaceId: ctx.workspaceId,
+        workspaceId: undefined,
       }) as EpisodicNode,
   );
 
@@ -647,7 +641,7 @@ export async function handleRelationship(
   const vectorProvider = ProviderFactory.getVectorProvider();
   const entityUuidSets = await Promise.all(
     entityHints.slice(0, 5).map(async (hint) => {
-      const embedding = await getEmbedding(hint, ctx.workspaceId);
+      const embedding = await getEmbedding(hint, undefined);
       if (!embedding?.length) return [];
       const results = await vectorProvider.search({
         vector: embedding,
@@ -672,7 +666,7 @@ export async function handleRelationship(
   // Find statements connecting any two of the resolved entities
   const statements = await graphProvider.getStatementsConnectingEntities({
     userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
+    workspaceId: undefined,
     entityUuids,
     maxStatements: limit,
   });
@@ -805,7 +799,7 @@ async function applyEpisodeReranking(
       query,
       maxEpisodes,
       RELEVANCE_THRESHOLD,
-      ctx.workspaceId,
+      undefined,
     );
   } catch (error) {
     logger.warn(`[Reranking:vector] Failed, using original order: ${error}`);
@@ -898,7 +892,7 @@ async function replaceWithCompacts(
   const compactDocs = await prisma.document.findMany({
     where: {
       sessionId: { in: Array.from(sessionGroups.keys()) },
-      workspaceId: ctx.workspaceId,
+      workspaceId: undefined,
       type: "conversation", // Compacted sessions have type "conversation"
       deleted: null,
     },
@@ -995,7 +989,7 @@ async function extractInvalidatedFacts(
   const invalidFacts = await graphProvider.getEpisodesInvalidFacts(
     episodeUuids,
     ctx.userId,
-    ctx.workspaceId,
+    undefined,
   );
 
   // Filter for invalidated statements only
@@ -1102,7 +1096,7 @@ export async function handleTemporalFacets(
       facetDimensions.includes("topics")
         ? graphProvider.getTopicsForFacets({
             userId: ctx.userId,
-            workspaceId: ctx.workspaceId,
+            workspaceId: undefined,
             startTime: effectiveStart,
             endTime: temporalEnd,
           })
@@ -1110,7 +1104,7 @@ export async function handleTemporalFacets(
       facetDimensions.includes("entities")
         ? graphProvider.getEntitiesForFacets({
             userId: ctx.userId,
-            workspaceId: ctx.workspaceId,
+            workspaceId: undefined,
             startTime: effectiveStart,
             endTime: temporalEnd,
           })
@@ -1118,7 +1112,7 @@ export async function handleTemporalFacets(
       facetDimensions.includes("aspects")
         ? graphProvider.getAspectsForFacets({
             userId: ctx.userId,
-            workspaceId: ctx.workspaceId,
+            workspaceId: undefined,
             startTime: effectiveStart,
             endTime: temporalEnd,
             aspects:
@@ -1127,10 +1121,10 @@ export async function handleTemporalFacets(
                 : undefined,
           })
         : Promise.resolve(null),
-      facetDimensions.includes("aspects") && ctx.workspaceId
+      facetDimensions.includes("aspects") && undefined
         ? getVoiceAspectsForTimeRange({
             userId: ctx.userId,
-            workspaceId: ctx.workspaceId,
+            workspaceId: undefined,
             startTime: effectiveStart,
             endTime: temporalEnd,
             aspects:
@@ -1176,7 +1170,7 @@ export async function handleTemporalFacets(
 
     const documents = await prisma.document.findMany({
       where: {
-        workspaceId: ctx.workspaceId,
+        workspaceId: undefined,
         type: "conversation",
         deleted: null,
         updatedAt: { gte: effectiveStart },
@@ -1269,14 +1263,14 @@ async function searchVoiceAspectsForQuery(
 
   if (requestedVoiceAspects.length === 0) return [];
 
-  const queryEmbedding = await getEmbedding(query, ctx.workspaceId);
+  const queryEmbedding = await getEmbedding(query, undefined);
   if (!queryEmbedding || queryEmbedding.length === 0) return [];
 
   // Search for each requested voice aspect type
   const results = await searchVoiceAspects({
     queryVector: queryEmbedding,
     userId: ctx.userId,
-    workspaceId: ctx.workspaceId,
+    workspaceId: undefined,
     limit: 10,
     threshold: 0.5,
   });
@@ -1346,7 +1340,6 @@ export async function routeToHandler(
       // Run graph episode search and voice aspects search in parallel
       const [episodes, voiceAspects] = await Promise.all([
         handleAspectQuery(ctx),
-        searchVoiceAspectsForQuery(ctx),
       ]);
       const rerankedEpisodes = await applyEpisodeReranking(episodes, ctx);
       const result = await normalizeToRecallResult(
@@ -1413,7 +1406,6 @@ export async function routeToHandler(
       );
       const [episodes, voiceAspects] = await Promise.all([
         handleAspectQuery(ctx),
-        searchVoiceAspectsForQuery(ctx),
       ]);
       const rerankedEpisodes = await applyEpisodeReranking(episodes, ctx);
       const result = await normalizeToRecallResult(

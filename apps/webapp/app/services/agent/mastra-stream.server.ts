@@ -1,5 +1,5 @@
 import { generateId, createUIMessageStreamResponse } from "ai";
-import { toAISdkStream } from "@redplanethq/ai";
+import { toAISdkStream } from "@mastra/ai-sdk";
 import { UserTypeEnum } from "@core/types";
 import {
   upsertConversationHistory,

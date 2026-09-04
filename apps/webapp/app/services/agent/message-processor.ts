@@ -1,5 +1,5 @@
 /**
- * Async channel adapter (WhatsApp, Email).
+ * Async conversation processor.
  *
  * Creates/gets a daily conversation, then delegates to noStreamProcess
  * (same flow as web chat).
@@ -7,7 +7,6 @@
 
 import { UserTypeEnum } from "@core/types";
 import { prisma } from "~/db.server";
-import { type ChannelType } from "~/services/agent/prompts/channel-formats";
 import { noStreamProcess } from "~/services/agent/no-stream-process";
 import {
   type Trigger,
@@ -15,15 +14,12 @@ import {
 } from "~/services/agent/types/decision-agent";
 import { type OrchestratorTools } from "~/services/agent/executors/base";
 import { createConversation } from "../conversation.server";
-import { type InboundAttachment } from "~/services/channels/types";
-import { formatDailyWhatsAppTitle } from "~/services/channels/whatsapp/utils";
 import { ModelMessage } from "ai";
 import { getUserTimezone } from "~/models/user.server";
 
 interface ProcessInboundMessageParams {
   userId: string;
-  workspaceId: string;
-  channel: ChannelType;
+  channel: string;
   userMessage: string;
   /** If provided, use this conversation instead of creating/finding a daily one */
   conversationId?: string;
@@ -38,9 +34,9 @@ interface ProcessInboundMessageParams {
     reminderText: string;
     userPersona?: string;
   };
-  /** Optional callback for channels to send intermediate messages (acks) */
+  /** Optional callback for sending intermediate messages */
   onMessage?: (message: string) => Promise<void>;
-  /** Channel-specific metadata (messageSid, slackUserId, threadTs, etc.) */
+  /** Channel-specific metadata */
   channelMetadata?: Record<string, string>;
   /** Optional executor tools — uses HttpOrchestratorTools for trigger/job contexts */
   executorTools?: OrchestratorTools;
@@ -55,13 +51,13 @@ interface ProcessInboundMessageResult {
 }
 
 /**
- * Get or create a conversation for async channels.
+ * Get or create a conversation.
  * - If sessionId is present in metadata (e.g., thread_ts for Slack): one conversation per session
- * - Otherwise: one conversation per day per channel
+ * - Otherwise: one conversation per day
  */
-export async function getOrCreateChannelConversation(
+export async function getOrCreateConversation(
   userId: string,
-  workspaceId: string,
+  
   message: string,
   channel: string,
   channelMetadata?: Record<string, string>,
@@ -81,7 +77,7 @@ export async function getOrCreateChannelConversation(
 
     if (existing) return existing.id;
 
-    const conversation = await createConversation(workspaceId, userId, {
+    const conversation = await createConversation("personal", userId, {
       message,
       parts: [{ text: message, type: "text" }],
       source: channel,
@@ -111,11 +107,11 @@ export async function getOrCreateChannelConversation(
 
   const userTimezone = await getUserTimezone(userId);
   const title =
-    channel === "whatsapp"
+    false
       ? formatDailyWhatsAppTitle(new Date(), userTimezone)
       : undefined;
 
-  const conversation = await createConversation(workspaceId, userId, {
+  const conversation = await createConversation("personal", userId, {
     message,
     parts: [{ text: message, type: "text" }],
     source: channel,
@@ -128,7 +124,6 @@ export async function getOrCreateChannelConversation(
 
 export async function processInboundMessage({
   userId,
-  workspaceId,
   channel,
   userMessage,
   conversationId: existingConversationId,
@@ -142,9 +137,9 @@ export async function processInboundMessage({
 }: ProcessInboundMessageParams): Promise<ProcessInboundMessageResult> {
   const conversationId =
     existingConversationId ??
-    (await getOrCreateChannelConversation(
+    (await getOrCreateConversation(
       userId,
-      workspaceId,
+      undefined,
       userMessage,
       channel,
       channelMetadata,
@@ -185,7 +180,7 @@ export async function processInboundMessage({
       executorTools,
     },
     userId,
-    workspaceId,
+    undefined,
   );
 
   const responseText = assistantMessage.text || "I processed your request.";

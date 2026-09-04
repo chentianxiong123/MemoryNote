@@ -9,24 +9,10 @@ const loader = createHybridLoaderApiRoute(
     corsStrategy: "all",
   },
   async ({ authentication }) => {
-    if (!"personal") {
-      return json({ error: "No workspace found" }, { status: 404 });
-    }
-
-    const workspace = await prisma.workspace.findFirst({
-      where: { id: "personal" },
-      select: { id: true, name: true, metadata: true },
-    });
-
-    if (!workspace) {
-      return json({ error: "Workspace not found" }, { status: 404 });
-    }
-
-    const meta = (workspace.metadata ?? {}) as Record<string, unknown>;
     return json({
-      id: workspace.id,
-      name: workspace.name,
-      accentColor: (meta.accentColor as string) || "#c87844",
+      id: "personal",
+      name: "Personal",
+      accentColor: "#c87844",
     });
   },
 );

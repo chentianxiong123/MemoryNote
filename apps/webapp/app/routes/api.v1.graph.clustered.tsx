@@ -52,26 +52,21 @@ const loader = createHybridLoaderApiRoute(
     try {
       const labelService = new LabelService();
       const graphProvider = ProviderFactory.getGraphProvider();
-      const workspaceId = "personal" ?? null;
+      
       const limit = searchParams?.limit ?? 140;
       const queryLimit = limit + 1;
 
       const query = `
         MATCH (statement:Statement {userId: $userId})
         WHERE statement.invalidAt IS NULL
-          AND ($workspaceId IS NULL OR statement.workspaceId = $workspaceId)
 
         MATCH (statement)-[:HAS_SUBJECT]->(source:Entity {userId: $userId})
-        WHERE ($workspaceId IS NULL OR source.workspaceId = $workspaceId)
 
         MATCH (statement)-[:HAS_PREDICATE]->(predicate:Entity {userId: $userId})
-        WHERE ($workspaceId IS NULL OR predicate.workspaceId = $workspaceId)
 
         MATCH (statement)-[:HAS_OBJECT]->(target:Entity {userId: $userId})
-        WHERE ($workspaceId IS NULL OR target.workspaceId = $workspaceId)
 
         OPTIONAL MATCH (episode:Episode {userId: $userId})-[:HAS_PROVENANCE]->(statement)
-        WHERE ($workspaceId IS NULL OR episode.workspaceId = $workspaceId)
 
         WITH
           statement,
@@ -109,7 +104,6 @@ const loader = createHybridLoaderApiRoute(
       const [records, clusters] = await Promise.all([
         graphProvider.runQuery(query, {
           userId: "personal",
-          workspaceId,
         }) as Promise<GraphRecord[]>,
         labelService.getWorkspaceLabels("personal" as string),
       ]);

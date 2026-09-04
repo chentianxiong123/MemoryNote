@@ -2,7 +2,6 @@ import type { Prisma, User } from "@core/database";
 import type { GoogleProfile } from "@coji/remix-auth-google";
 import { prisma } from "~/db.server";
 import { env } from "~/env.server";
-import { trackFeatureUsage } from "~/services/telemetry.server";
 import { ProviderFactory } from "@core/providers";
 
 type FindOrCreateMagicLink = {
@@ -76,7 +75,6 @@ export async function findOrCreateMagicLinkUser(
 
   // Track new user registration
   if (isNewUser) {
-    trackFeatureUsage("user_registered", user.id).catch(console.error);
   }
 
   return {
@@ -171,7 +169,6 @@ export async function findOrCreateGoogleUser({
 
   // Track new user registration
   if (isNewUser) {
-    trackFeatureUsage("user_registered", user.id).catch(console.error);
   }
 
   return {
@@ -296,12 +293,8 @@ export async function getUserByPhone(phoneNumber: string) {
   return prisma.user.findUnique({ where: { phoneNumber } });
 }
 
-export async function getUserWorkspaceByWorkspace(workspaceId: string) {
-  return prisma.userWorkspace.findFirst({
-    where: {
-      workspaceId,
-    },
-  });
+export async function getUserWorkspaceByWorkspace(_workspaceId?: string) {
+  return { workspaceId: "personal" };
 }
 
 export const setPhoneNumber = async (phoneNumber: string, userId: string) => {

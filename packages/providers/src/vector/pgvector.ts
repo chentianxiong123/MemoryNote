@@ -29,7 +29,7 @@ interface PgVectorConfig {
  * Benefits over raw pg driver:
  * - Type safety with generated Prisma Client
  * - Connection pooling managed by Prisma
- * - Consistent with rest of CORE codebase
+ * - Consistent with this codebase
  * - Easier transaction handling
  *
  * Trade-offs:

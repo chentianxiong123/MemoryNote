@@ -25,7 +25,6 @@
     "@mastra/pg": "^1.11.1",
     "@opentelemetry/api": "1.9.0",
     "@prisma/client": "*",
-    "@redplanethq/ai": "1.2.1",
     "ai": "6.0.72",
     "clsx": "^2.1.1",
     "cohere-ai": "^7.18.1",

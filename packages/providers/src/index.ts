@@ -1,5 +1,5 @@
 /**
- * @core/providers - Provider abstraction layer for CORE
+ * @core/providers - Provider abstraction layer
  *
  * Supports multiple graph, vector, and model providers with a unified interface.
  */

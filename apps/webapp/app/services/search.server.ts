@@ -472,6 +472,7 @@ export class SearchService {
             tokenCount: tokenCount || 0,
           },
           userId,
+          workspaceId: "personal",
         },
       });
 

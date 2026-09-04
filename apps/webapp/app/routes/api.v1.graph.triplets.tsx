@@ -37,12 +37,12 @@ async function ensureEntity(params: {
       ? (await graphProvider.findExactPredicateMatches({
           predicateName: params.name,
           userId: params.userId,
-          workspaceId: params.workspaceId ?? "",
+          workspaceId: undefined,
         }))[0] ?? null
       : await graphProvider.findExactEntityMatch({
           entityName: params.name,
           userId: params.userId,
-          workspaceId: params.workspaceId ?? "",
+          workspaceId: undefined,
         });
 
   if (existing) {
@@ -62,7 +62,7 @@ async function ensureEntity(params: {
     type: params.type as EntityNode["type"],
     createdAt: new Date(),
     userId: params.userId,
-    workspaceId: params.workspaceId,
+    workspaceId: undefined,
     attributes: {
       createdFrom: "manual",
     },
@@ -77,7 +77,7 @@ const { action, loader } = createHybridActionApiRoute(
   },
   async ({ body, authentication }) => {
     const now = new Date();
-    const workspaceId = "personal" as string | undefined;
+    
     const fact = body.fact?.trim() || `${body.subject} ${body.predicate} ${body.object}`;
 
     const episode: EpisodicNode = {
@@ -92,7 +92,7 @@ const { action, loader } = createHybridActionApiRoute(
       validAt: now,
       labelIds: [],
       userId: "personal",
-      workspaceId,
+      undefined,
       sessionId: `manual-${now.getTime()}`,
       queueId: `manual-${crypto.randomUUID()}`,
       type: EpisodeType.CONVERSATION,
@@ -106,19 +106,19 @@ const { action, loader } = createHybridActionApiRoute(
         name: body.subject,
         type: body.subjectType ?? "Concept",
         userId: "personal",
-        workspaceId,
+        undefined,
       }),
       ensureEntity({
         name: body.predicate,
         type: "Predicate",
         userId: "personal",
-        workspaceId,
+        undefined,
       }),
       ensureEntity({
         name: body.object,
         type: body.objectType ?? "Concept",
         userId: "personal",
-        workspaceId,
+        undefined,
       }),
     ]);
 
@@ -133,7 +133,7 @@ const { action, loader } = createHybridActionApiRoute(
         sourceMode: "manual-triplet",
       },
       userId: "personal",
-      workspaceId,
+      undefined,
       aspect: body.aspect ?? "Knowledge",
       provenanceCount: 1,
     };
@@ -146,7 +146,7 @@ const { action, loader } = createHybridActionApiRoute(
         object,
         provenance: episode,
       },
-      workspaceId,
+      undefined,
     );
 
     return json({

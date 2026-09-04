@@ -109,12 +109,11 @@ export function estimateMessageTokens(message: MessageEntry): number {
 // ─── Stubs (filled in by later tasks) ───────────────────────────────
 
 export async function selectModelMessages(params: {
-  workspaceId: string;
   conversationId: string;
   history: MessageEntry[];
   currentMessage: MessageEntry;
 }): Promise<SelectionResult> {
-  const { workspaceId, conversationId, history, currentMessage } = params;
+  const { conversationId, history, currentMessage } = params;
   const totalMessages = history.length;
 
   // Under threshold: return full history unchanged.
@@ -140,9 +139,7 @@ export async function selectModelMessages(params: {
   let compact: { content: string } | null = null;
   try {
     const doc = await prisma.document.findUnique({
-      where: {
-        sessionId_workspaceId: { sessionId: conversationId, workspaceId },
-      },
+      where: { sessionId: conversationId },
       select: { content: true },
     });
     if (doc && typeof doc.content === "string" && doc.content.length > 0) {

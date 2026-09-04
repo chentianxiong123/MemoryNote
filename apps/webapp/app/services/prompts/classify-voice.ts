@@ -73,7 +73,7 @@ NOT: one-time follow-ups or action items → Task.
 NOT: sustained objectives → Goal. NOT: standing rules for systems → Directive.
 
 **null** — The fact doesn't clearly fit any aspect. It may be noise that slipped through extraction, a product description, or a session-specific statement that isn't really the user's voice.
-- "CORE's morning brief is pitched as a single daily summary" → null (product description, not user's voice)
+- "MemoryNote's daily brief is pitched as a single summary" → null (product description, not user's voice)
 - "The assistant should ask Manik to search using the corebrain plugin" → null (session instruction to assistant)
 
 ## Rules

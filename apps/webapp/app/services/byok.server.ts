@@ -142,12 +142,11 @@ function toProviderConfigJson(
 }
 
 async function getWorkspaceProviderRecord(
-  workspaceId: string,
+  _workspaceId: string,
   provider: SupportedProvider | string,
 ) {
   return prisma.lLMProvider.findFirst({
     where: {
-      workspaceId,
       type: provider,
       isActive: true,
     },
@@ -160,11 +159,10 @@ export function isSupportedProvider(provider: string): provider is SupportedProv
 }
 
 export async function getWorkspaceKeyStatus(
-  workspaceId: string,
+  _workspaceId?: string,
 ): Promise<WorkspaceKeyStatus[]> {
   const providers = await prisma.lLMProvider.findMany({
     where: {
-      workspaceId,
       isActive: true,
       type: { in: SUPPORTED_PROVIDERS },
     },
@@ -222,7 +220,6 @@ export async function setWorkspaceApiKey(
 
   await prisma.lLMProvider.create({
     data: {
-      workspaceId,
       name: provider === "openai" ? "OpenAI Compatible" : provider,
       type: provider,
       isActive: true,
@@ -232,28 +229,22 @@ export async function setWorkspaceApiKey(
 }
 
 export async function deleteWorkspaceApiKey(
-  workspaceId: string,
+  _workspaceId: string,
   provider: SupportedProvider,
 ): Promise<void> {
-  await prisma.lLMProvider.deleteMany({
-    where: {
-      workspaceId,
-      type: provider,
-    },
+  // Personal use: find and delete by type only
+  const target = await prisma.lLMProvider.findFirst({
+    where: { type: provider, isActive: true },
   });
+  if (target) {
+    await prisma.lLMProvider.delete({ where: { id: target.id } });
+  }
 }
 
 export async function getBYOKConfig(userId: string): Promise<BYOKConfig | null> {
-  const membership = await prisma.userWorkspace.findFirst({
-    where: { userId, isActive: true },
-    select: { workspaceId: true },
-  });
-
-  if (!membership?.workspaceId) return null;
-
+  // Personal use: skip userWorkspace lookup, query LLMProvider directly
   const record = await prisma.lLMProvider.findFirst({
     where: {
-      workspaceId: membership.workspaceId,
       isActive: true,
     },
     orderBy: { createdAt: "desc" },
@@ -276,35 +267,41 @@ export async function saveBYOKConfig(
   userId: string,
   config: BYOKConfig,
 ): Promise<void> {
-  const membership = await prisma.userWorkspace.findFirst({
-    where: { userId, isActive: true },
-    select: { workspaceId: true },
+  // Personal use: skip userWorkspace lookup
+  if (!isSupportedProvider(config.provider)) return;
+  // For personal use, just update or create the first active provider of the type
+  const existing = await prisma.lLMProvider.findFirst({
+    where: { type: config.provider, isActive: true },
   });
-
-  if (!membership?.workspaceId || !isSupportedProvider(config.provider)) return;
-
-  await setWorkspaceApiKey(
-    membership.workspaceId,
-    config.provider,
-    config.apiKey,
-    config.baseUrl,
-    config.apiMode,
-  );
+  const normalizedBaseUrl = normalizeProviderBaseUrl(config.provider as SupportedProvider, config.baseUrl);
+  const normalizedApiMode = normalizeApiMode(config.provider as SupportedProvider, config.apiMode, !!normalizedBaseUrl);
+  const nextConfig: WorkspaceProviderConfig = {
+    apiKeyEncrypted: encryptSecret(config.apiKey.trim()),
+    keyPrefix: obfuscateKeyPrefix(config.apiKey),
+    baseUrl: normalizedBaseUrl ?? null,
+    apiMode: normalizedApiMode ?? null,
+  };
+  if (existing) {
+    await prisma.lLMProvider.update({
+      where: { id: existing.id },
+      data: { config: toProviderConfigJson(nextConfig) },
+    });
+  } else {
+    await prisma.lLMProvider.create({
+      data: {
+        name: config.provider === "openai" ? "OpenAI Compatible" : config.provider,
+        type: config.provider,
+        isActive: true,
+        config: toProviderConfigJson(nextConfig),
+      },
+    });
+  }
 }
 
 export async function deleteBYOKConfig(userId: string): Promise<void> {
-  const membership = await prisma.userWorkspace.findFirst({
-    where: { userId, isActive: true },
-    select: { workspaceId: true },
-  });
-
-  if (!membership?.workspaceId) return;
-
+  // Personal use: skip userWorkspace lookup
   await prisma.lLMProvider.deleteMany({
-    where: {
-      workspaceId: membership.workspaceId,
-      isActive: true,
-    },
+    where: { isActive: true },
   });
 }
 
@@ -313,10 +310,10 @@ export async function hasBYOKConfig(userId: string): Promise<boolean> {
   return !!config;
 }
 
-export async function isWorkspaceBYOK(workspaceId: string): Promise<boolean> {
+export async function isWorkspaceBYOK(_workspaceId?: string): Promise<boolean> {
+  // Personal use: check if any BYOK provider exists
   const count = await prisma.lLMProvider.count({
     where: {
-      workspaceId,
       isActive: true,
       type: { in: SUPPORTED_PROVIDERS },
     },

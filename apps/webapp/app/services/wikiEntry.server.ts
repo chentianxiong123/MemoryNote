@@ -18,7 +18,6 @@ export async function createWikiEntry(params: {
   summary: string;
   content: string;
   userId: string;
-  workspaceId: string;
   prisma: PrismaClient;
   status?: "DRAFT" | "PUBLISHED";
 }): Promise<WikiEntry> {
@@ -26,12 +25,7 @@ export async function createWikiEntry(params: {
 
   // Check if a wiki entry already exists for this entity
   const existingEntry = await prisma.wikiEntry.findUnique({
-    where: {
-      entityUuid_workspaceId: {
-        entityUuid,
-
-      },
-    },
+    where: { entityUuid },
   });
 
   if (existingEntry) {
@@ -62,7 +56,7 @@ export async function createWikiEntry(params: {
       content,
       status,
       reviewedAt: status === "PUBLISHED" ? new Date() : null,
-
+      userId,
     },
   });
 
@@ -145,18 +139,12 @@ export async function updateWikiEntry(params: {
 export async function getWikiEntry(params: {
   entityUuid: string;
   userId: string;
-  workspaceId: string;
   prisma: PrismaClient;
 }): Promise<WikiEntry | null> {
   const { entityUuid,prisma } = params;
 
   const wikiEntry = await prisma.wikiEntry.findUnique({
-    where: {
-      entityUuid_workspaceId: {
-        entityUuid,
-
-      },
-    },
+    where: { entityUuid },
   });
 
   return wikiEntry;
@@ -186,7 +174,6 @@ export async function getWikiEntryVersions(params: {
 export async function getWikiEntryTimeline(params: {
   entityUuid: string;
   userId: string;
-  workspaceId: string;
   prisma: PrismaClient;
 }): Promise<
   Array<{
@@ -204,13 +191,13 @@ export async function getWikiEntryTimeline(params: {
     MATCH (e:Entity {uuid: $entityUuid})
     // Match as subject
     OPTIONAL MATCH (e)-[:SUBJECT]->(s1:Statement)
-    WHERE s1.userId = $userId AND (s1.workspaceId = $workspaceId OR s1.workspaceId IS NULL)
+    WHERE s1.userId = $userId
     // Match as predicate
     OPTIONAL MATCH (e)-[:PREDICATE]->(s2:Statement)
-    WHERE s2.userId = $userId AND (s2.workspaceId = $workspaceId OR s2.workspaceId IS NULL)
+    WHERE s2.userId = $userId
     // Match as object
     OPTIONAL MATCH (e)-[:OBJECT]->(s3:Statement)
-    WHERE s3.userId = $userId AND (s3.workspaceId = $workspaceId OR s3.workspaceId IS NULL)
+    WHERE s3.userId = $userId
 
     // Collect all unique statements
     WITH COLLECT(DISTINCT s1) + COLLECT(DISTINCT s2) + COLLECT(DISTINCT s3) AS allStatements
@@ -290,7 +277,6 @@ export async function deleteWikiEntry(params: {
  * Get all wiki entries for a workspace
  */
 export async function getWikiEntriesByWorkspace(params: {
-  workspaceId: string;
   prisma: PrismaClient;
   limit?: number;
   offset?: number;
@@ -313,7 +299,6 @@ export async function getWikiEntriesByWorkspace(params: {
  * Count entries for each status in the workspace.
  */
 export async function getWikiEntryStatusCounts(params: {
-  workspaceId: string;
   prisma: PrismaClient;
 }): Promise<{ DRAFT: number; PUBLISHED: number; REJECTED: number }> {
   const {prisma } = params;
@@ -350,12 +335,11 @@ export async function publishWikiEntry(params: {
  */
 export async function publishWikiEntryByEntity(params: {
   entityUuid: string;
-  workspaceId: string;
   prisma: PrismaClient;
 }): Promise<WikiEntry | null> {
   const { entityUuid,prisma } = params;
   const entry = await prisma.wikiEntry.findUnique({
-    where: { entityUuid_workspaceId: { entityUuid } },
+    where: { entityUuid: { entityUuid } },
   });
   if (!entry || entry.status !== "DRAFT") return entry ?? null;
   return publishWikiEntry({ wikiEntryId: entry.id, prisma });
@@ -388,7 +372,6 @@ export async function rejectWikiEntry(params: {
  */
 export async function searchWikiEntries(params: {
   query: string;
-  workspaceId: string;
   prisma: PrismaClient;
   limit?: number;
 }): Promise<WikiEntry[]> {

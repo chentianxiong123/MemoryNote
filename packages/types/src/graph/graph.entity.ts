@@ -139,8 +139,8 @@ export const EntityTypes = [
   "Organization", // Companies/teams: Google, Red Planet, Design Team
   "Place",        // Locations: Bangalore, San Francisco, Office HQ
   "Event",        // Occurrences: React Conference, Q2 Planning, Sprint Review
-  "Project",      // Work initiatives: CORE, MVP, Website Redesign
-  "Task",         // Tracked items: CORE-123, Issue #456, TODO-789
+  "Project",      // Work initiatives: Personal projects, MVP, Website Redesign
+  "Task",         // Tracked items: Issue-123, Issue #456, TODO-789
   "Technology",   // Tools/frameworks: TypeScript, PostgreSQL, React, Neo4j
   "Product",      // Products/services: iPhone, Slack, ChatGPT, Figma
   "Standard",     // Methodologies: OAuth 2.0, REST API, Agile, SOLID

@@ -24,6 +24,12 @@ function formatDateTime(value?: Date) {
 export default async function ConversationPage({ params }: PageProps) {
   const { id } = await params;
 
+  const existing = await prisma.conversation.findFirst({
+    where: { id, deleted: null },
+    select: { id: true },
+  });
+  if (!existing) notFound();
+
   const conversation = await core.conversation.getConversationAndHistory(prisma, id);
   if (!conversation) notFound();
 
@@ -34,7 +40,7 @@ export default async function ConversationPage({ params }: PageProps) {
 
   return (
     <AppShell>
-      <SectionCard title="对话内容" eyebrow="围绕个人知识成长保留上下文">
+      <SectionCard title={conversation.title ?? "(无标题)"} eyebrow={`source: ${conversation.source}`}>
         <p className="conversation-note">
           对话是主工作区。如果这里提示模型不可达，优先去「模型设置」检查提供商地址和 Key。
           每轮回复结束后，系统会把可沉淀的知识整理成一组候选项，放到知识工作台里等待你确认。

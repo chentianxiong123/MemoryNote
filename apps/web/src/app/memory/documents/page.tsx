@@ -16,6 +16,16 @@ interface PageProps {
   }>;
 }
 
+function formatDateTime(value: Date) {
+  return value.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function MemoryDocumentsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const page = parseInt(sp.page || "1", 10);
@@ -31,6 +41,9 @@ export default async function MemoryDocumentsPage({ searchParams }: PageProps) {
     excerptChars: 100,
   });
 
+  const tagCloud = await core.search.getTagCloud(prisma, { minDocs: 2, limit: 80 });
+  const filteredTags = core.search.filterDefaultValues(tagCloud);
+
   const buildHref = (overrides: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams();
     const merged = { page, limit, q: search, source, ...overrides };
@@ -45,7 +58,18 @@ export default async function MemoryDocumentsPage({ searchParams }: PageProps) {
 
   return (
     <AppShell>
-      <SectionCard title="记忆文档" eyebrow="已存储">
+      <SectionCard title="记忆文档" eyebrow="导入和管理你的记忆内容">
+        <div className="meta-grid">
+          <div className="meta-card">
+            <span className="meta-card__label">文档总数</span>
+            <strong>{data.totalCount}</strong>
+          </div>
+          <div className="meta-card">
+            <span className="meta-card__label">来源数量</span>
+            <strong>{data.convCount + data.docCount}</strong>
+          </div>
+        </div>
+
         <div className="toolbar">
           <form
             action="/memory/documents"
@@ -70,21 +94,37 @@ export default async function MemoryDocumentsPage({ searchParams }: PageProps) {
           </form>
         </div>
 
-        <div className="meta-grid">
-          <div className="meta-card meta-card--compact">
-            <span className="meta-card__label">文档总数</span>
-            <strong>{data.totalCount}</strong>
+        {search && (
+          <div className="keyword-filter">
+            <span className="keyword-filter__label">当前筛选：</span>
+            <span className="keyword-filter__tag">{search}</span>
+            <Link href="/memory/documents" className="keyword-filter__clear" title="清除">
+              ✕
+            </Link>
           </div>
-          <div className="meta-card meta-card--compact">
-            <span className="meta-card__label">来源数量</span>
-            <strong>{data.convCount + data.docCount}</strong>
-          </div>
+        )}
+
+        <div className="tag-cloud">
+          <span className="tag-cloud__label">热门标签：</span>
+          {filteredTags.length === 0 ? (
+            <span className="status">暂无标签</span>
+          ) : (
+            filteredTags.slice(0, 30).map((t) => (
+              <Link
+                key={t.word}
+                href={`/memory/documents?q=${encodeURIComponent(t.word)}`}
+                className={`tag-cloud__tag${search === t.word ? " tag-cloud__tag--active" : ""}`}
+              >
+                {t.word}
+                <small>{t.doc_count}</small>
+              </Link>
+            ))
+          )}
         </div>
 
         <div className="data-table">
           <div className="data-table__row data-table__row--head">
             <span>标题</span>
-            <span>类型</span>
             <span>来源</span>
             <span>创建时间</span>
           </div>
@@ -101,10 +141,9 @@ export default async function MemoryDocumentsPage({ searchParams }: PageProps) {
                 }
                 className="data-table__row data-table__row--clickable"
               >
-                <span>{item.title}</span>
-                <span>{item.kind === "conversation" ? "对话" : "文档"}</span>
+                <span className="doc-title">{item.title}</span>
                 <span>{item.source || "手动录入"}</span>
-                <span>{item.updatedAt.toISOString().slice(0, 10)}</span>
+                <span>{formatDateTime(item.updatedAt)}</span>
               </Link>
             ))
           )}

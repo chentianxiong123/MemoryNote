@@ -67,7 +67,7 @@ export function ChatPanel({ conversationId }: { conversationId?: string }) {
               className={`thread__bubble ${isUser ? "thread__bubble--user" : "thread__bubble--assistant"}`}
               style={{ alignSelf: isUser ? "flex-end" : "flex-start", maxWidth: "80%" }}
             >
-              <div className="thread__role">{isUser ? "我" : "AI"}</div>
+              <div className="thread__role">{isUser ? "你" : "MemoryNote"}</div>
               <div className="thread__text">{text || <em>(空)</em>}</div>
             </div>
           );

@@ -11,6 +11,16 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+function formatDateTime(value?: Date) {
+  if (!value) return "刚刚";
+  return value.toLocaleString("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function ConversationPage({ params }: PageProps) {
   const { id } = await params;
 
@@ -24,30 +34,36 @@ export default async function ConversationPage({ params }: PageProps) {
 
   return (
     <AppShell>
-      <SectionCard title={conversation.title ?? "(无标题)"} eyebrow={conversation.source}>
-        <p className="status">
-          消息 {messages.length} 条 · 状态 {conversation.status}
+      <SectionCard title="对话内容" eyebrow="围绕个人知识成长保留上下文">
+        <p className="conversation-note">
+          对话是主工作区。如果这里提示模型不可达，优先去「模型设置」检查提供商地址和 Key。
+          每轮回复结束后，系统会把可沉淀的知识整理成一组候选项，放到知识工作台里等待你确认。
         </p>
+
+        {!hasApiKey && (
+          <div className="conversation-warning">
+            <strong>模型配置未完成</strong>
+            <p>当前还没有配置可用的模型 Key，对话回复现在不会成功。请先配置 OPENAI_API_KEY。</p>
+          </div>
+        )}
 
         <div className="thread">
           {messages.length === 0 ? (
-            <p className="empty-state">暂无消息</p>
+            <div className="empty-state">
+              <p>先发一条消息，从对话开始积累你的个人知识。</p>
+            </div>
           ) : (
             messages.map((m) => {
               const isUser = m.userType === "User";
               return (
-                <div
+                <article
                   key={m.id}
                   className={`thread__bubble ${isUser ? "thread__bubble--user" : "thread__bubble--assistant"}`}
                 >
-                  <div className="thread__role">
-                    {isUser ? "我" : "AI"}
-                  </div>
-                  <div className="thread__text">{m.message || "(空)"}</div>
-                  <div className="thread__time">
-                    {m.createdAt.toISOString().slice(0, 16).replace("T", " ")}
-                  </div>
-                </div>
+                  <p className="thread__role">{isUser ? "你" : "MemoryNote"}</p>
+                  <p className="thread__text">{m.message || "暂不支持展示该内容块。"}</p>
+                  <small className="thread__time">{formatDateTime(m.createdAt)}</small>
+                </article>
               );
             })
           )}
@@ -55,8 +71,12 @@ export default async function ConversationPage({ params }: PageProps) {
 
         {hasApiKey && (
           <div className="composer" style={{ marginTop: 16 }}>
-            <h2 style={{ fontSize: "14px", fontWeight: 600, margin: "0 0 8px" }}>继续对话</h2>
-            <div style={{ height: 360 }}>
+            <div className="composer__actions">
+              <span className="status" style={{ fontSize: "0.85rem" }}>
+                消息 {messages.length} 条 · 状态 {conversation.status}
+              </span>
+            </div>
+            <div style={{ height: 300 }}>
               <ChatPanel conversationId={conversation.id} />
             </div>
           </div>

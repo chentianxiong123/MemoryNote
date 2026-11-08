@@ -1,31 +1,18 @@
 /**
  * cognify 核心管线（抄 Cognee memory_pipelines 两段式）
  *
- * Cognee 流程（两段 pipeline，可断点续跑）：
- *   ① indexing_pipeline: classify → chunk → store → embed（无 LLM）
- *   ② cognify_pipeline: extract_entities → extract_relations → summarize → write graph（LLM）
- *
- * 这里 TS 移植：ingest() 切块+嵌入 → cognify() 抽实体+关系+总结 → 写图谱。
+ * 策略（用户拍板）：未来走 LLM API，本文件是【模板空壳】——
+ * 接口定好（cognify/extractEntities），LLM 抽取是 TODO 占位（不实际测试）。
+ * 拒绝本地模型/本地功能。
  */
 
 import { randomUUID } from "node:crypto";
-import type { LLMProvider } from "../../llm/provider.js";
+import type { Embedder } from "../../llm/embedder.js";
 import type { GraphStore } from "../../graph/graph.js";
 import type { Store } from "../../store/pg.js";
 import type { EntityType, RelationType } from "../../types/graph.js";
 
-/** 切块（抄 cognee chunker TextChunker） */
-export function chunkText(text: string, chunkSize = 1000, overlap = 200): string[] {
-  const chunks: string[] = [];
-  let i = 0;
-  while (i < text.length) {
-    chunks.push(text.slice(i, i + chunkSize));
-    i += chunkSize - overlap;
-  }
-  return chunks;
-}
-
-/** 实体抽取结果（LLM 返回 JSON） */
+/** 实体抽取结果（未来 LLM 返回 JSON） */
 export interface ExtractionResult {
   entities: Array<{ name: string; type: EntityType; description: string }>;
   relations: Array<{ source: string; target: string; type: RelationType }>;
@@ -44,28 +31,25 @@ export class CognifyPipeline {
   constructor(
     private store: Store,
     private graph: GraphStore,
-    private llm: LLMProvider
+    private embedder: Embedder,
+    private chunker: { chunk(text: string): Array<{ id: string; text: string; start: number; end: number; chunkerId: string; hash: string }> }
   ) {}
 
   /**
    * 完整认知化（抄 cognee cognify()：indexing + cognify 两段）
-   * 输入任意文本 → 图谱
+   * 模板空壳——不实际测试。未来：chunk → embed(API) → LLM 抽取 → 写图谱。
    */
   async cognify(source: { text: string; sourceRef: string; sourceType?: string }): Promise<{
     entities: number;
     relations: number;
     chunks: number;
   }> {
-    // ① indexing：切块（无 LLM）
-    const chunks = chunkText(source.text);
-    // ② 嵌入（每块向量）
-    const embeddings = await Promise.all(chunks.map((c) => this.llm.embed(c)));
-    // 存 chunks（供证据引用）
-    const chunkIds = chunks.map((c) => {
-      const id = randomUUID();
-      return id;
-    });
-    // ③ cognify：实体+关系抽取（LLM，整文抽）
+    // ① indexing：切块（TextChunker）
+    const chunks = this.chunker.chunk(source.text);
+    // ② 嵌入（未来：LLM API /embeddings）
+    const embeddings = await Promise.all(chunks.map((c) => this.embedder.embed(c.text)));
+    void embeddings;
+    // ③ 实体+关系抽取（未来：LLM extract_entities）
     const extraction = await this.extractEntities(source.text);
 
     // ④ 写图谱（upsert 实体 + 建关系）
@@ -92,18 +76,13 @@ export class CognifyPipeline {
     return { entities: extraction.entities.length, relations: relationCount, chunks: chunks.length };
   }
 
-  /** 实体+关系抽取（LLM，抄 cognee extract_entities） */
+  /**
+   * 实体+关系抽取（抄 cognee extract_entities）
+   * TODO(未来)：调 LLM API chat/completions，传 EXTRACT_PROMPT，解析 JSON。
+   * 模板空壳——返回空结果，不实际测试。
+   */
   private async extractEntities(text: string): Promise<ExtractionResult> {
-    const raw = await this.llm.complete([
-      { role: "system", content: EXTRACT_PROMPT },
-      { role: "user", content: text.slice(0, 12000) },
-    ]);
-    // 解析 JSON（容错：剥掉可能的 ```json 围栏）
-    const cleaned = raw.replace(/```json|```/g, "").trim();
-    try {
-      return JSON.parse(cleaned) as ExtractionResult;
-    } catch {
-      return { entities: [], relations: [] };
-    }
+    void text; // TODO(未来)：LLM API 抽取
+    return { entities: [], relations: [] };
   }
 }

@@ -1,27 +1,27 @@
 /**
  * memify 记忆化（抄 Cognee memify / persist_sessions_in_knowledge_graph）
  *
- * 会话（对话/经验）→ 持久化为可检索记忆条目（链接到图谱实体）。
+ * 策略（用户拍板）：未来走 LLM API，本文件是【模板空壳】——
+ * 接口定好（memify/search），LLM 摘要是 TODO 占位（不实际测试）。
+ * 拒绝本地模型/本地功能。
  */
 
 import { randomUUID } from "node:crypto";
 import type { Store } from "../../store/pg.js";
-import type { LLMProvider } from "../../llm/provider.js";
+import type { Embedder } from "../../llm/embedder.js";
 import type { Session, MemoryEntry, MemoryQuery, MemorySourceType } from "../../types/memory.js";
 
 export class MemifyPipeline {
   constructor(
     private store: Store,
-    private llm: LLMProvider
+    private embedder: Embedder
   ) {}
 
   /** 会话 → 记忆（抄 cognee persist_sessions_in_knowledge_graph） */
   async memify(session: Session): Promise<{ entries: number }> {
-    // 会话文本（拼接消息）
     const content = session.messages.map((m) => `${m.role}: ${m.content}`).join("\n");
-    // 摘要（cognee summarize_text）
     const summary = await this.summarize(content);
-    const embedding = await this.llm.embed(summary);
+    const embedding = await this.embedder.embed(summary);
 
     await this.store.query(
       `INSERT INTO memory_entries (id, content, source_type, source_ref, timestamp, entity_ids, embedding, weight, metadata)
@@ -43,7 +43,7 @@ export class MemifyPipeline {
 
   /** 记忆检索（语义，抄 cognee search / recall） */
   async search(query: MemoryQuery): Promise<MemoryEntry[]> {
-    const embedding = await this.llm.embed(query.text);
+    const embedding = await this.embedder.embed(query.text);
     let sql = `SELECT id, content, source_type, source_ref, timestamp, entity_ids, weight, metadata,
                1 - (embedding <=> $1) AS similarity
                FROM memory_entries WHERE embedding IS NOT NULL`;
@@ -81,12 +81,12 @@ export class MemifyPipeline {
     }));
   }
 
-  /** 摘要（抄 cognee summarize_text） */
+  /**
+   * 摘要（抄 cognee summarize_text）
+   * TODO(未来)：调 LLM API chat/completions 摘要。模板空壳——返回原文，不实际测试。
+   */
   private async summarize(text: string): Promise<string> {
-    const raw = await this.llm.complete([
-      { role: "system", content: "你是一个记忆摘要器。把下面的会话/内容浓缩成一段简洁、可检索的摘要（保留关键实体、决策、结论）。" },
-      { role: "user", content: text.slice(0, 8000) },
-    ]);
-    return raw.trim();
+    void text; // TODO(未来)：LLM API 摘要
+    return text;
   }
 }

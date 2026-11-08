@@ -6,7 +6,7 @@
  */
 
 import type { Store } from "../store/pg.js";
-import type { LLMProvider } from "../llm/provider.js";
+import type { Embedder } from "../llm/embedder.js";
 import type { Entity, EntityType } from "../types/graph.js";
 
 export interface HybridQuery {
@@ -26,13 +26,13 @@ export interface HybridResult {
 export class HybridRetriever {
   constructor(
     private store: Store,
-    private llm: LLMProvider
+    private embedder: Embedder
   ) {}
 
   /** 混合检索（抄 cognee hybrid_retriever.search） */
   async search(q: HybridQuery): Promise<HybridResult> {
     const topK = q.topK ?? 10;
-    const embedding = await this.llm.embed(q.text);
+    const embedding = await this.embedder.embed(q.text);
     const result: HybridResult = { entities: [], chunks: [] };
 
     // ① 图谱检索（实体，向量相似）

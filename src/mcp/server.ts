@@ -16,7 +16,7 @@ import type { Store } from "../store/pg.js";
 import type { GraphStore } from "../graph/graph.js";
 import type { CognifyPipeline } from "../cognee/cognify/pipeline.js";
 import type { MemifyPipeline } from "../cognee/memify/memify.js";
-import type { LLMProvider } from "../llm/provider.js";
+import type { Embedder } from "../llm/embedder.js";
 import type { HybridRetriever } from "../graph/retriever.js";
 import type { RunState } from "../cognee/pipeline/run-state.js";
 import type { TextChunker } from "../cognee/indexing/chunker.js";
@@ -26,7 +26,7 @@ export interface McpDeps {
   graph: GraphStore;
   cognify: CognifyPipeline;
   memify: MemifyPipeline;
-  llm: LLMProvider;
+  embedder: Embedder;
   retriever: HybridRetriever;
   runState: RunState;
   chunker: TextChunker;
@@ -107,7 +107,7 @@ export function createMcpServer(deps: McpDeps) {
         required: ["text"],
       },
       handler: async (a) => {
-        const embedding = await deps.llm.embed(String(a.text));
+        const embedding = await deps.embedder.embed(String(a.text));
         const r = await deps.graph.searchEntities(String(a.text), embedding, Number(a.topK ?? 5));
         return r.map((e) => ({ id: e.id, name: e.name, type: e.type, description: e.description }));
       },

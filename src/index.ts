@@ -14,7 +14,7 @@
  */
 
 import { Store } from "./store/pg.js";
-import { GraphStore } from "./graph/graph.js";
+import { KuzuGraphStore } from "./graph/kuzu-graph.js";
 import { HybridRetriever } from "./graph/retriever.js";
 import { CognifyPipeline } from "./cognee/cognify/pipeline.js";
 import { MemifyPipeline } from "./cognee/memify/memify.js";
@@ -33,7 +33,8 @@ async function main() {
   console.error("[memorynote] schema migrated");
 
   const embedder = createEmbedder();
-  const graph = new GraphStore(store);
+  const graph = new KuzuGraphStore({ connectionString });
+  await graph.migrate();
   const cognify = new CognifyPipeline(store, graph, embedder, new TextChunker("paragraph"));
   const memify = new MemifyPipeline(store, embedder);
   const retriever = new HybridRetriever(store, embedder);

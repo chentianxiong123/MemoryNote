@@ -13,7 +13,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { Store } from "../store/pg.js";
-import type { GraphStore } from "../graph/graph.js";
+import type { GraphStoreLike } from "../graph/store-like.js";
 import type { CognifyPipeline } from "../cognee/cognify/pipeline.js";
 import type { MemifyPipeline } from "../cognee/memify/memify.js";
 import type { Embedder } from "../llm/embedder.js";
@@ -23,7 +23,7 @@ import type { TextChunker } from "../cognee/indexing/chunker.js";
 
 export interface McpDeps {
   store: Store;
-  graph: GraphStore;
+  graph: GraphStoreLike;
   cognify: CognifyPipeline;
   memify: MemifyPipeline;
   embedder: Embedder;

@@ -8,7 +8,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Embedder } from "../../llm/embedder.js";
-import type { GraphStore } from "../../graph/graph.js";
+import type { GraphStoreLike } from "../../graph/store-like.js";
 import type { Store } from "../../store/pg.js";
 import type { EntityType, RelationType } from "../../types/graph.js";
 
@@ -30,7 +30,7 @@ const EXTRACT_PROMPT = `你是一个知识图谱提取器。从给定文本中�
 export class CognifyPipeline {
   constructor(
     private store: Store,
-    private graph: GraphStore,
+    private graph: GraphStoreLike,
     private embedder: Embedder,
     private chunker: { chunk(text: string): Array<{ id: string; text: string; start: number; end: number; chunkerId: string; hash: string }> }
   ) {}

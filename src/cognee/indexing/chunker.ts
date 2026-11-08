@@ -6,7 +6,7 @@
  */
 
 /** chunk 稳定身份（抄 chunker_id 策略） */
-export type ChunkPolicy = "fixed-size" | "paragraph" | "sentence" | "token";
+export type ChunkPolicy = "fixed-size" | "paragraph" | "sentence" | "word";
 
 export interface Chunk {
   id: string;
@@ -72,6 +72,24 @@ export class TextChunker {
           if (s.trim()) chunks.push(this.makeChunk(s, start));
           start += s.length;
         }
+        break;
+      }
+      case "word": {
+        // 按词切块（抄 chunk_by_word：空格/标点分词，组块到 maxChunkSize）
+        const tokens = text.split(/(\s+)/);
+        let buf = "";
+        let start = 0;
+        let cursor = 0;
+        for (const t of tokens) {
+          if (buf.length + t.length > this.maxChunkSize && buf.trim()) {
+            chunks.push(this.makeChunk(buf, start));
+            start = cursor;
+            buf = "";
+          }
+          buf += t;
+          cursor += t.length;
+        }
+        if (buf.trim()) chunks.push(this.makeChunk(buf, start));
         break;
       }
       default: { // fixed-size

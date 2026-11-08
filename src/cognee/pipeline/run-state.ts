@@ -88,6 +88,48 @@ export class RunState {
     return all.filter((i) => !run.completedItems.includes(i));
   }
 
+  /**
+   * 恢复未完成的 run（抄 recover_stale_pipeline_runs_on_startup）
+   * 超时未完成的 run 标记为 errored（abandoned），可重跑；否则返回可续跑的 run。
+   */
+  async recoverStaleRuns(staleMs = 6 * 60 * 60 * 1000): Promise<Array<{ run: PipelineRun; resumable: boolean }>> {
+    const res = await this.store.query(
+      `SELECT id FROM pipeline_runs WHERE status IN ('started', 'paused')`
+    );
+    const result: Array<{ run: PipelineRun; resumable: boolean }> = [];
+    for (const row of res.rows) {
+      const run = await this.get(row.id as string);
+      if (!run) continue;
+      const age = Date.now() - run.updatedAt.getTime();
+      if (age > staleMs) {
+        // 超时：标记 abandoned（errored），不再续跑
+        run.status = "errored";
+        run.events.push({ at: new Date(), kind: "run_errored", detail: "abandoned (stale)" });
+        await this.save(run);
+        result.push({ run, resumable: false });
+      } else {
+        // 未超时：可续跑（断点续跑）
+        result.push({ run, resumable: true });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * 回滚 run（抄 cognify_rollback_handler）
+   * 清完成项 + 标记 errored，可重跑。
+   */
+  async rollback(runId: string): Promise<PipelineRun | null> {
+    const run = await this.get(runId);
+    if (!run) return null;
+    run.completedItems = [];
+    run.status = "errored";
+    run.stage = "start";
+    run.events.push({ at: new Date(), kind: "run_errored", detail: "rollback" });
+    await this.save(run);
+    return run;
+  }
+
   async get(runId: string): Promise<PipelineRun | null> {
     const res = await this.store.query(
       `SELECT id, pipeline, dataset, status, stage, completed_items, total_items, retry, events, started_at, updated_at

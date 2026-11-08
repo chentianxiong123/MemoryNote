@@ -30,6 +30,8 @@ export interface McpDeps {
   retriever: HybridRetriever;
   runState: RunState;
   chunker: TextChunker;
+  /** 导入数据源→图谱（抄 cognee ingest_data） */
+  ingest: (data: string | Buffer, dataset: string, filename?: string) => Promise<{ id: string; dataset: string; chunks: number; sourceRef: string }>;
 }
 
 /** 工具定义（inputSchema = JSON schema） */
@@ -57,6 +59,21 @@ export function createMcpServer(deps: McpDeps) {
       },
       handler: async (a) =>
         deps.cognify.cognify({ text: String(a.text), sourceRef: (a.sourceRef as string) ?? "mcp:cognify" }),
+    },
+    {
+      name: "ingest",
+      description: "导入数据源→图谱（抄 cognee ingest_data：classify→chunk→存）",
+      inputSchema: {
+        type: "object",
+        properties: {
+          data: { type: "string" },
+          dataset: { type: "string" },
+          filename: { type: "string" },
+        },
+        required: ["data", "dataset"],
+      },
+      handler: async (a) =>
+        deps.ingest(String(a.data), String(a.dataset), (a.filename as string) ?? undefined),
     },
     {
       name: "memify",

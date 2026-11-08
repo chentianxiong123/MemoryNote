@@ -22,6 +22,7 @@ import { RunState } from "./cognee/pipeline/run-state.js";
 import { TextChunker } from "./cognee/indexing/chunker.js";
 import { createEmbedder } from "./llm/embedder.js";
 import { runMcpServer } from "./mcp/server.js";
+import { ingestData } from "./ingestion/ingest.js";
 
 async function main() {
   const connectionString =
@@ -41,7 +42,20 @@ async function main() {
   const runState = new RunState(store);
   const chunker = new TextChunker("paragraph");
 
-  await runMcpServer({ store, graph, cognify, memify, retriever, runState, chunker, embedder });
+  // 导入数据源→图谱（抄 cognee ingest_data：classify→chunk→cognify）
+  const ingest = async (data: string | Buffer, dataset: string, filename?: string) =>
+    ingestData(data, filename, {
+      dataset,
+      chunk: (t) => chunker.chunk(t),
+      onChunks: async (chunks, sourceRef) => {
+        // 每块走 cognify（写图谱）——模板空壳：LLM 抽取 TODO，先存块
+        for (const c of chunks) {
+          await cognify.cognify({ text: c.text, sourceRef: `${sourceRef}:${c.id}` });
+        }
+      },
+    });
+
+  await runMcpServer({ store, graph, cognify, memify, retriever, runState, chunker, embedder, ingest });
 }
 
 main().catch((err) => {

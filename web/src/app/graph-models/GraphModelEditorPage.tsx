@@ -2,7 +2,7 @@
 
 import { useReducer, useState } from "react";
 import { schemaReducer, emptySchema } from "@/modules/graphModels/schemaReducer";
-import type { GraphSchema } from "@/modules/graphModels/types";
+
 
 // 图模型编辑器（抄 cognee GraphModelEditorPage 核心，灵活简化）
 // 用 schemaReducer（源码级抄）管理实体/字段状态，跟后端 graph/schema.ts 配套
